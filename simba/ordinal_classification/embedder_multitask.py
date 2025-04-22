@@ -133,6 +133,8 @@ class EmbedderMultitask(Embedder):
         if USE_LEARNABLE_MULTITASK:
             self.log_sigma1 = nn.Parameter(torch.tensor(0.0))
             self.log_sigma2 = nn.Parameter(torch.tensor(0.0))
+            #self.sigma1_param = nn.Parameter(torch.tensor(1.0))
+            #self.sigma2_param = nn.Parameter(torch.tensor(1.0))
 
     def forward(self, batch, return_spectrum_output=False):
         """The inference pass"""
@@ -286,7 +288,7 @@ class EmbedderMultitask(Embedder):
             else:
                 loss1 = self.customised_ce(logits1, target1)
 
-        def log_conversion(x, a=100):
+        def log_conversion(x, a=5):
             scaling_factor = np.log(a + 1)
             logits2_for_loss = torch.log((a + 1) - (a * x)) / scaling_factor
             return 1 - logits2_for_loss
@@ -317,11 +319,19 @@ class EmbedderMultitask(Embedder):
         weight_loss2 = self.calculate_weight_loss2()
         #loss = loss1 + (weight_loss2 * loss2)
 
+        # Recompute sigma values dynamically so a fresh graph is built.
+        #sigma1 = torch.nn.functional.softplus(self.sigma1_param)
+        #sigma2 = torch.nn.functional.softplus(self.sigma2_param)
 
         # Combine the losses using learned weights:
         if self.USE_LEARNABLE_MULTITASK:
             loss = (torch.exp(-self.log_sigma1) * loss1 + self.log_sigma1 +
                     torch.exp(-self.log_sigma2) * loss2 + self.log_sigma2)
+            
+            #loss = (loss1 / (2 * sigma1 ** 2) +
+            #    loss2 / (2 * sigma2 ** 2) +
+            #    torch.log(sigma1) +
+            #    torch.log(sigma2))
         else:
             loss = loss1 + (weight_loss2 * loss2)
         return loss

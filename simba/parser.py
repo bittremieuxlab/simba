@@ -36,9 +36,12 @@ class Parser:
                 "BEST_MODEL_NAME",
                 "PRETRAINED_MODEL_NAME",
                 "CHECKPOINT_DIR",
+                "PREPROCESSING_DIR",
                 "PREPROCESSING_DIR_TRAIN",
                 "PREPROCESSING_DIR_TEST",
                 "pretrained_path",
+                "PREPROCESSING_DIR_VAL_TEST",
+                "PREPROCESSING_PICKLE_FILE",
             ]
             if is_integer_attribute:
                 self.parser.add_argument(f"--{at}", type=int, help=at, default=None)

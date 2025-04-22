@@ -32,6 +32,8 @@ class FilteringMassSpecGym:
             use_edit_distance=config.USE_EDIT_DISTANCE,
             use_multitask=config.USE_MULTITASK,
             add_high_similarity_pairs=config.ADD_HIGH_SIMILARITY_PAIRS,
+            normalize_mces=False,
+            normalize_ed=False,
         )
 
         indexes_tani_multitasking_test = FilteringMassSpecGym.remove_duplicates_array(indexes_tani_multitasking_test)
