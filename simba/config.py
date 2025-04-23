@@ -2,7 +2,8 @@ class Config:
     # default configuration
     # Spectra and spectrum pairs to include with the following settings.
     def __init__(self):
-
+        
+        
         # device
         self.ACCELERATOR = "gpu"
         # MULTITASKING
@@ -34,6 +35,7 @@ class Config:
         self.USE_PRECURSOR_MZ_FOR_MODEL = True
 
         ## FOR COMPUTING EDIT DISTANCE LOCALLY
+        self.USE_FINGERPRINT=False
         self.USE_EDIT_DISTANCE = (
             True  ## If using edit distance for generating data, not for training!!!
         )

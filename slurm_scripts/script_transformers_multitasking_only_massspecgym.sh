@@ -18,10 +18,9 @@ nvidia-smi
 
 ## Running 5 layers
 #srun python training_multitasking_generated_data.py --enable_progress_bar=0    --extra_info=_smooth_penalty_matrix  --load_pretrained=1 --pretrained_path=/scratch/antwerpen/209/vsc20939/data/model_checkpoints/pretrained_model_256n/best_model.ckpt --LR=0.00001
-#python training_multitasking_generated_data.py --enable_progress_bar=0    --extra_info=_smooth_penalty_matrix  --load_pretrained=1 --pretrained_path=/scratch/antwerpen/209/vsc20939/data/model_checkpoints/pretrained_model_256n/best_model.ckpt --LR=0.00001  --CHECKPOINT_DIR=/scratch/antwerpen/209/vsc20939/data/model_checkpoints/model_256n_baseline_mces_weights_no_log/ --USE_LOSS_WEIGHTS_SECOND_SIMILARITY=1  --USE_MCES20_LOG_LOSS=0
-python training_multitasking_generated_data.py --enable_progress_bar=0    --extra_info=_smooth_penalty_matrix  --load_pretrained=1 --pretrained_path=/scratch/antwerpen/209/vsc20939/data/model_checkpoints/pretrained_model_256n/best_model.ckpt --LR=0.0001  --CHECKPOINT_DIR=/scratch/antwerpen/209/vsc20939/data/model_checkpoints/model_256n_baseline_mces_weights_no_log_no_usc_data_lr00001/ --USE_LOSS_WEIGHTS_SECOND_SIMILARITY=1 
 
-#python training_multitasking_generated_data.py --enable_progress_bar=0    --extra_info=_smooth_penalty_matrix  --load_pretrained=1 --pretrained_path=/scratch/antwerpen/209/vsc20939/data/model_checkpoints/pretrained_model_256n/best_model.ckpt --LR=0.00001  --CHECKPOINT_DIR=/scratch/antwerpen/209/vsc20939/data/model_checkpoints/model_256n_smooth_penalty_matrix_lr/ 
+
+python training_multitasking_generated_data.py --enable_progress_bar=0    --extra_info=_only_massspecgym  --load_pretrained=1 --pretrained_path=/scratch/antwerpen/209/vsc20939/data/model_checkpoints/pretrained_model_256n/best_model.ckpt --LR=0.0001  --CHECKPOINT_DIR=/scratch/antwerpen/209/vsc20939/data/model_checkpoints/model_256n_only_massspecgym/  --PREPROCESSING_DIR_VAL_TEST=/scratch/antwerpen/209/vsc20939/data/preprocessing_massspecgym_20250415/ --PREPROCESSING_DIR_TRAIN=/scratch/antwerpen/209/vsc20939/data/preprocessing_massspecgym_20250415/  --PREPROCESSING_DIR_VAL_TEST=/scratch/antwerpen/209/vsc20939/data/preprocessing_massspecgym_20250415/ --PREPROCESSING_DIR=/scratch/antwerpen/209/vsc20939/data/preprocessing_massspecgym_20250415/  --PREPROCESSING_PICKLE_FILE=mapping.pkl
 
 ### Aditional commands
 #srun python training_multitasking.py --enable_progress_bar=0   --extra_info=_multitasking_2024115 --USE_MCES20_LOG_LOSS=1 --use_cosine_distance=1 --USE_LOSS_WEIGHTS_SECOND_SIMILARITY=0 --USE_EDIT_DISTANCE_REGRESSION=0 
