@@ -21,6 +21,7 @@ class FcLayerAnalogDiscovery:
             lr=config.LR,
             use_cosine_distance=config.use_cosine_distance,
             strict=False,
+            use_fingerprints=config.USE_FINGERPRINT,
         )
 
     @staticmethod
@@ -56,6 +57,7 @@ class FcLayerAnalogDiscovery:
         model,
         emb0,
         emb1,
+        fingerprints_0=None,
     ):
         """
         This function computes the final `emb` and `emb_sim_2` using the already computed `emb0` and `emb1`.
@@ -70,6 +72,18 @@ class FcLayerAnalogDiscovery:
         # Apply ReLU activation
         emb0 = model.relu(emb0)
         emb1 = model.relu(emb1)
+
+
+        if fingerprints_0 is not None:
+            fing_0 = torch.tensor(fingerprints_0, dtype=torch.float32)
+            fing_0 = model.linear_fingerprint_0(fing_0)
+            fing_0 = model.relu(fing_0)
+            fing_0 = model.dropout(fing_0)
+            fing_0 = model.linear_fingerprint_1(fing_0)
+            fing_0 = model.relu(fing_0)
+            fing_0 = model.dropout(fing_0)
+            emb0 = emb0 + fing_0
+            emb0 = model.relu(emb0)
 
         # for cosine similarity, tanimoto
         if model.use_cosine_distance:
