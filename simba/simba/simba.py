@@ -49,6 +49,7 @@ class Simba:
             use_element_wise=True,
             use_cosine_distance=self.config.use_cosine_distance,
             use_edit_distance_regresion=self.config.USE_EDIT_DISTANCE_REGRESSION,
+            USE_LEARNABLE_MULTITASK=False,
         )
         model.eval()
         return model
