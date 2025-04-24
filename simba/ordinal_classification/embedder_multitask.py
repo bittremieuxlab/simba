@@ -124,17 +124,23 @@ class EmbedderMultitask(Embedder):
             print("Fingerprints enabled!")
             self.linear_fingerprint_0 = nn.Linear(2048, d_model)
             self.linear_fingerprint_1 = nn.Linear(d_model, d_model)
-
+            proj_dim          = d_model // 2                 # 2048 → d_model//2
+            self.linear_fp0   = nn.Linear(2048, proj_dim)
+            self.linear_mix   = nn.Linear(d_model + proj_dim, d_model)
+            self.norm_mix     = nn.LayerNorm(d_model)
         self.use_precursor_mz_for_model = use_precursor_mz_for_model
 
         
         # Initialize learnable log variance parameters for each loss
         self.USE_LEARNABLE_MULTITASK=USE_LEARNABLE_MULTITASK
         if USE_LEARNABLE_MULTITASK:
-            self.log_sigma1 = nn.Parameter(torch.tensor(0.0))
-            self.log_sigma2 = nn.Parameter(torch.tensor(0.0))
-            #self.sigma1_param = nn.Parameter(torch.tensor(1.0))
-            #self.sigma2_param = nn.Parameter(torch.tensor(1.0))
+            
+            initial_log_sigma1=1.2490483522415161
+            initial_log_sigma2=-7.0018157958984375 
+            #self.log_sigma1 = nn.Parameter(torch.tensor(initial_log_sigma1))
+            #self.log_sigma2 = nn.Parameter(torch.tensor(initial_log_sigma2))
+            self.log_sigma1 = torch.tensor(float(initial_log_sigma1), dtype=torch.float32)
+            self.log_sigma2 = torch.tensor(float(initial_log_sigma2), dtype=torch.float32)
 
     def forward(self, batch, return_spectrum_output=False):
         # … compute raw emb0, emb1, apply relu, fingerprints, etc. …
@@ -165,15 +171,21 @@ class EmbedderMultitask(Embedder):
         emb1 = self.relu(emb1)
 
         if self.use_fingerprints:
-            fing_0 = batch["fingerprint_0"].float()
-            fing_0 = self.linear_fingerprint_0(fing_0)
-            fing_0 = self.relu(fing_0)
-            fing_0 = self.dropout(fing_0)
-            fing_0 = self.linear_fingerprint_1(fing_0)
-            fing_0 = self.relu(fing_0)
-            fing_0 = self.dropout(fing_0)
-            emb0 = emb0 + fing_0
-            emb0 = self.relu(emb0)
+            #fing_0 = batch["fingerprint_0"].float()
+            #fing_0 = self.linear_fingerprint_0(fing_0)
+            #fing_0 = self.relu(fing_0)
+            #fing_0 = self.dropout(fing_0)
+            #fing_0 = self.linear_fingerprint_1(fing_0)
+            #fing_0 = self.relu(fing_0)
+            #fing_0 = self.dropout(fing_0)
+            #emb0 = emb0 + fing_0
+            #emb0 = self.relu(emb0)
+
+            fp0        = batch["fingerprint_0"].float()           # (B, 2048)
+            fp_proj    = self.dropout(self.relu(self.linear_fp0(fp0)))  # (B, d_model//2)
+            joint      = torch.cat([emb0, fp_proj], dim=-1)       # (B, d_model + d_model//2)
+            emb0       = self.dropout(self.norm_mix(self.relu(self.linear_mix(joint))))
+           
             
         if return_spectrum_output:
             emb, emb_sim_2 = self.compute_from_embeddings(emb0, emb1)

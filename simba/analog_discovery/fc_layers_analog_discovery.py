@@ -60,13 +60,14 @@ class FcLayerAnalogDiscovery:
         emb0 = model.relu(emb0)
         emb1 = model.relu(emb1)
 
-        fing = model.relu(model.linear_fingerprint_1(
+        
+        if fingerprints_0 is not None:
+            # same fingerprint logic as in forward…
+            fing = model.relu(model.linear_fingerprint_1(
                         (model.relu(
                             model.linear_fingerprint_0(torch.tensor(fingerprints_0, dtype=torch.float32))
                         ))
                     ))
-        if fingerprints_0 is not None:
-            # same fingerprint logic as in forward…
             if fingerprint_index==0:
                 emb0 = model.relu(emb0 + fing)
             else:
