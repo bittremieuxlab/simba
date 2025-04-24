@@ -64,6 +64,21 @@ SIMBA caches computed embeddings, significantly speeding repeated library search
 </p>
 
 ---
+## Analog discovery using SIMBA
+
+Modern metabolomics relies on tandem mass spectrometry (MS/MS) to identify unknown compounds by comparing their spectra against large reference libraries. SIMBA enables analog discovery—finding structurally related molecules—by predicting the 2 complementary, interpretable metrics directly from spectra.
+
+The notebook [Run Analog Discovery Notebook](https://github.com/bittremieux-lab/simba/tree/main/notebooks/final_tutorials/run_analog_discovery.ipynb) presents an analog discovery task based on the MassSpecGym dataset and CASMI2022 dataset.
+
+The notebook shows how to:
+
+* Load a pretrained SIMBA model and MS/MS data.
+
+* Compute distance matrices between query and reference spectra.
+
+* Extract top analogs for a given query.
+
+* Compare predictions against ground truth and visualize the best match. 
 
 ## 📚 Training Your Custom SIMBA Model
 

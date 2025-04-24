@@ -12,6 +12,15 @@ logger.setLevel(rkl.ERROR)
 rkrb.DisableLog("rdApp.error")
 from numba import njit
 
+from functools import lru_cache
+import numpy as np
+from rdkit import Chem
+from rdkit.DataStructs import ConvertToNumpyArray
+from rdkit.DataStructs.cDataStructs import ExplicitBitVect
+
+# get the right size
+_example = Chem.RDKFingerprint(Chem.MolFromSmiles("CC"))
+FP_SIZE = _example.GetNumBits()
 
 class Tanimoto:
 
@@ -23,6 +32,28 @@ class Tanimoto:
         else:
             return None
 
+ 
+    @lru_cache(maxsize=None)
+    def compute_fingerprint(smiles):
+        # build or fallback to a zero‐vector bitvect
+        try:
+            if smiles and smiles not in ("", "N/A"):
+                m = Chem.MolFromSmiles(Chem.CanonSmiles(smiles))
+                if m is not None:
+                    bv = Chem.RDKFingerprint(m)
+                else:
+                    bv = ExplicitBitVect(FP_SIZE)
+            else:
+                bv = ExplicitBitVect(FP_SIZE)
+        except Exception:
+            bv = ExplicitBitVect(FP_SIZE)
+
+        # convert to a plain numpy array of ints
+        arr = np.zeros((FP_SIZE,), dtype=int)
+        ConvertToNumpyArray(bv, arr)
+        return arr
+
+    '''
     @functools.lru_cache
     def compute_fingerprint(smiles):
         if smiles != "" and smiles != "N/A":
@@ -36,7 +67,7 @@ class Tanimoto:
             fp = None
 
         return fp
-
+    '''
     @staticmethod
     # @functools.lru_cache
     def compute_tanimoto_from_smiles(smiles0, smiles1):
