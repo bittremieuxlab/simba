@@ -51,6 +51,7 @@ class Simba:
                 use_edit_distance_regresion=self.config.USE_EDIT_DISTANCE_REGRESSION,
                 use_fingerprints=self.config.USE_FINGERPRINT,
                 USE_LEARNABLE_MULTITASK=self.config.USE_LEARNABLE_MULTITASK,
+                strict=False,
             )
         model.eval()
         return model
