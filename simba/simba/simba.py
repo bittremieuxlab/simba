@@ -41,16 +41,17 @@ class Simba:
         file_path,
     ):
         model = EmbedderMultitask.load_from_checkpoint(
-            file_path,
-            d_model=int(self.config.D_MODEL),
-            n_layers=int(self.config.N_LAYERS),
-            n_classes=self.config.EDIT_DISTANCE_N_CLASSES,
-            use_gumbel=self.config.EDIT_DISTANCE_USE_GUMBEL,
-            use_element_wise=True,
-            use_cosine_distance=self.config.use_cosine_distance,
-            use_edit_distance_regresion=self.config.USE_EDIT_DISTANCE_REGRESSION,
-            USE_LEARNABLE_MULTITASK=False,
-        )
+                file_path,
+                d_model=int(self.config.D_MODEL),
+                n_layers=int(self.config.N_LAYERS),
+                n_classes=self.config.EDIT_DISTANCE_N_CLASSES,
+                use_gumbel=self.config.EDIT_DISTANCE_USE_GUMBEL,
+                use_element_wise=True,
+                use_cosine_distance=self.config.use_cosine_distance,
+                use_edit_distance_regresion=self.config.USE_EDIT_DISTANCE_REGRESSION,
+                use_fingerprints=self.config.USE_FINGERPRINT,
+                USE_LEARNABLE_MULTITASK=self.config.USE_LEARNABLE_MULTITASK,
+            )
         model.eval()
         return model
 

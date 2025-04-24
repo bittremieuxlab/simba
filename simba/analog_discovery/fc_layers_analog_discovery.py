@@ -25,7 +25,7 @@ class FcLayerAnalogDiscovery:
         )
 
     @staticmethod
-    def compute_all_combinations(model_path, emb0, emb1, config):
+    def compute_all_combinations(model_path, emb0, emb1, config, fingerprints_0=None, fingerprint_index=1):
         # load full model
         model = FcLayerAnalogDiscovery.load_full_model(model_path, config)
         model.eval()
@@ -46,12 +46,36 @@ class FcLayerAnalogDiscovery:
 
             # compute the similarities
             sim1, sim2 = FcLayerAnalogDiscovery.compute_emb_from_existing_embeddings(
-                model, emb_tiled, emb1
+                model, emb_tiled, emb1, fingerprints_0=fingerprints_0, fingerprint_index=fingerprint_index,
             )
             similarities1[index] = sim1.detach().numpy()
             similarities2[index] = sim2.detach().numpy().reshape(-1)
         return similarities1, similarities2
 
+    @staticmethod
+    def compute_emb_from_existing_embeddings(model, emb0, emb1, fingerprints_0=None, fingerprint_index=1):
+        # convert to tensors & apply relu/fingerprint exactly as forward() does
+        emb0 = torch.tensor(emb0, dtype=torch.float32)
+        emb1 = torch.tensor(emb1, dtype=torch.float32)
+        emb0 = model.relu(emb0)
+        emb1 = model.relu(emb1)
+
+        fing = model.relu(model.linear_fingerprint_1(
+                        (model.relu(
+                            model.linear_fingerprint_0(torch.tensor(fingerprints_0, dtype=torch.float32))
+                        ))
+                    ))
+        if fingerprints_0 is not None:
+            # same fingerprint logic as in forward…
+            if fingerprint_index==0:
+                emb0 = model.relu(emb0 + fing)
+            else:
+                emb1 = model.relu(emb1 + fing)
+
+        # now just delegate to your new helper:
+        return model.compute_from_embeddings(emb0, emb1)
+    
+    '''
     @staticmethod
     def compute_emb_from_existing_embeddings(
         model,
@@ -168,3 +192,4 @@ class FcLayerAnalogDiscovery:
         # else:
         #    emb = F.softmax(emb, dim=-1)
         return emb, emb_sim_2
+    '''

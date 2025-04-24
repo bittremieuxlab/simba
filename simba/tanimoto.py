@@ -23,7 +23,7 @@ _example = Chem.RDKFingerprint(Chem.MolFromSmiles("CC"))
 FP_SIZE = _example.GetNumBits()
 
 class Tanimoto:
-
+    
     @functools.lru_cache
     def compute_tanimoto(fp1, fp2, nbits=2048, use_inchi=False):
         if (fp1 is not None) and (fp2 is not None):
@@ -32,7 +32,7 @@ class Tanimoto:
         else:
             return None
 
- 
+    '''
     @lru_cache(maxsize=None)
     def compute_fingerprint(smiles):
         # build or fallback to a zero‐vector bitvect
@@ -52,6 +52,29 @@ class Tanimoto:
         arr = np.zeros((FP_SIZE,), dtype=int)
         ConvertToNumpyArray(bv, arr)
         return arr
+    '''
+
+    @staticmethod
+    @lru_cache(maxsize=None)
+    def compute_fingerprint(smiles: str) -> ExplicitBitVect:
+        """Return an RDKit ExplicitBitVect for a canonical SMILES."""
+        try:
+            if smiles and smiles not in ("", "N/A"):
+                m = Chem.MolFromSmiles(Chem.CanonSmiles(smiles))
+                return Chem.RDKFingerprint(m) if m else ExplicitBitVect(FP_SIZE)
+        except Exception:
+            pass
+        # fallback to all zeros
+        return ExplicitBitVect(FP_SIZE)
+
+    @staticmethod
+    @lru_cache(maxsize=None)
+    def compute_tanimoto_from_smiles(smiles0: str, smiles1: str) -> float:
+        """Compute and cache the Tanimoto between two SMILES."""
+        fp0 = Tanimoto.compute_fingerprint(smiles0)
+        fp1 = Tanimoto.compute_fingerprint(smiles1)
+        # rdkit returns 0.0 if both are zero‐vector
+        return DataStructs.TanimotoSimilarity(fp0, fp1)
 
     '''
     @functools.lru_cache
@@ -67,10 +90,11 @@ class Tanimoto:
             fp = None
 
         return fp
-    '''
-    @staticmethod
-    # @functools.lru_cache
+    
+
+    @functools.lru_cache
     def compute_tanimoto_from_smiles(smiles0, smiles1):
         fp0 = Tanimoto.compute_fingerprint(smiles0)
         fp1 = Tanimoto.compute_fingerprint(smiles1)
-        return Tanimoto.compute_tanimoto(fp0, fp1)
+        return Tanimoto.compute_tanimoto(list(fp0), list(fp1))
+    '''

@@ -137,6 +137,51 @@ class EmbedderMultitask(Embedder):
             #self.sigma2_param = nn.Parameter(torch.tensor(1.0))
 
     def forward(self, batch, return_spectrum_output=False):
+        # … compute raw emb0, emb1, apply relu, fingerprints, etc. …
+        """The inference pass"""
+        if self.use_precursor_mz_for_model:
+            mz_0 = batch["precursor_mass_0"].float()
+            mz_1 = batch["precursor_mass_1"].float()
+        else:
+            mz_0 = torch.zeros_like(batch["precursor_mass_0"].float())
+            mz_1 = torch.zeros_like(batch["precursor_mass_1"].float())
+        kwargs_0 = {"precursor_mass": mz_0, "precursor_charge": batch["precursor_charge_0"].float()}
+        kwargs_1 = {"precursor_mass": mz_1, "precursor_charge": batch["precursor_charge_1"].float()}
+
+        emb0, _ = self.spectrum_encoder(
+            mz_array=batch["mz_0"].float(),
+            intensity_array=batch["intensity_0"].float(),
+            **kwargs_0,
+        )
+        emb1, _ = self.spectrum_encoder(
+            mz_array=batch["mz_1"].float(),
+            intensity_array=batch["intensity_1"].float(),
+            **kwargs_1,
+        )
+
+        emb0 = emb0[:, 0, :]
+        emb1 = emb1[:, 0, :]
+        emb0 = self.relu(emb0)
+        emb1 = self.relu(emb1)
+
+        if self.use_fingerprints:
+            fing_0 = batch["fingerprint_0"].float()
+            fing_0 = self.linear_fingerprint_0(fing_0)
+            fing_0 = self.relu(fing_0)
+            fing_0 = self.dropout(fing_0)
+            fing_0 = self.linear_fingerprint_1(fing_0)
+            fing_0 = self.relu(fing_0)
+            fing_0 = self.dropout(fing_0)
+            emb0 = emb0 + fing_0
+            emb0 = self.relu(emb0)
+            
+        if return_spectrum_output:
+            emb, emb_sim_2 = self.compute_from_embeddings(emb0, emb1)
+            return emb, emb_sim_2, emb0, emb1
+        else:
+            return self.compute_from_embeddings(emb0, emb1)
+    '''
+    def forward(self, batch, return_spectrum_output=False):
         """The inference pass"""
         if self.use_precursor_mz_for_model:
             mz_0 = batch["precursor_mass_0"].float()
@@ -229,6 +274,7 @@ class EmbedderMultitask(Embedder):
             return emb, emb_sim_2, emb0, emb1
         else:
             return emb, emb_sim_2
+    '''
 
     def calculate_weight_loss2(self):
         if self.use_edit_distance_regresion:
@@ -359,3 +405,43 @@ class EmbedderMultitask(Embedder):
     def configure_optimizers(self):
         optimizer = torch.optim.Adam(self.parameters(), lr=self.lr)
         return optimizer
+
+    def compute_from_embeddings(self, emb0: torch.Tensor, emb1: torch.Tensor):
+        """
+        Take two activated embeddings (after ReLU, fingerprint fusion, etc.)
+        and run all the FC layers + similarity heads to produce:
+          - emb: the class–probability (or regression) output
+          - emb_sim_2: the second similarity score (cosine or regression)
+        """
+        # note: assume emb0/emb1 already had model.relu and fingerprint logic applied
+        # now do exactly what you had in compute_emb_from_existing_embeddings:
+        if self.use_cosine_distance:
+            # transform for cos-sim
+            def transform(x):
+                x = self.linear2(x)
+                x = self.dropout(x)
+                x = self.relu(x)
+                return self.relu(self.linear2_cossim(x))
+            e0 = transform(emb0)
+            e1 = transform(emb1)
+            emb_sim_2 = self.cosine_similarity(e0, e1)
+        else:
+            x = self.relu(self.linear2(emb0 + emb1))
+            # clamp to ≤1
+            emb_sim_2 = x - self.relu(x - 1)
+
+        if self.use_edit_distance_regresion:
+            def transform1(x):
+                x = self.dropout(self.relu(self.linear1(x)))
+                return self.relu(self.linear1_cossim(x))
+            e0 = transform1(emb0)
+            e1 = transform1(emb1)
+            emb = self.cosine_similarity(e0, e1)
+            emb = (emb * 5).round() / 5
+        else:
+            e0 = self.linear1_2(self.relu(self.linear1(emb0)))
+            e1 = self.linear1_2(self.relu(self.linear1(emb1)))
+            emb = self.relu(e0 + e1)
+            emb = self.classifier(emb)
+
+        return emb, emb_sim_2
