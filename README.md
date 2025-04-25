@@ -41,7 +41,7 @@ brew install xz
 
 ## 🔎 Computing Structural Similarities
 
-We provide a pretrained SIMBA model trained on ~300,000 spectra from **NIST20** and **MassSpecGym**. The model operates in positive ionization mode for protonated adducts.
+We provide a pretrained SIMBA model trained on spectra from  **MassSpecGym**. The model operates in positive ionization mode for protonated adducts.
 
 ### Usage Example
 
