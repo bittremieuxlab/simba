@@ -63,15 +63,22 @@ class FcLayerAnalogDiscovery:
         
         if fingerprints_0 is not None:
             # same fingerprint logic as in forward…
-            fing = model.relu(model.linear_fingerprint_1(
-                        (model.relu(
-                            model.linear_fingerprint_0(torch.tensor(fingerprints_0, dtype=torch.float32))
-                        ))
-                    ))
+            #fing = model.relu(model.linear_fingerprint_1(
+            #            (model.relu(
+            #                model.linear_fingerprint_0(torch.tensor(fingerprints_0, dtype=torch.float32))
+            #             ))
+            #          ))
+            
             if fingerprint_index==0:
-                emb0 = model.relu(emb0 + fing)
+                fp0 = torch.tensor(fingerprints_0, dtype=torch.float32)
+                fp_proj    = (model.relu(model.linear_fp0(fp0)))  # (B, d_model//2)
+                joint      = torch.cat([emb0, fp_proj], dim=-1)       # (B, d_model + d_model//2)
+                emb0       = (model.norm_mix(model.relu(model.linear_mix(joint))))
             else:
-                emb1 = model.relu(emb1 + fing)
+                fp0 = torch.tensor(fingerprints_0, dtype=torch.float32)
+                fp_proj    = (model.relu(model.linear_fp0(fp0)))  # (B, d_model//2)
+                joint      = torch.cat([emb1, fp_proj], dim=-1)       # (B, d_model + d_model//2)
+                emb1       = (model.norm_mix(model.relu(model.linear_mix(joint))))
 
         # now just delegate to your new helper:
         return model.compute_from_embeddings(emb0, emb1)
