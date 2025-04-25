@@ -48,7 +48,7 @@ We provide a pretrained SIMBA model trained on spectra from  **MassSpecGym**. Th
 Follow the [Run Inference Notebook](https://github.com/bittremieux-lab/simba/tree/main/notebooks/final_tutorials/run_inference.ipynb) for a comprehensive tutorial:
 
 - **Runtime:** < 10 minutes (including model/data download)
-- **Example data:** [INSERT DATASET LOCATION]
+- **Example data:** data folder.
 - **Supported format:** `.mgf`
 
 ### Performance
