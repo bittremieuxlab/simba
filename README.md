@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/simba_logo.png" width="150" />
+  <img src="docs/simba_logo.png" width="200" />
 </p>
 
 # SIMBA: Spectral Identification of Molecule Bio-Analogues

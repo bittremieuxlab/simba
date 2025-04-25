@@ -19,3 +19,6 @@ lightning_logs/
 temp/
 
 model_checkpoints*
+.ipynb_checkpoints/
+
+notebooks_local/
