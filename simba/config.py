@@ -20,6 +20,7 @@ class Config:
             False  # overwrite the output file during generation
         )
         # self.COMPUTE_SPECIFIC_PAIRS=True
+        self.USE_LEARNABLE_MULTITASK=True
         self.FORMAT_FILE_SPECIFIC_PAIRS = "INPUT_SPECIFIC_PAIRS_indexes_tani_incremental"  # the prefix of the file containing the indexes to be computed
         # self.USE_EDIT_DISTANCE=False ## If using edit distance for generating data, not for training!!!
         self.SUBSAMPLE_PREPROCESSING = False

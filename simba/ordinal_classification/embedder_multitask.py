@@ -42,7 +42,6 @@ class CustomizedCrossEntropyLoss(nn.Module):
         if max_value > 0:
             self.penalty_matrix = self.penalty_matrix / max_value
 
-        print(f'Customised penalty matrix: {self.penalty_matrix}')
 
     def forward(self, logits, target):
         batch_size = logits.size(0)

@@ -7,7 +7,7 @@ from simba.loader_saver import LoaderSaver
 class PreprocessingSimba:
 
     def load_spectra(
-        file_name, config, min_peaks=6, n_samples=100000000, use_gnps_format=False
+        file_name, config, min_peaks=6, n_samples=500000, use_gnps_format=False
     ):
         # load
         print(file_name)
