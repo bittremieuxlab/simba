@@ -62,6 +62,8 @@ class Tanimoto:
             if smiles and smiles not in ("", "N/A"):
                 m = Chem.MolFromSmiles(Chem.CanonSmiles(smiles))
                 return Chem.RDKFingerprint(m) if m else ExplicitBitVect(FP_SIZE)
+                #return AllChem.GetMorganFingerprintAsBitVect(m, radius=2, nBits=2048) if m else ExplicitBitVect(FP_SIZE)
+                
         except Exception:
             pass
         # fallback to all zeros

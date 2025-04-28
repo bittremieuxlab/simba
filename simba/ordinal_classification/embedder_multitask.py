@@ -184,7 +184,6 @@ class EmbedderMultitask(Embedder):
             fp_proj    = self.dropout(self.relu(self.linear_fp0(fp0)))  # (B, d_model//2)
             joint      = torch.cat([emb0, fp_proj], dim=-1)       # (B, d_model + d_model//2)
             emb0       = self.dropout(self.norm_mix(self.relu(self.linear_mix(joint))))
-           
             
         if return_spectrum_output:
             emb, emb_sim_2 = self.compute_from_embeddings(emb0, emb1)

@@ -514,7 +514,7 @@ class MCES:
 
         return scale * ((1 / mces_normalized_epsilon) - 1)
 
-    def compute_mces_list_smiles(smiles_0, smiles_1, threshold_mces=20):
+    def compute_mces_list_smiles(smiles_0, smiles_1, threshold_mces=20,  num_jobs=1):
 
         if not (os.path.exists(f"temp")):
             os.mkdir(f"temp")
@@ -539,12 +539,12 @@ class MCES:
         # command.extend(['--num_jobs', '32'])
         command.extend([input_csv_file])
         command.extend([output_csv_file])
-        command.extend(["--num_jobs", "1"])
+        command.extend(["--num_jobs", str(num_jobs)])
 
         # Define threshold
         command.extend(["--threshold", str(int(threshold_mces))])
 
-        command.extend(["--solver_onethreaded"])
+        #command.extend(["--solver_onethreaded"])
         command.extend(["--solver_no_msg"])
 
         # x = subprocess.run(command,capture_output=True)

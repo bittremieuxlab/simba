@@ -40,6 +40,7 @@ class Simba:
         self,
         file_path,
     ):
+        
         model = EmbedderMultitask.load_from_checkpoint(
                 file_path,
                 d_model=int(self.config.D_MODEL),
@@ -98,6 +99,8 @@ class Simba:
         self,
         spectra0,
         spectra1,
+        fingerprints_0=None, 
+        fingerprint_index=1,
     ):
 
         # create the dataloaders
@@ -110,7 +113,7 @@ class Simba:
         start = time.time()
         similarities_ed, similarities_mces = (
             FcLayerAnalogDiscovery.compute_all_combinations(
-                self.file_path, embeddings0, embeddings1, self.config
+                self.file_path, embeddings0, embeddings1, self.config, fingerprints_0=fingerprints_0, fingerprint_index=fingerprint_index,
             )
         )
         end = time.time()
