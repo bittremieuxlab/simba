@@ -53,7 +53,7 @@ class FcLayerAnalogDiscovery:
         return similarities1, similarities2
 
     @staticmethod
-    def compute_emb_from_existing_embeddings(model, emb0, emb1, fingerprints_0=None, fingerprint_index=1):
+    def compute_emb_from_existing_embeddings(model, emb0, emb1, fingerprints_0=None, fingerprints_1=None,):
         # convert to tensors & apply relu/fingerprint exactly as forward() does
         emb0 = torch.tensor(emb0, dtype=torch.float32)
         emb1 = torch.tensor(emb1, dtype=torch.float32)
@@ -69,16 +69,16 @@ class FcLayerAnalogDiscovery:
             #             ))
             #          ))
             
-            if fingerprint_index==0:
-                fp0 = torch.tensor(fingerprints_0, dtype=torch.float32)
-                fp_proj    = (model.relu(model.linear_fp0(fp0)))  # (B, d_model//2)
-                joint      = torch.cat([emb0, fp_proj], dim=-1)       # (B, d_model + d_model//2)
-                emb0       = (model.norm_mix(model.relu(model.linear_mix(joint))))
-            else:
-                fp0 = torch.tensor(fingerprints_0, dtype=torch.float32)
-                fp_proj    = (model.relu(model.linear_fp0(fp0)))  # (B, d_model//2)
-                joint      = torch.cat([emb1, fp_proj], dim=-1)       # (B, d_model + d_model//2)
-                emb1       = (model.norm_mix(model.relu(model.linear_mix(joint))))
+            
+            fp0 = torch.tensor(fingerprints_0, dtype=torch.float32)
+            fp_proj0    = (model.relu(model.linear_fp0(fp0)))  # (B, d_model//2)
+            joint0      = torch.cat([emb0, fp_proj0], dim=-1)       # (B, d_model + d_model//2)
+            emb0       = (model.norm_mix(model.relu(model.linear_mix(joint0))))
+            
+            fp1 = torch.tensor(fingerprints_1, dtype=torch.float32)
+            fp_proj1    = (model.relu(model.linear_fp0(fp1)))  # (B, d_model//2)
+            joint1      = torch.cat([emb1, fp_proj1], dim=-1)       # (B, d_model + d_model//2)
+            emb1       = (model.norm_mix(model.relu(model.linear_mix(joint1))))
 
         # now just delegate to your new helper:
         return model.compute_from_embeddings(emb0, emb1)
