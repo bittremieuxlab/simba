@@ -112,17 +112,29 @@ class CustomDatasetMultitasking(Dataset):
                     sample["fingerprint_0"] = self.fingerprint_0[
                         ind_0
                     ].astype(np.float32)
-                    sample["fingerprint_1"] = 0*self.fingerprint_1[
-                        ind_1
-                    ].astype(np.float32)
                 else:
                     # return 0s
                     sample["fingerprint_0"] = 0*self.fingerprint_0[
                         ind_0
                     ].astype(np.float32)
+
+                if (ind_1%2)==0:
+                    sample["fingerprint_1"] = self.fingerprint_1[
+                        ind_1
+                    ].astype(np.float32)
+                else:
+                    # return 0s
                     sample["fingerprint_1"] = 0*self.fingerprint_1[
                         ind_1
                     ].astype(np.float32)
+
+                
+                if (ind_0%4)==0:
+                     sample["mz_0"]= 0* sample["mz_0"] 
+                     sample["intensity_0"] = 0* sample["intensity_0"] 
+                if (ind_1%4)==0:
+                     sample["mz_1"]= 0* sample["mz_1"] 
+                     sample["intensity_1"] = 0* sample["intensity_1"] 
             else:
                 sample["fingerprint_0"] = self.fingerprint_0[
                         ind_0

@@ -80,16 +80,16 @@ class FcLayerAnalogDiscovery:
             #             ))
             #          ))
             
-            
-            fp0 = torch.tensor(fingerprints_0, dtype=torch.float32)
-            fp_proj0    = (model.relu(model.linear_fp0(fp0)))  # (B, d_model//2)
+        
+            fp0 = torch.tensor(fingerprints_0, dtype=torch.float32)         # (B, 2048)
+            fp_proj0 = model.fp_proj(fp0)
             joint0      = torch.cat([emb0, fp_proj0], dim=-1)       # (B, d_model + d_model//2)
-            emb0       = (model.norm_mix(model.relu(model.linear_mix(joint0))))
-            
+            emb0       = model.dropout(model.norm_mix(model.relu(model.linear_mix(joint0))))
+
             fp1 = torch.tensor(fingerprints_1, dtype=torch.float32)
-            fp_proj1    = (model.relu(model.linear_fp0(fp1)))  # (B, d_model//2)
+            fp_proj1= model.fp_proj(fp1)
             joint1      = torch.cat([emb1, fp_proj1], dim=-1)       # (B, d_model + d_model//2)
-            emb1       = (model.norm_mix(model.relu(model.linear_mix(joint1))))
+            emb1       = model.dropout(model.norm_mix(model.relu(model.linear_mix(joint1))))
 
         # now just delegate to your new helper:
         return model.compute_from_embeddings(emb0, emb1)

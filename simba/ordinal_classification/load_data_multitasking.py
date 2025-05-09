@@ -114,5 +114,6 @@ class LoadDataMultitasking:
             df_smiles=molecule_pairs_input.df_smiles,
             use_fingerprints=use_fingerprints,
             fingerprint_0=fingerprint_0,
+            fingerprint_1=fingerprint_0,
             max_num_peaks=max_num_peaks,
         )
