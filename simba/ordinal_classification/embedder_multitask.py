@@ -128,10 +128,10 @@ class EmbedderMultitask(Embedder):
             self.linear_mix   = nn.Linear(d_model + proj_dim, d_model)
             self.norm_mix     = nn.LayerNorm(d_model)
             self.fp_proj = nn.Sequential(
-                    nn.Linear(2048, d_model),
+                    nn.Linear(2048, proj_dim),
                     nn.ReLU(),
                     nn.Dropout(dropout),
-                    nn.Linear(d_model, d_model),
+                    nn.Linear(proj_dim, proj_dim),
                     nn.ReLU(),
                 )
         self.use_precursor_mz_for_model = use_precursor_mz_for_model
