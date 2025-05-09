@@ -25,7 +25,7 @@ class FcLayerAnalogDiscovery:
         )
 
     @staticmethod
-    def compute_all_combinations(model_path, emb0, emb1, config, fingerprints_0=None, fingerprint_index=1):
+    def compute_all_combinations(model_path, emb0, emb1, config, fingerprints=None, fingerprint_index=1):
         # load full model
         model = FcLayerAnalogDiscovery.load_full_model(model_path, config)
         model.eval()
@@ -38,6 +38,17 @@ class FcLayerAnalogDiscovery:
                 emb1.shape[0],
             )
         )
+        if fingerprints is not None:
+            if fingerprint_index==0:
+                fingerprints_0=fingerprints
+                fingerprints_1=np.zeros(fingerprints.shape)
+            else:
+                fingerprints_0=np.zeros(fingerprints.shape)
+                fingerprints_1=fingerprints
+        else:
+            fingerprints_0=None
+            fingerprints_1=None
+            
         for index, emb_row in tqdm(enumerate(emb0)):
             # repeat the vector for broadcasting
             emb_tiled = np.zeros((emb1.shape[0], emb1.shape[1]))
@@ -46,7 +57,7 @@ class FcLayerAnalogDiscovery:
 
             # compute the similarities
             sim1, sim2 = FcLayerAnalogDiscovery.compute_emb_from_existing_embeddings(
-                model, emb_tiled, emb1, fingerprints_0=fingerprints_0, fingerprint_index=fingerprint_index,
+                model, emb_tiled, emb1, fingerprints_0=fingerprints_0, fingerprints_1=fingerprints_1, 
             )
             similarities1[index] = sim1.detach().numpy()
             similarities2[index] = sim2.detach().numpy().reshape(-1)

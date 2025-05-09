@@ -134,15 +134,15 @@ class PerformanceMetrics:
             intensity0 = spec0.intensity[list(spec0.mz).index(mz)] / max_intensity
 
             # On mirror plot, spec0 intensities are > 0
-            # ax.text(mz, intensity0, f"{mz:.2f}", ha='center', va='bottom',
-            #        fontsize=6, color='red', zorder=10)
+            ax.text(mz, intensity0, f"{mz:.2f}", ha='center', va='bottom',
+                    fontsize=6, color='red', zorder=10)
 
         for mz in filter_peaks(spec1):
             max_intensity = max(spec1.intensity)
             intensity1 = spec1.intensity[list(spec1.mz).index(mz)] / max_intensity
             # On mirror plot, spec1 intensities are < 0
-            # ax.text(mz, -intensity1, f"{mz:.2f}", ha='center', va='top',
-            #        fontsize=6, color='blue', zorder=10)
+            ax.text(mz, -intensity1, f"{mz:.2f}", ha='center', va='top',
+                    fontsize=6, color='blue', zorder=10)
 
         # 4) (Optional) Adjust the y-limit dynamically
         max_int0 = max(spec0.intensity)
@@ -164,6 +164,7 @@ class PerformanceMetrics:
         config,
         samples=20,
         prefix="good",
+        no_nist=True,
     ):
 
         similarities_ed = prediction_results["similarities_ed"]
@@ -172,9 +173,12 @@ class PerformanceMetrics:
         predictions_mces = prediction_results["predictions_mces"]
         pred_mod_cos = prediction_results["pred_mod_cos"]
         pred_ms2 = prediction_results["pred_ms2"]
-        output_path = config.CHECKPOINT_DIR
+        output_path = config.CHECKPOINT_DIR + 'examples/'
 
         # create folders for the images if they dont exist
+        if not (os.path.exists(output_path)):
+            os.mkdir(output_path)
+
         if not (os.path.exists(output_path + prefix)):
             os.mkdir(output_path + prefix)
 
@@ -185,8 +189,8 @@ class PerformanceMetrics:
         )
 
         #  get the spectrums
-        spectrums_0 = molecule_pairs.get_spectrums_from_indexes(pair_index=0)
-        spectrums_1 = molecule_pairs.get_spectrums_from_indexes(pair_index=1)
+        original_spectrums_0 = molecule_pairs.get_spectrums_from_indexes(pair_index=0)
+        original_spectrums_1 = molecule_pairs.get_spectrums_from_indexes(pair_index=1)
 
         # make sure the spectrum mz is unique
 
@@ -196,8 +200,17 @@ class PerformanceMetrics:
         predictions_target_mces = predictions_mces.copy()
 
         # filter based on retrieved indexes
-        spectrums_0 = [spectrums_0[int(index)] for index in target_indexes]
-        spectrums_1 = [spectrums_1[int(index)] for index in target_indexes]
+
+        spectrums_0 = [original_spectrums_0[int(index)] for index in target_indexes]
+        spectrums_1 = [original_spectrums_1[int(index)] for index in target_indexes]
+
+        no_nist = [(('organism' not in s0.params) and ('organism' not in s1.params)) for s0,s1 in zip(spectrums_0,spectrums_1)]
+
+        # if they are nist remove form the target indexes
+        target_indexes= [t for t,n in zip(target_indexes, no_nist) if n]
+        spectrums_0 = [original_spectrums_0[int(index)] for index in target_indexes]
+        spectrums_1 = [original_spectrums_1[int(index)] for index in target_indexes]
+
         predictions_target_ed = [
             predictions_target_ed[int(index)] for index in target_indexes
         ]
@@ -240,119 +253,121 @@ class PerformanceMetrics:
                 pred_ms2_filtered[0:samples],
             )
         ):
+                    print(index)
+                    # check if it is NIST
+                    #if (spec0.params['organism']!='nist') and(spec1.params['organism']!='nist'):
+                    fig, ax = PerformanceMetrics.plot_mirror_spectra(spec0, spec1, figsize=None)
+                    plot_path = (
+                        output_path + prefix + "/" + f"{prefix}_pair_{index}_spectra.png"
+                    )
+                    fig.savefig(plot_path)
 
-            fig, ax = PerformanceMetrics.plot_mirror_spectra(spec0, spec1, figsize=None)
-            plot_path = (
-                output_path + prefix + "/" + f"{prefix}_pair_{index}_spectra.png"
-            )
-            fig.savefig(plot_path)
+                    smiles_0 = spec0.params["smiles"]
+                    smiles_1 = spec1.params["smiles"]
 
-            smiles_0 = spec0.params["smiles"]
-            smiles_1 = spec1.params["smiles"]
+                    # let's compute tanimoto
+                    tanimoto = Tanimoto.compute_tanimoto_from_smiles(smiles_0, smiles_1)
 
-            # let's compute tanimoto
-            tanimoto = Tanimoto.compute_tanimoto_from_smiles(smiles_0, smiles_1)
+                    mol_0 = Chem.MolFromSmiles(smiles_0)
+                    mol_1 = Chem.MolFromSmiles(smiles_1)
 
-            mol_0 = Chem.MolFromSmiles(smiles_0)
-            mol_1 = Chem.MolFromSmiles(smiles_1)
+                    # Draw molecules
+                    img_0 = Draw.MolToImage(mol_0, size=(300, 300))
+                    img_1 = Draw.MolToImage(mol_1, size=(300, 300))
 
-            # Draw molecules
-            img_0 = Draw.MolToImage(mol_0, size=(300, 300))
-            img_1 = Draw.MolToImage(mol_1, size=(300, 300))
+                    # Combine images side by side
+                    from PIL import Image
 
-            # Combine images side by side
-            from PIL import Image
+                    combined_img = Image.new("RGB", (600, 600))
+                    combined_img.paste(img_0, (0, 0))
+                    combined_img.paste(img_1, (300, 0))
 
-            combined_img = Image.new("RGB", (600, 600))
-            combined_img.paste(img_0, (0, 0))
-            combined_img.paste(img_1, (300, 0))
+                    sim_mces = int(config.MCES20_MAX_VALUE - config.MCES20_MAX_VALUE * sim_mces)
+                    pred_mces = int(
+                        config.MCES20_MAX_VALUE - config.MCES20_MAX_VALUE * pred_mces
+                    )
+                    sim_ed = (config.EDIT_DISTANCE_N_CLASSES - 1) - sim_ed
+                    pred_ed = (config.EDIT_DISTANCE_N_CLASSES - 1) - pred_ed
+                    # Add title to the image using PIL
+                    title = f'SMILES: {smiles_0}\nSMILES: {smiles_1}\n \
+                                        \n \
+                                        \n Tanimoto: {tanimoto:.2f} \
+                                        \n Modified cosine: {pred_mod:.2f} \
+                                        \n MS2: {pred_ms2_value:.2f} \
+                                        \n \
+                                        \n Edit distance (ground truth): {sim_ed if sim_ed<5 else ">5"}  \
+                                        \n Edit distance (pred).: {pred_ed if pred_ed<5 else ">5"} \
+                                        \n \
+                                        \n MCES (ground truth): {sim_mces}  \
+                                        \n MCES(pred): {pred_mces}'
 
-            sim_mces = int(config.MCES20_MAX_VALUE - config.MCES20_MAX_VALUE * sim_mces)
-            pred_mces = int(
-                config.MCES20_MAX_VALUE - config.MCES20_MAX_VALUE * pred_mces
-            )
-            sim_ed = (config.EDIT_DISTANCE_N_CLASSES - 1) - sim_ed
-            pred_ed = (config.EDIT_DISTANCE_N_CLASSES - 1) - pred_ed
-            # Add title to the image using PIL
-            title = f'SMILES: {smiles_0}\nSMILES: {smiles_1}\n \
-                                \n \
-                                \n Tanimoto: {tanimoto:.2f} \
-                                \n Modified cosine: {pred_mod:.2f} \
-                                \n MS2: {pred_ms2_value:.2f} \
-                                \n \
-                                \n Edit distance (ground truth): {sim_ed if sim_ed<5 else ">5"}  \
-                                \n Edit distance (pred).: {pred_ed if pred_ed<5 else ">5"} \
-                                \n \
-                                \n MCES (ground truth): {sim_mces}  \
-                                \n MCES(pred): {pred_mces}'
+                    title_img = Image.new("RGB", (600, 300), (255, 255, 255))
+                    draw = ImageDraw.Draw(title_img)
+                    font = ImageFont.load_default()
+                    draw.text((10, 10), title, fill=(0, 0, 0), font=font)
 
-            title_img = Image.new("RGB", (600, 300), (255, 255, 255))
-            draw = ImageDraw.Draw(title_img)
-            font = ImageFont.load_default()
-            draw.text((10, 10), title, fill=(0, 0, 0), font=font)
+                    # Draw the paragraph (wrapped text)
+                    # paragraph_lines = paragraph.split('. ')
+                    y_text = 30
 
-            # Draw the paragraph (wrapped text)
-            # paragraph_lines = paragraph.split('. ')
-            y_text = 30
+                    # Combine title and molecule images
+                    final_img = Image.new("RGB", (600, 600))
 
-            # Combine title and molecule images
-            final_img = Image.new("RGB", (600, 600))
+                    final_img.paste(combined_img, (0, 0))
+                    final_img.paste(title_img, (0, 300))
 
-            final_img.paste(combined_img, (0, 0))
-            final_img.paste(title_img, (0, 300))
+                    # Save the image
+                    final_img.save(
+                        output_path + prefix + "/" + f"{prefix}_pair_{index}_molecule.png"
+                    )
 
-            # Save the image
-            final_img.save(
-                output_path + prefix + "/" + f"{prefix}_pair_{index}_molecule.png"
-            )
+                    # plt.close(fig)
 
-            # plt.close(fig)
+                    fig, ax = plt.subplots()
 
-            fig, ax = plt.subplots()
+                    from PIL import Image
 
-            from PIL import Image
+                    # After saving the molecule image and spectra plot
+                    final_img_path = (
+                        output_path + prefix + "/" + f"{prefix}_pair_{index}_molecule.png"
+                    )
+                    spectra_img_path = plot_path
 
-            # After saving the molecule image and spectra plot
-            final_img_path = (
-                output_path + prefix + "/" + f"{prefix}_pair_{index}_molecule.png"
-            )
-            spectra_img_path = plot_path
+                    # Open the two images
+                    molecule_img = Image.open(final_img_path)
+                    spectra_img = Image.open(spectra_img_path)
 
-            # Open the two images
-            molecule_img = Image.open(final_img_path)
-            spectra_img = Image.open(spectra_img_path)
+                    # Resize spectra image to match the height of the molecule image if needed
+                    spectra_img = spectra_img.resize((molecule_img.width, molecule_img.height))
 
-            # Resize spectra image to match the height of the molecule image if needed
-            spectra_img = spectra_img.resize((molecule_img.width, molecule_img.height))
+                    # Combine the two images side by side
+                    combined_width = molecule_img.width + spectra_img.width
+                    combined_height = molecule_img.height
+                    combined_graph = Image.new("RGB", (combined_width, combined_height))
 
-            # Combine the two images side by side
-            combined_width = molecule_img.width + spectra_img.width
-            combined_height = molecule_img.height
-            combined_graph = Image.new("RGB", (combined_width, combined_height))
+                    # Paste the two images
+                    combined_graph.paste(molecule_img, (0, 0))
+                    combined_graph.paste(spectra_img, (molecule_img.width, 0))
 
-            # Paste the two images
-            combined_graph.paste(molecule_img, (0, 0))
-            combined_graph.paste(spectra_img, (molecule_img.width, 0))
-
-            # Save the combined graph
-            combined_graph_path = (
-                output_path + prefix + "/" + f"{prefix}_pair_{index}_combined.png"
-            )
-            combined_graph.save(combined_graph_path)
-            print(combined_graph_path)
-            # save data
-            total_df = PerformanceMetrics.generate_csv_file(
-                total_df,
-                smiles_0,
-                smiles_1,
-                tanimoto,
-                sim_ed,
-                pred_ed,
-                sim_mces,
-                pred_mces,
-                spec0,
-                spec1,
-                prefix,
-            )
+                    # Save the combined graph
+                    combined_graph_path = (
+                        output_path + prefix + "/" + f"{prefix}_pair_{index}_combined.png"
+                    )
+                    combined_graph.save(combined_graph_path)
+                    print(combined_graph_path)
+                    # save data
+                    total_df = PerformanceMetrics.generate_csv_file(
+                        total_df,
+                        smiles_0,
+                        smiles_1,
+                        tanimoto,
+                        sim_ed,
+                        pred_ed,
+                        sim_mces,
+                        pred_mces,
+                        spec0,
+                        spec1,
+                        prefix,
+                    )
 
         total_df.to_csv(output_path + "/total_examples_" + prefix + ".csv")

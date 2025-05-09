@@ -113,7 +113,7 @@ class Simba:
         start = time.time()
         similarities_ed, similarities_mces = (
             FcLayerAnalogDiscovery.compute_all_combinations(
-                self.file_path, embeddings0, embeddings1, self.config, fingerprints_0=fingerprints_0, fingerprint_index=fingerprint_index,
+                self.file_path, embeddings0, embeddings1, self.config, fingerprints=fingerprints_0, fingerprint_index=fingerprint_index,
             )
         )
         end = time.time()
