@@ -127,6 +127,13 @@ class EmbedderMultitask(Embedder):
             self.linear_fp0   = nn.Linear(2048, proj_dim)
             self.linear_mix   = nn.Linear(d_model + proj_dim, d_model)
             self.norm_mix     = nn.LayerNorm(d_model)
+            self.fp_proj = nn.Sequential(
+                    nn.Linear(2048, d_model),
+                    nn.ReLU(),
+                    nn.Dropout(dropout),
+                    nn.Linear(d_model, d_model),
+                    nn.ReLU(),
+                )
         self.use_precursor_mz_for_model = use_precursor_mz_for_model
 
         
@@ -181,12 +188,14 @@ class EmbedderMultitask(Embedder):
             #emb0 = self.relu(emb0)
 
             fp0        = batch["fingerprint_0"].float()           # (B, 2048)
-            fp_proj0    = self.dropout(self.relu(self.linear_fp0(fp0)))  # (B, d_model//2)
+            #fp_proj0    = self.dropout(self.relu(self.linear_fp0(fp0)))  # (B, d_model//2)
+            fp_proj0 = self.fp_proj(fp0)
             joint0      = torch.cat([emb0, fp_proj0], dim=-1)       # (B, d_model + d_model//2)
             emb0       = self.dropout(self.norm_mix(self.relu(self.linear_mix(joint0))))
 
             fp1        = batch["fingerprint_1"].float()           # (B, 2048)
-            fp_proj1    = self.dropout(self.relu(self.linear_fp0(fp1)))  # (B, d_model//2)
+            #fp_proj1    = self.dropout(self.relu(self.linear_fp0(fp1)))  # (B, d_model//2)
+            fp_proj1= self.fp_proj(fp1)
             joint1      = torch.cat([emb1, fp_proj1], dim=-1)       # (B, d_model + d_model//2)
             emb1       = self.dropout(self.norm_mix(self.relu(self.linear_mix(joint1))))
             
