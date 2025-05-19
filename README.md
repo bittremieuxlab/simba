@@ -146,7 +146,7 @@ The best-performing model (lowest validation loss) is saved in `CHECKPOINT_DIR`.
 
 ## 📦 Data Availability
 
-- Training and testing datasets available at: [TO BE DEFINED]
+- Training and testing datasets available at: [https://zenodo.org/records/15275257].
 
 ---
 
