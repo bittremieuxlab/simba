@@ -39,7 +39,7 @@ class Plotting:
         print("Accuracy:", accuracy)
 
         # Normalize the confusion matrix by the number of true instances per class
-        cm_normalized = cm.astype("float") / cm.sum(axis=1)[:, np.newaxis]
+        cm_normalized = cm.astype("float") / cm.sum(axis=0)[:, np.newaxis]
 
         # Create the plot
         plt.figure(figsize=(10, 7))
@@ -68,8 +68,8 @@ class Plotting:
         # Set tick labels and increase font size for clarity
         plt.xticks(ticks=np.arange(len(labels)), labels=labels, fontsize=12)
         plt.yticks(ticks=np.arange(len(labels)), labels=labels, fontsize=12)
-        plt.xlabel("Predicted Labels", fontsize=14)
-        plt.ylabel("True Labels", fontsize=14)
+        plt.xlabel("Ground truth Labels", fontsize=14)
+        plt.ylabel("Predicted Labels", fontsize=14)
         plt.title(
             f"Confusion Matrix (Normalized), Acc: {accuracy:.2f}, Samples: {preds.shape[0]}",
             fontsize=16,
