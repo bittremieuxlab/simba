@@ -33,14 +33,19 @@ class Plotting:
         plot.ax_joint.set_ylim(0, 40)
 
     def plot_cm(true, preds, config=None, file_name="cm.png"):
+
+        
         # Compute the confusion matrix and accuracy
         cm = confusion_matrix(true, preds)
+        print(cm)
         accuracy = accuracy_score(true, preds)
         print("Accuracy:", accuracy)
 
         # Normalize the confusion matrix by the number of true instances per class
-        cm_normalized = cm.astype("float") / cm.sum(axis=0)[:, np.newaxis]
+        #cm_normalized = cm.astype("float") / cm.sum(axis=0)[:, np.newaxis]
+        cm_normalized = cm.astype("float") /cm.sum()
 
+        print(cm_normalized)
         # Create the plot
         plt.figure(figsize=(10, 7))
         labels = [">5", "4", "3", "2", "1", "0"]
