@@ -97,6 +97,8 @@ python preprocessing_scripts/final_generation_data.py \
   --PREPROCESSING_NUM_WORKERS=0
 ```
 
+This script will generate a file 'mapping_unique_smiles.pkl' with the specific mapping information between unique compounds and corresponding spectra. As known, each compound can have several spectra and this file saves information about this mapping.
+
 ### Output
 - Numpy arrays with indexes and structural similarity metrics
 - Pickle file (`mapping_unique_smiles.pkl`) mapping spectra indexes to SMILES structures
