@@ -197,7 +197,7 @@ dependencies:
       - ms2deepscore==2.5.0
       - multidict==6.0.5
       - multiprocess==0.70.16
-      - myopic-mces==1.0.0
+      - myopic-mces==1.0.1
       - mypy-extensions==1.0.0
       - networkx==3.2.1
       - numba==0.57.1
