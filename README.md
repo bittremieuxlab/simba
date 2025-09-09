@@ -91,7 +91,7 @@ Run the script below to generate training data:
 ```bash
 python preprocessing_scripts/final_generation_data.py \
   --spectra_path=/path/to/your/spectra.mgf \
-  --workspace=/path/to/output_dir/ \
+  --workspace=/path/to/preprocessed_data/ \
   --MAX_SPECTRA_TRAIN=100 \
   --mapping_file_name=mapping_unique_smiles.pkl \
   --PREPROCESSING_NUM_WORKERS=0
@@ -116,7 +116,7 @@ print(mol_train.df_smiles)
 
 ### Step 2: Model Training
 
-Train your SIMBA model:
+Train your SIMBA model using the following commnad:
 
 ```bash
 python training_scripts/final_training.py \
@@ -124,10 +124,11 @@ python training_scripts/final_training.py \
   --PREPROCESSING_DIR_TRAIN=/path/to/preprocessed_data/ \
   --TRAINING_NUM_WORKERS=0 \
   --ACCELERATOR=cpu \
-  --EPOCHS=100
+  --mapping_file_name=mapping_unique_smiles.pkl \
+  --epochs=100
 ```
 
-The best-performing model (lowest validation loss) is saved in `CHECKPOINT_DIR`.
+The code uses the mapping file produced in the last step and the preprocessing dir folder must be the same where the preprocessing files are generated. The best-performing model (lowest validation loss) is saved in `CHECKPOINT_DIR`.
 
 ---
 
