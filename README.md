@@ -125,6 +125,7 @@ python training_scripts/final_training.py \
   --TRAINING_NUM_WORKERS=0 \
   --ACCELERATOR=cpu \
   --mapping_file_name=mapping_unique_smiles.pkl \
+  --VAL_CHECK_INTERVAL= 10000 \
   --epochs=100
 ```
 
