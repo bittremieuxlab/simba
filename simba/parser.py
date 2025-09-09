@@ -26,6 +26,7 @@ class Parser:
                 or (at == "PREPROCESSING_CURRENT_NODE")
                 or (at == "PREPROCESSING_NUM_WORKERS")
                 or (at == "TRAINING_NUM_WORKERS")
+                or (at == "VAL_CHECK_INTERVAL")
             )
 
             is_string_attribute = at in [

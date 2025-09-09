@@ -67,6 +67,7 @@ class Config:
         self.use_cosine_distance = True
         self.LR = 1e-4
         self.epochs = 1000
+        self.VAL_CHECK_INTERVAL=10000
         self.BATCH_SIZE = 128
         self.enable_progress_bar = True
         self.threshold_class = 0.7  # threshold classification binary
