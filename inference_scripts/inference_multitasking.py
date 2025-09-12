@@ -154,24 +154,30 @@ else:
 #molecule_pairs_test = dataset["molecule_pairs_test"]
 print(f"Number of molecule pairs: {len(molecule_pairs_test_ed)}")
 print("Uniformize the data")
-uniformed_molecule_pairs_test_ed, binned_molecule_pairs_ed = TrainUtils.uniformise(
-    molecule_pairs_test_ed,
-    number_bins=bins_uniformise_inference,
-    return_binned_list=True,
-    bin_sim_1=True,
-    #bin_sim_1=False,
-    ordinal_classification=True,
-)  # do not treat sim==1 as another bin
 
+if config.UNIFORMIZE_DURING_TESTING:
+    uniformed_molecule_pairs_test_ed, binned_molecule_pairs_ed = TrainUtils.uniformise(
+        molecule_pairs_test_ed,
+        number_bins=bins_uniformise_inference,
+        return_binned_list=True,
+        bin_sim_1=True,
+        #bin_sim_1=False,
+        ordinal_classification=True,
+    )  # do not treat sim==1 as another bin
+else:
+    uniformed_molecule_pairs_test_ed=molecule_pairs_test_ed
 
-uniformed_molecule_pairs_test_mces, binned_molecule_pairs_mces = TrainUtils.uniformise(
-    molecule_pairs_test_mces,
-    number_bins=bins_uniformise_inference,
-    return_binned_list=True,
-    bin_sim_1=False,
-    #bin_sim_1=False,
-    #ordinal_classification=True,
-)  # do not treat sim==1 as another bin
+if config.UNIFORMIZE_DURING_TESTING:
+    uniformed_molecule_pairs_test_mces, binned_molecule_pairs_mces = TrainUtils.uniformise(
+        molecule_pairs_test_mces,
+        number_bins=bins_uniformise_inference,
+        return_binned_list=True,
+        bin_sim_1=False,
+        #bin_sim_1=False,
+        #ordinal_classification=True,
+    )  # do not treat sim==1 as another bin
+else:
+    uniformed_molecule_pairs_test_mces=molecule_pairs_test_mces
 
 # dataset_train = LoadData.from_molecule_pairs_to_dataset(m_train)
 dataset_test_ed = LoadDataMultitasking.from_molecule_pairs_to_dataset(uniformed_molecule_pairs_test_ed, max_num_peaks=int(config.TRANSFORMER_CONTEXT))

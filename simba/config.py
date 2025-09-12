@@ -97,7 +97,9 @@ class Config:
         self.PRETRAINED_MODEL_NAME = f"pretrained_model.ckpt"
         self.derived_variables()
         
-
+        ## TESTING
+        self.UNIFORMIZE_DURING_TESTING=True 
+        
     def derived_variables(self):
         self.MODEL_CODE = f"{self.D_MODEL}_units_{self.N_LAYERS}_layers_{self.epochs}_epochs_{self.LR}_lr_{self.BATCH_SIZE}_bs{self.extra_info}"
 
