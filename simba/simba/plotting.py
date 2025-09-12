@@ -32,18 +32,30 @@ class Plotting:
         # Set x-axis limits
         plot.ax_joint.set_ylim(0, 40)
 
-    def plot_cm(true, preds, config=None, file_name="cm.png"):
+    def plot_cm(true, preds, config=None, file_name="cm.png", normalize_per_row=True, inverse_labels=True):
 
-        
+        # reverse the labels only for displaying:
+        true= np.array(true)
+        preds= np.array(preds)
+
+        if inverse_labels:
+            true = 5-np.reshape(true,-1)
+            preds = 5-np.reshape(preds,-1)
+
+
         # Compute the confusion matrix and accuracy
         cm = confusion_matrix(true, preds)
+        print('Confusion matrix per sample:')
         print(cm)
         accuracy = accuracy_score(true, preds)
         print("Accuracy:", accuracy)
 
         # Normalize the confusion matrix by the number of true instances per class
         #cm_normalized = cm.astype("float") / cm.sum(axis=0)[:, np.newaxis]
-        cm_normalized = cm.astype("float") /cm.sum()
+        if normalize_per_row:
+            cm_normalized = cm.astype("float") / cm.sum(axis=1)[:, np.newaxis]
+        else:
+            cm_normalized = cm.astype("float") /cm.sum()
 
         print(cm_normalized)
         # Create the plot
@@ -73,8 +85,8 @@ class Plotting:
         # Set tick labels and increase font size for clarity
         plt.xticks(ticks=np.arange(len(labels)), labels=labels, fontsize=12)
         plt.yticks(ticks=np.arange(len(labels)), labels=labels, fontsize=12)
-        plt.xlabel("Ground truth Labels", fontsize=14)
-        plt.ylabel("Predicted Labels", fontsize=14)
+        plt.xlabel("Predicted Labels", fontsize=14)
+        plt.ylabel("Ground truth Labels", fontsize=14)
         plt.title(
             f"Confusion Matrix (Normalized), Acc: {accuracy:.2f}, Samples: {preds.shape[0]}",
             fontsize=16,
