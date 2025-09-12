@@ -15,7 +15,8 @@ nvidia-smi
 #srun  python inference_multitasking.py  --enable_progress_bar=0   --extra_info=_multitasking_maxp20_ed_improved --USE_MCES20_LOG_LOSS=1 --use_cosine_distance=1 --USE_LOSS_WEIGHTS_SECOND_SIMILARITY=1 --load_pretrained=1 --LR=0.00001
 
 
-srun  python inference_multitasking.py  --enable_progress_bar=0   --extra_info=_generated_data_peak_dropout_more_data  --TRANSFORMER_CONTEXT=100  --USE_MCES20_LOG_LOSS=1 --use_cosine_distance=1 --USE_LOSS_WEIGHTS_SECOND_SIMILARITY=1 --load_pretrained=1 --LR=0.00001 --BEST_MODEL_NAME=best_model-final_performance.ckpt
+#srun  python inference_multitasking.py  --CHECKPOINT_DIR=/scratch/antwerpen/209/vsc20939/data/model_checkpoints/model_checkpoints_256_units_5_layers_1000_epochs_1e-05_lr_128_bs_generated_data_peak_dropout_more_data/ --USE_LEARNABLE_MULTITASK=0 --enable_progress_bar=0    --TRANSFORMER_CONTEXT=100  --USE_MCES20_LOG_LOSS=1 --use_cosine_distance=1 --USE_LOSS_WEIGHTS_SECOND_SIMILARITY=1 --load_pretrained=1 --LR=0.00001 --BEST_MODEL_NAME=best_model-final_performance.ckpt 
+srun  python inference_multitasking.py  --CHECKPOINT_DIR=/scratch/antwerpen/209/vsc20939/data/model_checkpoints/model_256n_only_massspecgym/ --USE_LEARNABLE_MULTITASK=1 --enable_progress_bar=0    --TRANSFORMER_CONTEXT=100  --USE_MCES20_LOG_LOSS=1 --use_cosine_distance=1 --USE_LOSS_WEIGHTS_SECOND_SIMILARITY=1 --load_pretrained=1 --LR=0.00001 
 
 #srun  python inference_multitasking.py  --enable_progress_bar=0   --extra_info=_multitasking_augmentations  --TRANSFORMER_CONTEXT=100  --USE_MCES20_LOG_LOSS=1 --use_cosine_distance=1 --USE_LOSS_WEIGHTS_SECOND_SIMILARITY=1 --load_pretrained=1 --LR=0.00001
 #srun  python inference_multitasking.py  --enable_progress_bar=0   --extra_info=_multitasking_context500  --TRANSFORMER_CONTEXT=500  --USE_MCES20_LOG_LOSS=1 --use_cosine_distance=1 --USE_LOSS_WEIGHTS_SECOND_SIMILARITY=1 --load_pretrained=1 --LR=0.00001

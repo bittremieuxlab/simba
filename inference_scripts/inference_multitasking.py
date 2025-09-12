@@ -33,6 +33,8 @@ from simba.load_mces.load_mces import LoadMCES
 from simba.performance_metrics.performance_metrics import PerformanceMetrics
 import sys
 import simba
+from simba.plotting import Plotting
+
 sys.modules["src"] = simba
 
 def remove_duplicates_array(array):
@@ -123,7 +125,10 @@ indexes_tani_multitasking_test = LoadMCES.merge_numpy_arrays(config.PREPROCESSIN
                                                              use_edit_distance=config.USE_EDIT_DISTANCE,
                                                              use_multitask=config.USE_MULTITASK)
 
-indexes_tani_multitasking_test = remove_duplicates_array(indexes_tani_multitasking_test)                          
+indexes_tani_multitasking_test = remove_duplicates_array(indexes_tani_multitasking_test)
+
+
+
 molecule_pairs_test_ed.indexes_tani = indexes_tani_multitasking_test[:,0:3]
 
 
@@ -200,6 +205,7 @@ best_model = EmbedderMultitask.load_from_checkpoint(
     use_element_wise=True,
     use_cosine_distance=config.use_cosine_distance,
     use_edit_distance_regresion=config.USE_EDIT_DISTANCE_REGRESSION,
+    strict=False,
 )
 
 best_model.eval()
@@ -357,9 +363,16 @@ import matplotlib.pyplot as plt
 import numpy as np
 from sklearn.metrics import confusion_matrix, accuracy_score
 
-def plot_cm(true, preds, config, file_name='cm.png'):
+def plot_cm(true, preds, config, file_name='cm.png', reverse_labels=True):
+
+    # reverse the labels only for displaying:
+    true= np.array(true)
+    preds= np.array(preds)
+
     # Compute the confusion matrix and accuracy
     cm = confusion_matrix(true, preds)
+    print('Confusion matrix')
+    print(cm)
     accuracy = accuracy_score(true, preds)
     print("Accuracy:", accuracy)
 
@@ -372,7 +385,8 @@ def plot_cm(true, preds, config, file_name='cm.png'):
     
     # Plot the heatmap using the 'Blues' colormap
     im = plt.imshow(cm_normalized, interpolation='nearest', cmap='Blues')
-    plt.colorbar(im)
+    cbar = plt.colorbar(im)
+    cbar.set_label('Normalized frequency', fontsize=15)  # <-- add label
 
     # Compute a threshold to decide the annotation text color
     threshold = cm_normalized.max() / 2.0
@@ -381,17 +395,18 @@ def plot_cm(true, preds, config, file_name='cm.png'):
     for i in range(cm_normalized.shape[0]):
         for j in range(cm_normalized.shape[1]):
             text_color = "white" if cm_normalized[i, j] > threshold else "black"
-            plt.text(j, i, f'{cm_normalized[i, j]:.2%}', ha='center', va='center', color=text_color)
+            plt.text(j, i, f'{cm_normalized[i, j]:.0%}', ha='center', va='center', color=text_color, fontsize=15)
     
     # Set tick labels and increase font size for clarity
-    plt.xticks(ticks=np.arange(len(labels)), labels=labels, fontsize=12)
-    plt.yticks(ticks=np.arange(len(labels)), labels=labels, fontsize=12)
-    plt.xlabel('Predicted Labels', fontsize=14)
-    plt.ylabel('True Labels', fontsize=14)
-    plt.title(f'Confusion Matrix (Normalized), Acc: {accuracy:.2f}, Samples: {preds.shape[0]}', fontsize=16)
+    plt.xticks(ticks=np.arange(len(labels)), labels=labels, fontsize=15)
+    plt.yticks(ticks=np.arange(len(labels)), labels=labels, fontsize=15)
+    plt.xlabel('Substructure edit distance - Prediction', fontsize=15)
+    plt.ylabel('Substructure edit distance - Ground truth', fontsize=15)
+    plt.title(f'Confusion Matrix (Normalized), Acc: {accuracy:.2f}, Samples: {preds.shape[0]}', fontsize=15)
     
     # Save the plot
     plt.savefig(os.path.join(config.CHECKPOINT_DIR, file_name))
+
 
 plot_cm(similarities_test_cleaned1, flat_pred_test_cleaned1, config)
 ## analyze the impact of thresholding

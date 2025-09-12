@@ -32,7 +32,7 @@ class Plotting:
         # Set x-axis limits
         plot.ax_joint.set_ylim(0, 40)
 
-    def plot_cm(true, preds, config=None, file_name="cm.png", normalize_per_row=True, inverse_labels=True):
+    def plot_cm(true, preds, config=None, file_name="cm.png", normalize_per_row=True, inverse_labels=True, save_fig=False):
 
         # reverse the labels only for displaying:
         true= np.array(true)
