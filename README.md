@@ -97,11 +97,11 @@ python preprocessing_scripts/final_generation_data.py  \
    --PREPROCESSING_NUM_WORKERS=0
 
 ```
-Spectra_path: Location of spectra
-Workspace: Location where the calculated distances are going to be saved
-MAX_SPECTRA_TRAIN: 10000 the maximum number of spectra to be processed. Set to a large number to avoid removing spectra
-Mapping_file_name: name of the file that saves the mapping of the spectra from spectra to unique compounds.
-PROCESSING_NUM_WORKERS: Number of processors to be used. By default 0.
+* spectra_path: Location of spectra
+* workspace: Location where the calculated distances are going to be saved
+* MAX_SPECTRA_TRAIN: 10000 the maximum number of spectra to be processed. Set to a large number to avoid removing spectra
+* Mapping_file_name: name of the file that saves the mapping of the spectra from spectra to unique compounds.
+* PROCESSING_NUM_WORKERS: Number of processors to be used. By default 0.
 
 This script will generate a file 'mapping_unique_smiles.pkl' with the specific mapping information between unique compounds and corresponding spectra. As known, each compound can have several spectra and this file saves information about this mapping.
 
@@ -136,12 +136,12 @@ python training_scripts/final_training.py  \
   --epochs=10 \
   --VAL_CHECK_INTERVAL=10000 
 ```
-CHECKPOINT_DIR: Place where the trained model will be saved
-PREPROCESSING_DIR_TRAIN: Folder where the preprocessing files are saved
-PREPROCESSING_PICKLE_FILE: File name with the mapping
-ACCELERATOR: cpu or gpu
-Epochs: Number of epochs to be trained
-VAL_CHECK_INTERVAL: Used to check validation performance every N steps. 
+* CHECKPOINT_DIR: Place where the trained model will be saved.
+* PREPROCESSING_DIR_TRAIN: Folder where the preprocessing files are saved.
+* PREPROCESSING_PICKLE_FILE: File name with the mapping.
+* ACCELERATOR: cpu or gpu.
+* epochs: Number of epochs to be trained.
+* VAL_CHECK_INTERVAL: Used to check validation performance every N steps. 
 
 The code uses the mapping file produced in the last step and the preprocessing dir folder `PREPROCESSING_DIR_TRAIN` must be the same where the preprocessing files are generated. The best-performing model (lowest validation loss) is saved in `CHECKPOINT_DIR`. 
 
@@ -159,10 +159,10 @@ To test the SIMBA model use the following command:
    --PREPROCESSING_PICKLE_FILE=mapping_unique_smiles.pkl \
    --UNIFORMIZE_DURING_TESTING=1
 ```
-CHECKPOINT_DIR: Folder where the trained model is saved an testing results will be saved
-PREPROCESSING_DIR and PREPROCESSING_DIR_TRAIN: Location where the preprocessing files are saved
-PREPROCESSING_PICKLE_FILE: Mapping file
-UNIFORMIZE_DURING_TESTING: If to balance the edit distance classes or not.
+* CHECKPOINT_DIR: Folder where the trained model is saved an testing results will be saved.
+* PREPROCESSING_DIR and PREPROCESSING_DIR_TRAIN: Location where the preprocessing files are saved.
+* PREPROCESSING_PICKLE_FILE: Mapping file.
+* UNIFORMIZE_DURING_TESTING: If to balance the edit distance classes or not.
 
 ## 📬 Contact & Support
 
