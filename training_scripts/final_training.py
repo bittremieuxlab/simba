@@ -511,7 +511,7 @@ else:
 trainer = pl.Trainer(
     # max_steps=100000,
     val_check_interval=config.VAL_CHECK_INTERVAL,
-    max_epochs=10,
+    max_epochs=config.epochs,
     callbacks=[checkpoint_callback, checkpoint_n_steps_callback, losscallback],
     enable_progress_bar=enable_progress_bar,
     accelerator=config.ACCELERATOR,
