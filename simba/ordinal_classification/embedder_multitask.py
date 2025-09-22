@@ -48,7 +48,10 @@ class CustomizedCrossEntropyLoss(nn.Module):
         # Compute the log probabilities
         log_probs = F.log_softmax(logits, dim=-1).to(self.device)
         # For each sample, select the penalty row that corresponds to its true class.
-        new_hot_target = self.penalty_matrix[target.to(torch.int64).to(self.device)]
+        
+        target = target.to(torch.int64).to(self.device)
+        self.penalty_matrix = self.penalty_matrix.to(self.device)
+        new_hot_target = self.penalty_matrix[target]
         # Compute the weighted loss by multiplying the log_probs with the penalty weights,
         # and averaging over the batch.
         cross_entropy_loss = -torch.sum(new_hot_target * log_probs) / batch_size

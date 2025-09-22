@@ -1,43 +1,39 @@
+import copy
 import os
-
-# In[268]:
-
+import random
+import sys
 
 import dill
-import torch
-from torch.utils.data import DataLoader
 import lightning.pytorch as pl
-
-from pytorch_lightning.callbacks import ProgressBar
-from simba.train_utils import TrainUtils
 import matplotlib.pyplot as plt
-from simba.config import Config
 import numpy as np
+import seaborn as sns
+import torch
+from pytorch_lightning.callbacks import ProgressBar
+from scipy.stats import spearmanr
+from sklearn.metrics import confusion_matrix
 from torch.utils.data import DataLoader, WeightedRandomSampler
-import os
-from simba.parser import Parser
-import random
-from simba.weight_sampling import WeightSampling
+
+import simba
+from simba.config import Config
+from simba.load_mces.load_mces import LoadMCES
 from simba.losscallback import LossCallback
 from simba.molecular_pairs_set import MolecularPairsSet
-from simba.sanity_checks import SanityChecks
-from simba.transformers.postprocessing import Postprocessing
-from scipy.stats import spearmanr
-import seaborn as sns
-from simba.ordinal_classification.load_data_multitasking import LoadDataMultitasking
 from simba.ordinal_classification.embedder_multitask import EmbedderMultitask
+from simba.ordinal_classification.load_data_multitasking import LoadDataMultitasking
+from simba.parser import Parser
+from simba.plotting import Plotting
+from simba.sanity_checks import SanityChecks
+from simba.train_utils import TrainUtils
 from simba.transformers.embedder import Embedder
-from sklearn.metrics import confusion_matrix
-from simba.load_mces.load_mces import LoadMCES
+from simba.transformers.postprocessing import Postprocessing
+from simba.weight_sampling import WeightSampling
 from simba.weight_sampling_tools.custom_weighted_random_sampler import (
     CustomWeightedRandomSampler,
 )
-from simba.plotting import Plotting
-import sys
-import simba
 
 # In case a MAC is being used:
-os.environ["PYTORCH_ENABLE_MPS_FALLBACK"] = "1"
+# os.environ["PYTORCH_ENABLE_MPS_FALLBACK"] = "1"
 
 # parameters
 config = Config()
@@ -46,10 +42,8 @@ config = parser.update_config(config)
 config.bins_uniformise_INFERENCE = config.EDIT_DISTANCE_N_CLASSES - 1
 config.use_uniform_data_INFERENCE = True
 
-# In[281]:
 if not os.path.exists(config.CHECKPOINT_DIR):
     os.makedirs(config.CHECKPOINT_DIR)
-
 
 # parameters
 dataset_path = config.PREPROCESSING_DIR_TRAIN + config.PREPROCESSING_PICKLE_FILE
@@ -58,7 +52,6 @@ bins_uniformise_inference = config.bins_uniformise_INFERENCE
 enable_progress_bar = config.enable_progress_bar
 fig_path = config.CHECKPOINT_DIR + f"scatter_plot_{config.MODEL_CODE}.png"
 model_code = config.MODEL_CODE
-
 
 print("loading file")
 # Load the dataset from the pickle file
@@ -88,8 +81,6 @@ def remove_duplicates_array(array):
     result = np.array(filtered_rows)
     return result
 
-
-# In[283]:
 print("Loading pairs data ...")
 indexes_tani_multitasking_train = LoadMCES.merge_numpy_arrays(
     config.PREPROCESSING_DIR_TRAIN,
@@ -162,8 +153,6 @@ train_binned_list, ranges = TrainUtils.divide_data_into_bins_categories(
     bin_sim_1=True,
 )
 
-import copy
-
 # create a new copy of the pairs, to get the weights of the second similarity
 molecule_pairs_train_similarity2 = copy.deepcopy(molecule_pairs_train)
 molecule_pairs_train_similarity2.indexes_tani[:, 2] = (
@@ -188,9 +177,6 @@ print("SAMPLES PER RANGE:")
 for lista in train_binned_list:
     print(f"samples: {len(lista)}")
 
-train_binned_list[1].indexes_tani.shape
-
-
 plt.hist(
     molecule_pairs_train.indexes_tani[molecule_pairs_train.indexes_tani[:, 2] > 0][
         :, 2
@@ -208,24 +194,7 @@ Plotting.plot_weights(
     filepath=config.CHECKPOINT_DIR + "weights_similarity_1.png",
 )
 
-
 # weights, range_weights = WeightSampling.compute_weights(train_binned_list)
-
-
-# In[289]:
-
-
-weights
-
-
-# In[290]:
-
-
-range_weights
-
-
-# In[291]:
-
 
 weights_tr = WeightSampling.compute_sample_weights_categories(
     molecule_pairs_train, weights
@@ -235,37 +204,11 @@ weights_val = WeightSampling.compute_sample_weights_categories(
 )
 
 
-# In[292]:
-
-
-weights_val[(molecule_pairs_val.indexes_tani[:, 2] < 0.1)]
-
-
-# In[293]:
-
-
-weights_val[
-    (molecule_pairs_val.indexes_tani[:, 2] < 0.21)
-    & (molecule_pairs_val.indexes_tani[:, 2] > 0.19)
-]
-
-
-# In[294]:
-
-
 plt.hist(molecule_pairs_val.indexes_tani[:, 2], bins=100)
 plt.yscale("log")
 
-
-# In[295]:
-
-
 plt.hist(weights_val)
 plt.yscale("log")
-
-
-# In[296]:
-
 
 dataset_train = LoadDataMultitasking.from_molecule_pairs_to_dataset(
     molecule_pairs_train, max_num_peaks=int(config.TRANSFORMER_CONTEXT), training=True
@@ -275,24 +218,10 @@ dataset_val = LoadDataMultitasking.from_molecule_pairs_to_dataset(
     molecule_pairs_val, max_num_peaks=int(config.TRANSFORMER_CONTEXT)
 )
 
-
-# In[297]:
-
-##  Check that the distribution is uniform
-dataset_train
-
-
-# In[298]:
-
-
 # delete variables that are not useful for memory savings
 # del molecule_pairs_val
 # del molecule_pairs_test
 # del uniformed_molecule_pairs_test
-
-
-# In[299]:
-
 
 train_sampler = CustomWeightedRandomSampler(
     weights=weights_tr, num_samples=len(dataset_train), replacement=True
@@ -300,22 +229,6 @@ train_sampler = CustomWeightedRandomSampler(
 val_sampler = CustomWeightedRandomSampler(
     weights=weights_val, num_samples=len(dataset_val), replacement=True
 )
-
-
-# In[300]:
-
-
-weights_tr
-
-
-# In[301]:
-
-
-dataset["molecule_pairs_train"].indexes_tani
-
-
-# In[302]:
-
 
 print("Creating train data loader")
 dataloader_train = DataLoader(
@@ -325,14 +238,7 @@ dataloader_train = DataLoader(
     num_workers=config.TRAINING_NUM_WORKERS,
 )
 
-
-# In[303]:
-
-
-dataloader_train
-
-
-## check that the distribution of the loader is balanced
+# check that the distribution of the loader is balanced
 similarities_sampled = []
 similarities_sampled2 = []
 for i, batch in enumerate(dataloader_train):
@@ -350,8 +256,8 @@ for i, batch in enumerate(dataloader_train):
         # similarities_sampled2=similarities_sampled2[similarities_sampled2<1]
         break
 
-## plot similarity distributions
-# print(f'similarities 1: {similarities_sampled}')
+# plot similarity distributions
+#  print(f'similarities 1: {similarities_sampled}')
 plt.figure()
 plt.xlabel("similarity 1")
 plt.ylabel("freq")
@@ -370,7 +276,6 @@ counting, bins, patches = plt.hist(similarities_sampled, bins=6)
 
 print(f"SIMILARITY 1: Distribution of similarity for dataset train: {counting}")
 print(f"SIMILARITY 1: Ranges of similarity for dataset train: {bins}")
-# In[304]:
 
 # count the number of samples between
 counting2, bins2 = TrainUtils.count_ranges(
@@ -383,7 +288,7 @@ print(f"SIMILARITY 2: Ranges of similarity for dataset train: {bins2}")
 weights2 = np.array([np.sum(counting2) / c if c != 0 else 0 for c in counting2])
 weights2 = weights2 / np.sum(weights2)
 
-## save info about the weights of similarity 1
+# save info about the weights of similarity 1
 bins2_normalized = [
     b if b > 0 else 0 for b in bins2
 ]  # the first bin has -inf as the lower range
@@ -441,8 +346,6 @@ progress_bar_callback = ProgressBar()
 losscallback = LossCallback(file_path=config.CHECKPOINT_DIR + f"loss.png")
 print("define model")
 
-
-# In[309]:
 
 ## use or not use weights for the second similarity loss
 if config.USE_LOSS_WEIGHTS_SECOND_SIMILARITY:
@@ -505,8 +408,6 @@ if config.load_pretrained:
         print("Loaded pretrained encoder model")
 else:
     print("Not loaded pretrained model")
-# In[ ]:
-
 
 trainer = pl.Trainer(
     # max_steps=100000,
@@ -516,6 +417,7 @@ trainer = pl.Trainer(
     enable_progress_bar=enable_progress_bar,
     accelerator=config.ACCELERATOR,
     # val_check_interval= config.validate_after_ratio,
+    strategy='ddp_find_unused_parameters_true',
 )
 # trainer = pl.Trainer(max_steps=100,  callbacks=[checkpoint_callback, losscallback], enable_progress_bar=enable_progress_bar)
 trainer.fit(
@@ -524,7 +426,5 @@ trainer.fit(
     val_dataloaders=dataloader_val,
 )
 
-
-# ## Inference
-
-# In[ ]:
+if torch.distributed.is_available() and torch.distributed.is_initialized():
+    torch.distributed.destroy_process_group()
