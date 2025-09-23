@@ -1,4 +1,5 @@
 import random
+
 import lightning.pytorch as pl
 import matplotlib.pyplot as plt
 import numpy as np
@@ -8,12 +9,18 @@ import torch.nn.functional as F
 from depthcharge.data import AnnotatedSpectrumDataset
 from depthcharge.tokenizers import PeptideTokenizer
 from depthcharge.transformers import SpectrumTransformerEncoder
+
 # from depthcharge.transformers import PeptideTransformerEncoder,
-from simba.transformers.spectrum_transformer_encoder_custom import SpectrumTransformerEncoderCustom
 from simba.config import Config
+from simba.ordinal_classification.ordinal_classification import (
+    OrdinalClassification,
+)
 from simba.transformers.embedder import Embedder
-from simba.ordinal_classification.ordinal_classification import OrdinalClassification
+from simba.transformers.spectrum_transformer_encoder_custom import (
+    SpectrumTransformerEncoderCustom,
+)
 from simba.weight_sampling import WeightSampling
+
 
 class CustomizedCrossEntropyLoss(nn.Module):
     def __init__(self, n_classes=6):
@@ -22,45 +29,51 @@ class CustomizedCrossEntropyLoss(nn.Module):
         # With this design, a correct prediction (i == j) gets a penalty of 0,
         # and misclassifications incur a penalty proportional to their distance |i - j|.
         n_classes = 6
-        penalty_matrix = np.array([[abs(i - j) for j in range(n_classes)] for i in range(n_classes)])
-        penalty_matrix= (n_classes-1) - penalty_matrix
+        penalty_matrix = np.array(
+            [[abs(i - j) for j in range(n_classes)] for i in range(n_classes)]
+        )
+        penalty_matrix = (n_classes - 1) - penalty_matrix
         penalty_matrix = penalty_matrix**2
-        
 
         # Normalize each row so that the row sums to 1
         row_sums = penalty_matrix.sum(axis=1, keepdims=True)
         penalty_matrix = penalty_matrix / row_sums
 
         self.n_classes = n_classes
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        
+        self.device = torch.device(
+            "cuda" if torch.cuda.is_available() else "cpu"
+        )
+
         # Normalize the penalty matrix so that the maximum penalty (for the farthest misclassification)
         # becomes 1; this keeps the values in a controlled range.
-        self.penalty_matrix = torch.tensor(penalty_matrix, dtype=torch.float).to(self.device)
-        
+        self.penalty_matrix = torch.tensor(
+            penalty_matrix, dtype=torch.float
+        ).to(self.device)
+
         max_value = np.max(penalty_matrix)
         if max_value > 0:
             self.penalty_matrix = self.penalty_matrix / max_value
-
 
     def forward(self, logits, target):
         batch_size = logits.size(0)
         # Compute the log probabilities
         log_probs = F.log_softmax(logits, dim=-1).to(self.device)
         # For each sample, select the penalty row that corresponds to its true class.
-        
+
         target = target.to(torch.int64).to(self.device)
         self.penalty_matrix = self.penalty_matrix.to(self.device)
         new_hot_target = self.penalty_matrix[target]
         # Compute the weighted loss by multiplying the log_probs with the penalty weights,
         # and averaging over the batch.
-        cross_entropy_loss = -torch.sum(new_hot_target * log_probs) / batch_size
+        cross_entropy_loss = (
+            -torch.sum(new_hot_target * log_probs) / batch_size
+        )
         return cross_entropy_loss
 
 
 class EmbedderMultitask(Embedder):
     """It receives a set of pairs of molecules and it must train the similarity model based on it. Embeds spectra."""
-    
+
     def __init__(
         self,
         d_model,
@@ -72,7 +85,7 @@ class EmbedderMultitask(Embedder):
         lr=None,
         use_element_wise=True,
         use_cosine_distance=True,  # element wise instead of concat for mixing info between embeddings
-        weights_sim2=None,         # weights of second similarity
+        weights_sim2=None,  # weights of second similarity
         use_edit_distance_regresion=False,
         use_mces20_log_loss=True,
         use_fingerprints=False,
@@ -114,7 +127,9 @@ class EmbedderMultitask(Embedder):
         self.linear1_2 = nn.Linear(d_model, d_model)
 
         self.linear2 = nn.Linear(d_model, d_model)
-        self.linear2_cossim = nn.Linear(d_model, d_model)  # Extra linear layer if cosine similarity is used
+        self.linear2_cossim = nn.Linear(
+            d_model, d_model
+        )  # Extra linear layer if cosine similarity is used
 
         self.use_edit_distance_regresion = use_edit_distance_regresion
         if self.use_edit_distance_regresion:
@@ -126,23 +141,26 @@ class EmbedderMultitask(Embedder):
             print("Fingerprints enabled!")
             self.linear_fingerprint_0 = nn.Linear(2048, d_model)
             self.linear_fingerprint_1 = nn.Linear(d_model, d_model)
-            proj_dim          = d_model // 2                 # 2048 → d_model//2
-            self.linear_fp0   = nn.Linear(2048, proj_dim)
-            self.linear_mix   = nn.Linear(d_model + proj_dim, d_model)
-            self.norm_mix     = nn.LayerNorm(d_model)
+            proj_dim = d_model // 2  # 2048 → d_model//2
+            self.linear_fp0 = nn.Linear(2048, proj_dim)
+            self.linear_mix = nn.Linear(d_model + proj_dim, d_model)
+            self.norm_mix = nn.LayerNorm(d_model)
         self.use_precursor_mz_for_model = use_precursor_mz_for_model
 
-        
         # Initialize learnable log variance parameters for each loss
-        self.USE_LEARNABLE_MULTITASK=USE_LEARNABLE_MULTITASK
+        self.USE_LEARNABLE_MULTITASK = USE_LEARNABLE_MULTITASK
         if USE_LEARNABLE_MULTITASK:
-            
-            initial_log_sigma1=1.2490483522415161
-            initial_log_sigma2=-7.0018157958984375 
-            #self.log_sigma1 = nn.Parameter(torch.tensor(initial_log_sigma1))
-            #self.log_sigma2 = nn.Parameter(torch.tensor(initial_log_sigma2))
-            self.log_sigma1 = torch.tensor(float(initial_log_sigma1), dtype=torch.float32)
-            self.log_sigma2 = torch.tensor(float(initial_log_sigma2), dtype=torch.float32)
+
+            initial_log_sigma1 = 1.2490483522415161
+            initial_log_sigma2 = -7.0018157958984375
+            # self.log_sigma1 = nn.Parameter(torch.tensor(initial_log_sigma1))
+            # self.log_sigma2 = nn.Parameter(torch.tensor(initial_log_sigma2))
+            self.log_sigma1 = torch.tensor(
+                float(initial_log_sigma1), dtype=torch.float32
+            )
+            self.log_sigma2 = torch.tensor(
+                float(initial_log_sigma2), dtype=torch.float32
+            )
 
     def forward(self, batch, return_spectrum_output=False):
         # … compute raw emb0, emb1, apply relu, fingerprints, etc. …
@@ -153,8 +171,14 @@ class EmbedderMultitask(Embedder):
         else:
             mz_0 = torch.zeros_like(batch["precursor_mass_0"].float())
             mz_1 = torch.zeros_like(batch["precursor_mass_1"].float())
-        kwargs_0 = {"precursor_mass": mz_0, "precursor_charge": batch["precursor_charge_0"].float()}
-        kwargs_1 = {"precursor_mass": mz_1, "precursor_charge": batch["precursor_charge_1"].float()}
+        kwargs_0 = {
+            "precursor_mass": mz_0,
+            "precursor_charge": batch["precursor_charge_0"].float(),
+        }
+        kwargs_1 = {
+            "precursor_mass": mz_1,
+            "precursor_charge": batch["precursor_charge_1"].float(),
+        }
 
         emb0, _ = self.spectrum_encoder(
             mz_array=batch["mz_0"].float(),
@@ -173,27 +197,33 @@ class EmbedderMultitask(Embedder):
         emb1 = self.relu(emb1)
 
         if self.use_fingerprints:
-            #fing_0 = batch["fingerprint_0"].float()
-            #fing_0 = self.linear_fingerprint_0(fing_0)
-            #fing_0 = self.relu(fing_0)
-            #fing_0 = self.dropout(fing_0)
-            #fing_0 = self.linear_fingerprint_1(fing_0)
-            #fing_0 = self.relu(fing_0)
-            #fing_0 = self.dropout(fing_0)
-            #emb0 = emb0 + fing_0
-            #emb0 = self.relu(emb0)
+            # fing_0 = batch["fingerprint_0"].float()
+            # fing_0 = self.linear_fingerprint_0(fing_0)
+            # fing_0 = self.relu(fing_0)
+            # fing_0 = self.dropout(fing_0)
+            # fing_0 = self.linear_fingerprint_1(fing_0)
+            # fing_0 = self.relu(fing_0)
+            # fing_0 = self.dropout(fing_0)
+            # emb0 = emb0 + fing_0
+            # emb0 = self.relu(emb0)
 
-            fp0        = batch["fingerprint_0"].float()           # (B, 2048)
-            fp_proj    = self.dropout(self.relu(self.linear_fp0(fp0)))  # (B, d_model//2)
-            joint      = torch.cat([emb0, fp_proj], dim=-1)       # (B, d_model + d_model//2)
-            emb0       = self.dropout(self.norm_mix(self.relu(self.linear_mix(joint))))
-           
-            
+            fp0 = batch["fingerprint_0"].float()  # (B, 2048)
+            fp_proj = self.dropout(
+                self.relu(self.linear_fp0(fp0))
+            )  # (B, d_model//2)
+            joint = torch.cat(
+                [emb0, fp_proj], dim=-1
+            )  # (B, d_model + d_model//2)
+            emb0 = self.dropout(
+                self.norm_mix(self.relu(self.linear_mix(joint)))
+            )
+
         if return_spectrum_output:
             emb, emb_sim_2 = self.compute_from_embeddings(emb0, emb1)
             return emb, emb_sim_2, emb0, emb1
         else:
             return self.compute_from_embeddings(emb0, emb1)
+
     '''
     def forward(self, batch, return_spectrum_output=False):
         """The inference pass"""
@@ -301,9 +331,9 @@ class EmbedderMultitask(Embedder):
         adjacent_diffs = gumbel_probs_1[:, 1:] - gumbel_probs_1[:, :-1]
         first_diff = gumbel_probs_1[:, 1] - gumbel_probs_1[:, 0]
         last_diff = gumbel_probs_1[:, -1] - gumbel_probs_1[:, -2]
-        squared_adjacent_diffs = adjacent_diffs ** 2
-        squared_first_diff = first_diff ** 2
-        squared_last_diff = last_diff ** 2
+        squared_adjacent_diffs = adjacent_diffs**2
+        squared_first_diff = first_diff**2
+        squared_last_diff = last_diff**2
         diff_penalty = (
             torch.sum(squared_adjacent_diffs)
             + torch.sum(squared_first_diff)
@@ -314,35 +344,55 @@ class EmbedderMultitask(Embedder):
     def ordinal_loss(self, logits, target):
         batch_size, num_classes = logits.size()
         prob = torch.sigmoid(logits)
-        target_matrix = torch.zeros((batch_size, num_classes)).to(logits.device)
+        target_matrix = torch.zeros((batch_size, num_classes)).to(
+            logits.device
+        )
         for i in range(batch_size):
             target_class = target[i].long()
             target_matrix[i, : target_class + 1] = 1.0
         loss = F.binary_cross_entropy(prob, target_matrix, reduction="mean")
         return loss
-    
-    
+
     def step(self, batch, batch_idx, threshold=0.5, weight_loss2=None):
         logits_list = self(batch)
         logits1 = logits_list[0]
         logits2 = logits_list[1]
-        target1 = torch.tensor(batch["similarity"], dtype=torch.long).to(self.device)
+        target1 = torch.tensor(batch["similarity"], dtype=torch.long).to(
+            self.device
+        )
         target1 = target1.view(-1)
-        target2 = torch.tensor(batch["similarity2"], dtype=torch.float32).to(self.device)
+        target2 = torch.tensor(batch["similarity2"], dtype=torch.float32).to(
+            self.device
+        )
         target2 = target2.view(-1)
 
         if self.use_edit_distance_regresion:
             target1 = target1 / 5
-            squared_diff_1 = (logits1.view(-1, 1).float() - target1.view(-1, 1).float()) ** 2
+            squared_diff_1 = (
+                logits1.view(-1, 1).float() - target1.view(-1, 1).float()
+            ) ** 2
             loss1 = squared_diff_1.view(-1, 1).mean()
         else:
             if self.use_gumbel:
-                gumbel_probs_1 = F.gumbel_softmax(logits1, tau=self.tau_gumbel_softmax, hard=False)
-                expected_classes = torch.arange(gumbel_probs_1.size(1)).to(self.device)
-                predicted_value = torch.sum(gumbel_probs_1 * expected_classes, dim=1)
-                loss1 = self.regression_loss(predicted_value.float(), target1.float())
+                gumbel_probs_1 = F.gumbel_softmax(
+                    logits1, tau=self.tau_gumbel_softmax, hard=False
+                )
+                expected_classes = torch.arange(gumbel_probs_1.size(1)).to(
+                    self.device
+                )
+                predicted_value = torch.sum(
+                    gumbel_probs_1 * expected_classes, dim=1
+                )
+                loss1 = self.regression_loss(
+                    predicted_value.float(), target1.float()
+                )
                 batch_size = batch["similarity"].size(0)
-                diff_penalty = torch.sum((gumbel_probs_1[:, 2:] - gumbel_probs_1[:, 1:-1]) ** 2) / batch_size
+                diff_penalty = (
+                    torch.sum(
+                        (gumbel_probs_1[:, 2:] - gumbel_probs_1[:, 1:-1]) ** 2
+                    )
+                    / batch_size
+                )
                 reg_weight = self.gumbel_reg_weight
                 loss1 = loss1 + reg_weight * diff_penalty
             else:
@@ -361,7 +411,10 @@ class EmbedderMultitask(Embedder):
             target2_for_loss = target2
 
         if self.weights_sim2 is not None:
-            squared_diff = (logits2_for_loss.view(-1, 1).float() - target2_for_loss.view(-1, 1).float()) ** 2
+            squared_diff = (
+                logits2_for_loss.view(-1, 1).float()
+                - target2_for_loss.view(-1, 1).float()
+            ) ** 2
             weight_mask = WeightSampling.compute_sample_weights(
                 molecule_pairs=None,
                 weights=self.weights_sim2,
@@ -371,36 +424,48 @@ class EmbedderMultitask(Embedder):
                 normalize=False,
             )
             weight_mask = torch.tensor(weight_mask).to(self.device)
-            loss2 = (squared_diff.view(-1, 1) * weight_mask.view(-1, 1).float()).mean()
+            loss2 = (
+                squared_diff.view(-1, 1) * weight_mask.view(-1, 1).float()
+            ).mean()
         else:
-            squared_diff = (logits2.view(-1, 1).float() - target2.view(-1, 1).float()) ** 2
+            squared_diff = (
+                logits2.view(-1, 1).float() - target2.view(-1, 1).float()
+            ) ** 2
             loss2 = squared_diff.view(-1, 1).mean()
 
         weight_loss2 = self.calculate_weight_loss2()
-        #loss = loss1 + (weight_loss2 * loss2)
+        # loss = loss1 + (weight_loss2 * loss2)
 
         # Recompute sigma values dynamically so a fresh graph is built.
-        #sigma1 = torch.nn.functional.softplus(self.sigma1_param)
-        #sigma2 = torch.nn.functional.softplus(self.sigma2_param)
+        # sigma1 = torch.nn.functional.softplus(self.sigma1_param)
+        # sigma2 = torch.nn.functional.softplus(self.sigma2_param)
 
         # Combine the losses using learned weights:
         if self.USE_LEARNABLE_MULTITASK:
-            loss = (torch.exp(-self.log_sigma1) * loss1 + self.log_sigma1 +
-                    torch.exp(-self.log_sigma2) * loss2 + self.log_sigma2)
-            
-            #loss = (loss1 / (2 * sigma1 ** 2) +
+            loss = (
+                torch.exp(-self.log_sigma1) * loss1
+                + self.log_sigma1
+                + torch.exp(-self.log_sigma2) * loss2
+                + self.log_sigma2
+            )
+
+            # loss = (loss1 / (2 * sigma1 ** 2) +
             #    loss2 / (2 * sigma2 ** 2) +
             #    torch.log(sigma1) +
             #    torch.log(sigma2))
         else:
             loss = loss1 + (weight_loss2 * loss2)
         return loss
-    
+
     def step_mse(self, batch, batch_idx, threshold=0.5):
         logits = self(batch)
         logits = F.softmax(logits, dim=-1)
-        target = torch.tensor(batch["similarity"]).to(self.device).view(-1).float()
-        predicted_value = torch.sum(logits * torch.arange(logits.size(1)).to(self.device), dim=1)
+        target = (
+            torch.tensor(batch["similarity"]).to(self.device).view(-1).float()
+        )
+        predicted_value = torch.sum(
+            logits * torch.arange(logits.size(1)).to(self.device), dim=1
+        )
         loss = self.regression_loss(predicted_value, target)
         return loss
 
@@ -413,7 +478,9 @@ class EmbedderMultitask(Embedder):
         target_matrix = torch.zeros_like(pred, dtype=torch.float)
         for i in range(batch_size):
             target_matrix[i, : target[i] + 1] = 1.0
-        loss = -torch.sum(target_matrix * F.log_softmax(pred, dim=1), dim=1).mean()
+        loss = -torch.sum(
+            target_matrix * F.log_softmax(pred, dim=1), dim=1
+        ).mean()
         return loss
 
     def configure_optimizers(self):
@@ -436,6 +503,7 @@ class EmbedderMultitask(Embedder):
                 x = self.dropout(x)
                 x = self.relu(x)
                 return self.relu(self.linear2_cossim(x))
+
             e0 = transform(emb0)
             e1 = transform(emb1)
             emb_sim_2 = self.cosine_similarity(e0, e1)
@@ -445,9 +513,11 @@ class EmbedderMultitask(Embedder):
             emb_sim_2 = x - self.relu(x - 1)
 
         if self.use_edit_distance_regresion:
+
             def transform1(x):
                 x = self.dropout(self.relu(self.linear1(x)))
                 return self.relu(self.linear1_cossim(x))
+
             e0 = transform1(emb0)
             e1 = transform1(emb1)
             emb = self.cosine_similarity(e0, e1)

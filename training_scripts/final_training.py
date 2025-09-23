@@ -20,7 +20,9 @@ from simba.load_mces.load_mces import LoadMCES
 from simba.losscallback import LossCallback
 from simba.molecular_pairs_set import MolecularPairsSet
 from simba.ordinal_classification.embedder_multitask import EmbedderMultitask
-from simba.ordinal_classification.load_data_multitasking import LoadDataMultitasking
+from simba.ordinal_classification.load_data_multitasking import (
+    LoadDataMultitasking,
+)
 from simba.parser import Parser
 from simba.plotting import Plotting
 from simba.sanity_checks import SanityChecks
@@ -46,7 +48,9 @@ if not os.path.exists(config.CHECKPOINT_DIR):
     os.makedirs(config.CHECKPOINT_DIR)
 
 # parameters
-dataset_path = config.PREPROCESSING_DIR_TRAIN + config.PREPROCESSING_PICKLE_FILE
+dataset_path = (
+    config.PREPROCESSING_DIR_TRAIN + config.PREPROCESSING_PICKLE_FILE
+)
 epochs = config.epochs
 bins_uniformise_inference = config.bins_uniformise_INFERENCE
 enable_progress_bar = config.enable_progress_bar
@@ -81,6 +85,7 @@ def remove_duplicates_array(array):
     result = np.array(filtered_rows)
     return result
 
+
 print("Loading pairs data ...")
 indexes_tani_multitasking_train = LoadMCES.merge_numpy_arrays(
     config.PREPROCESSING_DIR_TRAIN,
@@ -103,7 +108,9 @@ indexes_tani_multitasking_val = LoadMCES.merge_numpy_arrays(
     add_high_similarity_pairs=config.ADD_HIGH_SIMILARITY_PAIRS,
 )
 
-indexes_tani_multitasking_val = remove_duplicates_array(indexes_tani_multitasking_val)
+indexes_tani_multitasking_val = remove_duplicates_array(
+    indexes_tani_multitasking_val
+)
 
 # assign features
 molecule_pairs_train.indexes_tani = indexes_tani_multitasking_train[
@@ -120,13 +127,17 @@ print(f"shape of similarity1: {molecule_pairs_train.indexes_tani.shape}")
 molecule_pairs_train.tanimotos = indexes_tani_multitasking_train[
     :, config.COLUMN_MCES20
 ]
-molecule_pairs_val.tanimotos = indexes_tani_multitasking_val[:, config.COLUMN_MCES20]
+molecule_pairs_val.tanimotos = indexes_tani_multitasking_val[
+    :, config.COLUMN_MCES20
+]
 
 
 print(f"shape of similarity2: {molecule_pairs_train.tanimotos.shape}")
 print(f"Number of pairs for train: {len(molecule_pairs_train)}")
 print(f"Number of pairs for val: {len(molecule_pairs_val)}")
-print(f"Example of data loaded for tanimotos: {molecule_pairs_train.tanimotos}")
+print(
+    f"Example of data loaded for tanimotos: {molecule_pairs_train.tanimotos}"
+)
 ## Sanity checks
 sanity_check_ids = SanityChecks.sanity_checks_ids(
     molecule_pairs_train,
@@ -178,13 +189,15 @@ for lista in train_binned_list:
     print(f"samples: {len(lista)}")
 
 plt.hist(
-    molecule_pairs_train.indexes_tani[molecule_pairs_train.indexes_tani[:, 2] > 0][
-        :, 2
-    ],
+    molecule_pairs_train.indexes_tani[
+        molecule_pairs_train.indexes_tani[:, 2] > 0
+    ][:, 2],
     bins=20,
 )
 
-weights, range_weights = WeightSampling.compute_weights_categories(train_binned_list)
+weights, range_weights = WeightSampling.compute_weights_categories(
+    train_binned_list
+)
 
 ## save info about the weights of similarity 1
 Plotting.plot_weights(
@@ -211,7 +224,9 @@ plt.hist(weights_val)
 plt.yscale("log")
 
 dataset_train = LoadDataMultitasking.from_molecule_pairs_to_dataset(
-    molecule_pairs_train, max_num_peaks=int(config.TRANSFORMER_CONTEXT), training=True
+    molecule_pairs_train,
+    max_num_peaks=int(config.TRANSFORMER_CONTEXT),
+    training=True,
 )
 # dataset_test = LoadData.from_molecule_pairs_to_dataset(m_test)
 dataset_val = LoadDataMultitasking.from_molecule_pairs_to_dataset(
@@ -244,7 +259,9 @@ similarities_sampled2 = []
 for i, batch in enumerate(dataloader_train):
     # sim = batch['similarity']
     # sim = np.array(sim).reshape(-1)
-    similarities_sampled = similarities_sampled + list(batch["similarity"].reshape(-1))
+    similarities_sampled = similarities_sampled + list(
+        batch["similarity"].reshape(-1)
+    )
 
     similarities_sampled2 = similarities_sampled2 + list(
         batch["similarity2"].reshape(-1)
@@ -274,18 +291,27 @@ plt.savefig(config.CHECKPOINT_DIR + "similarity_distribution_2.png")
 
 counting, bins, patches = plt.hist(similarities_sampled, bins=6)
 
-print(f"SIMILARITY 1: Distribution of similarity for dataset train: {counting}")
+print(
+    f"SIMILARITY 1: Distribution of similarity for dataset train: {counting}"
+)
 print(f"SIMILARITY 1: Ranges of similarity for dataset train: {bins}")
 
 # count the number of samples between
 counting2, bins2 = TrainUtils.count_ranges(
-    np.array(similarities_sampled2), number_bins=5, bin_sim_1=False, max_value=1
+    np.array(similarities_sampled2),
+    number_bins=5,
+    bin_sim_1=False,
+    max_value=1,
 )
 
-print(f"SIMILARITY 2: Distribution of similarity for dataset train: {counting2}")
+print(
+    f"SIMILARITY 2: Distribution of similarity for dataset train: {counting2}"
+)
 print(f"SIMILARITY 2: Ranges of similarity for dataset train: {bins2}")
 
-weights2 = np.array([np.sum(counting2) / c if c != 0 else 0 for c in counting2])
+weights2 = np.array(
+    [np.sum(counting2) / c if c != 0 else 0 for c in counting2]
+)
 weights2 = weights2 / np.sum(weights2)
 
 # save info about the weights of similarity 1
@@ -417,7 +443,7 @@ trainer = pl.Trainer(
     enable_progress_bar=enable_progress_bar,
     accelerator=config.ACCELERATOR,
     # val_check_interval= config.validate_after_ratio,
-    strategy='ddp_find_unused_parameters_true',
+    strategy="ddp_find_unused_parameters_true",
 )
 # trainer = pl.Trainer(max_steps=100,  callbacks=[checkpoint_callback, losscallback], enable_progress_bar=enable_progress_bar)
 trainer.fit(

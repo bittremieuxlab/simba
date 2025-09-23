@@ -1,8 +1,6 @@
 import dill
 
-dataset_path = (
-    "/scratch/antwerpen/209/vsc20939/data/dataset_processed_augmented_20231207.pkl"
-)
+dataset_path = "/scratch/antwerpen/209/vsc20939/data/dataset_processed_augmented_20231207.pkl"
 # Load the dataset from the pickle file
 with open(dataset_path, "rb") as file:
     dataset = dill.load(file)

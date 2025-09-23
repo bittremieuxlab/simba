@@ -1,11 +1,13 @@
-import numpy as np
-from tqdm import tqdm
-from scipy.signal import find_peaks
-from simba.config import Config
-from simba.spectrum_ext import SpectrumExt
-from simba.preprocessing_utils import PreprocessingUtils
 import copy
 import random
+
+import numpy as np
+from scipy.signal import find_peaks
+from tqdm import tqdm
+
+from simba.config import Config
+from simba.preprocessing_utils import PreprocessingUtils
+from simba.spectrum_ext import SpectrumExt
 
 
 class Preprocessor:

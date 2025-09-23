@@ -1,20 +1,18 @@
-# from ipywidgets import interact, fixed, widgets
+import argparse
+import os
+
+import numpy as np
 import pandas as pd
-from rdkit import Chem, Geometry
+from myopic_mces.myopic_mces import MCES as MCES2
+from rdkit import Chem, DataStructs, Geometry
 from rdkit.Chem import AllChem
 from rdkit.Chem import Draw
 from rdkit.Chem import rdFMCS
 from rdkit.Chem import PandasTools
-import argparse
-from tqdm import tqdm
-from rdkit import DataStructs
 from rdkit.Chem.Fingerprints import FingerprintMols
-import numpy as np
-import simba.edit_distance.mol_utils as mu
-import os
+from tqdm import tqdm
 
-# from myopic_mces import MCES
-from myopic_mces.myopic_mces import MCES as MCES2
+import simba.edit_distance.mol_utils as mu
 
 
 class EditDistance:

@@ -1,7 +1,8 @@
-from simba.config import Config
 import argparse
 import sys
 import os
+
+from simba.config import Config
 
 
 class Parser:

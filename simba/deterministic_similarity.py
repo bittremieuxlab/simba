@@ -1,21 +1,21 @@
-from simba.molecule_pair import MoleculePair
+import copy
 from typing import List
-from simba.similarity import cosine, modified_cosine, neutral_loss
-from simba.config import Config
-from tqdm import tqdm
-import pandas as pd
-from simba.tanimoto import Tanimoto
-from simba.transformers.load_data_unique import LoadDataUnique
-from torch.utils.data import DataLoader
-from simba.transformers.embedder import Embedder
+
 import lightning.pytorch as pl
 import numpy as np
-from simba.config import Config
+import pandas as pd
 from scipy.stats import spearmanr
-from simba.plotting import Plotting
-import copy
+from torch.utils.data import DataLoader
+from tqdm import tqdm
 
-# from simba.ml_model import MlModel
+from simba.config import Config
+from simba.ml_model import MlModel
+from simba.molecule_pair import MoleculePair
+from simba.plotting import Plotting
+from simba.similarity import cosine, modified_cosine, neutral_loss
+from simba.tanimoto import Tanimoto
+from simba.transformers.embedder import Embedder
+from simba.transformers.load_data_unique import LoadDataUnique
 
 
 class DetSimilarity:

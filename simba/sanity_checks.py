@@ -32,18 +32,24 @@ class SanityChecks:
         """
         different mruck scaffold between train and test
         """
-        bms_train = [s.murcko_scaffold for s in molecules_pairs_train.spectrums]
+        bms_train = [
+            s.murcko_scaffold for s in molecules_pairs_train.spectrums
+        ]
         bms_val = [s.murcko_scaffold for s in molecules_pairs_val.spectrums]
         bms_test = [s.murcko_scaffold for s in molecules_pairs_test.spectrums]
 
         is_any_bms_train_in_val = any([(id in bms_train) for id in [bms_val]])
-        is_any_bms_train_in_test = any([(id in bms_train) for id in [bms_test]])
+        is_any_bms_train_in_test = any(
+            [(id in bms_train) for id in [bms_test]]
+        )
 
         return not (is_any_bms_train_in_val + is_any_bms_train_in_test)
 
     # check distribution of similarities
     def check_distribution_similarities(molecule_pairs, bins=10):
-        train_binned_list, _ = TrainUtils.divide_data_into_bins(molecule_pairs, bins)
+        train_binned_list, _ = TrainUtils.divide_data_into_bins(
+            molecule_pairs, bins
+        )
         samples_per_range = [len(t) for t in train_binned_list]
         bins = [(n / bins) for n in range(len(samples_per_range))]
 

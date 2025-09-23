@@ -2,8 +2,7 @@ class Config:
     # default configuration
     # Spectra and spectrum pairs to include with the following settings.
     def __init__(self):
-        
-        
+
         # device
         self.ACCELERATOR = "gpu"
         # MULTITASKING
@@ -20,7 +19,7 @@ class Config:
             False  # overwrite the output file during generation
         )
         # self.COMPUTE_SPECIFIC_PAIRS=True
-        self.USE_LEARNABLE_MULTITASK=True
+        self.USE_LEARNABLE_MULTITASK = True
         self.FORMAT_FILE_SPECIFIC_PAIRS = "INPUT_SPECIFIC_PAIRS_indexes_tani_incremental"  # the prefix of the file containing the indexes to be computed
         # self.USE_EDIT_DISTANCE=False ## If using edit distance for generating data, not for training!!!
         self.SUBSAMPLE_PREPROCESSING = False
@@ -36,7 +35,7 @@ class Config:
         self.USE_PRECURSOR_MZ_FOR_MODEL = True
 
         ## FOR COMPUTING EDIT DISTANCE LOCALLY
-        self.USE_FINGERPRINT=False
+        self.USE_FINGERPRINT = False
         self.USE_EDIT_DISTANCE = (
             True  ## If using edit distance for generating data, not for training!!!
         )
@@ -67,7 +66,7 @@ class Config:
         self.use_cosine_distance = True
         self.LR = 1e-4
         self.epochs = 1000
-        self.VAL_CHECK_INTERVAL=10000
+        self.VAL_CHECK_INTERVAL = 10000
         self.BATCH_SIZE = 128
         self.enable_progress_bar = True
         self.threshold_class = 0.7  # threshold classification binary
@@ -92,23 +91,19 @@ class Config:
         self.PREPROCESSING_DIR_VAL_TEST = f"/scratch/antwerpen/209/vsc20939/data/preprocessing_mces_threshold20_newdata_20240925/"
         self.PREPROCESSING_PICKLE_FILE = f"edit_distance_neurips_nist_exhaustive.pkl"
         self.CHECKPOINT_DIR = None
-        self.pretrained_path=None
+        self.pretrained_path = None
         self.BEST_MODEL_NAME = f"best_model.ckpt"
         self.PRETRAINED_MODEL_NAME = f"pretrained_model.ckpt"
         self.derived_variables()
-        
+
         ## TESTING
-        self.UNIFORMIZE_DURING_TESTING=True 
-        
+        self.UNIFORMIZE_DURING_TESTING = True
+
     def derived_variables(self):
         self.MODEL_CODE = f"{self.D_MODEL}_units_{self.N_LAYERS}_layers_{self.epochs}_epochs_{self.LR}_lr_{self.BATCH_SIZE}_bs{self.extra_info}"
 
-        
         if self.CHECKPOINT_DIR is None:
             self.CHECKPOINT_DIR = f"/scratch/antwerpen/209/vsc20939/data/model_checkpoints/model_checkpoints_{self.MODEL_CODE}/"
-
-        
-        
 
         if self.pretrained_path is None:
             self.pretrained_path = self.CHECKPOINT_DIR + self.PRETRAINED_MODEL_NAME

@@ -1,6 +1,7 @@
 import dill
-from simba.sanity_checks import SanityChecks
+
 from simba.molecular_pairs_set import MolecularPairsSet
+from simba.sanity_checks import SanityChecks
 
 
 def write_data(
@@ -56,8 +57,12 @@ print(
 )
 
 
-molecule_pairs_train_1 = molecule_pairs_train_1.remove_library_pairs(library="janssen")
-molecule_pairs_val_1 = molecule_pairs_val_1.remove_library_pairs(library="janssen")
+molecule_pairs_train_1 = molecule_pairs_train_1.remove_library_pairs(
+    library="janssen"
+)
+molecule_pairs_val_1 = molecule_pairs_val_1.remove_library_pairs(
+    library="janssen"
+)
 
 # sanity check removal
 
@@ -119,6 +124,8 @@ if sanity_check_ids and sanity_check_bms and sanity_check_janssen:
         uniformed_molecule_pairs_test=uniformed_molecule_pairs_test_1,
     )
     print(f"Number of pairs saved for dataset: {len(molecule_pairs_train_1)}")
-    print(f"Number of pairs for uniform test: {len(uniformed_molecule_pairs_test_1)}")
+    print(
+        f"Number of pairs for uniform test: {len(uniformed_molecule_pairs_test_1)}"
+    )
 else:
     print("There are problems with the data leakage :/")

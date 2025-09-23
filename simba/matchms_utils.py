@@ -1,6 +1,5 @@
-from matchms.Spectrum import Spectrum
-
 import numpy as np
+from matchms.Spectrum import Spectrum
 
 
 class MatchmsUtils:

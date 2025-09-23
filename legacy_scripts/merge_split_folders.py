@@ -1,7 +1,6 @@
 import os
 import shutil
 
-
 NUMBER_SPLITS = 10
 INPUT_PREFIX = "indexes_tani_incremental_"
 OUTPUT_PREFIX = "indexes_tani_incremental_"
@@ -31,12 +30,18 @@ def copy_and_rename_files(
                     new_file_name = output_prefix + "_" + str(save_index)
 
                     # Construct full source and destination paths
-                    source_path = os.path.join(source_directory_split, file_name)
-                    destination_path = os.path.join(destination_dir, new_file_name)
+                    source_path = os.path.join(
+                        source_directory_split, file_name
+                    )
+                    destination_path = os.path.join(
+                        destination_dir, new_file_name
+                    )
 
                     # copy and rename the file
                     shutil.copy(source_path, destination_path)
-                    print(f"Moved and renamed: {source_path} -> {destination_path}")
+                    print(
+                        f"Moved and renamed: {source_path} -> {destination_path}"
+                    )
 
                     save_index = save_index + 1
 

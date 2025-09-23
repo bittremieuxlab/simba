@@ -1,34 +1,33 @@
 import os
-
-# In[268]:
-
+import random
 
 import dill
-import torch
-from torch.utils.data import DataLoader
 import lightning.pytorch as pl
-
-from pytorch_lightning.callbacks import ProgressBar
-from simba.train_utils import TrainUtils
 import matplotlib.pyplot as plt
-from simba.config import Config
 import numpy as np
+import seaborn as sns
+import torch
+from pytorch_lightning.callbacks import ProgressBar
+from scipy.stats import spearmanr
+from sklearn.metrics import accuracy_score, confusion_matrix
 from torch.utils.data import DataLoader, WeightedRandomSampler
-import os
-from simba.parser import Parser
-import random
-from simba.weight_sampling import WeightSampling
+
+from simba.config import Config
+from simba.load_mces.load_mces import LoadMCES
 from simba.losscallback import LossCallback
 from simba.molecular_pairs_set import MolecularPairsSet
-from simba.sanity_checks import SanityChecks
-from simba.transformers.postprocessing import Postprocessing
-from scipy.stats import spearmanr
-import seaborn as sns
-from simba.ordinal_classification.load_data_multitasking import LoadDataMultitasking
 from simba.ordinal_classification.embedder_multitask import EmbedderMultitask
-from sklearn.metrics import confusion_matrix, accuracy_score
-from simba.load_mces.load_mces import LoadMCES
+from simba.ordinal_classification.load_data_multitasking import (
+    LoadDataMultitasking,
+)
+from simba.parser import Parser
 from simba.performance_metrics.performance_metrics import PerformanceMetrics
+from simba.sanity_checks import SanityChecks
+from simba.train_utils import TrainUtils
+from simba.transformers.postprocessing import Postprocessing
+from simba.weight_sampling import WeightSampling
+
+# In[268]:
 
 
 config = Config()
@@ -162,9 +161,12 @@ uniformed_molecule_pairs_test.indexes_tani
 
 # dataset_train = LoadData.from_molecule_pairs_to_dataset(m_train)
 dataset_test = LoadDataMultitasking.from_molecule_pairs_to_dataset(
-    uniformed_molecule_pairs_test, use_fingerprints=config.USE_MOLECULAR_FINGERPRINTS
+    uniformed_molecule_pairs_test,
+    use_fingerprints=config.USE_MOLECULAR_FINGERPRINTS,
 )
-dataloader_test = DataLoader(dataset_test, batch_size=config.BATCH_SIZE, shuffle=False)
+dataloader_test = DataLoader(
+    dataset_test, batch_size=config.BATCH_SIZE, shuffle=False
+)
 
 
 # In[ ]:
@@ -194,8 +196,8 @@ pred_test = trainer.predict(
     dataloader_test,
 )
 
-similarities_test1, similarities_test2 = Postprocessing.get_similarities_multitasking(
-    dataloader_test
+similarities_test1, similarities_test2 = (
+    Postprocessing.get_similarities_multitasking(dataloader_test)
 )
 
 
@@ -380,7 +382,9 @@ confident_corr_model1, confident_p_value_model1 = spearmanr(
 )
 
 print(f"Original size of predictions:{similarities_test1.shape}")
-print(f"Confident size of predictions:{similarities_test_cleaned_confident1.shape}")
+print(
+    f"Confident size of predictions:{similarities_test_cleaned_confident1.shape}"
+)
 # In[ ]:
 
 
@@ -398,13 +402,16 @@ plt.figure()
 error_x = np.random.randint(0, 100, flat_pred_test1.shape[0]) / 200 - 0.5
 error_y = np.random.randint(0, 100, flat_pred_test1.shape[0]) / 200 - 0.5
 plt.scatter(
-    5 - (similarities_test1) + error_x, 5 - flat_pred_test1 + error_y, alpha=0.1
+    5 - (similarities_test1) + error_x,
+    5 - flat_pred_test1 + error_y,
+    alpha=0.1,
 )
 plt.xlabel("edit distance")
 plt.ylabel("prediction")
 plt.grid()
 plt.savefig(
-    config.CHECKPOINT_DIR + f"edit_distance_scatter_plot_{config.MODEL_CODE}.png"
+    config.CHECKPOINT_DIR
+    + f"edit_distance_scatter_plot_{config.MODEL_CODE}.png"
 )
 
 
@@ -469,7 +476,9 @@ def divide_predictions_in_bins(
         # randomize the arrays
         if len(list_elements1_temp) > 0:
             np.random.seed(42)
-            random_indexes = np.random.randint(0, list_elements1_temp.shape[0], min_bin)
+            random_indexes = np.random.randint(
+                0, list_elements1_temp.shape[0], min_bin
+            )
             output_elements1 = np.concatenate(
                 (output_elements1, list_elements1_temp[random_indexes])
             )

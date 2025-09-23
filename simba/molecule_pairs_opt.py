@@ -1,6 +1,7 @@
-from simba.molecular_pairs_set import MolecularPairsSet
 import numpy as np
+
 from simba.molecule_pair import MoleculePair
+from simba.molecular_pairs_set import MolecularPairsSet
 
 
 class MoleculePairsOpt(MolecularPairsSet):

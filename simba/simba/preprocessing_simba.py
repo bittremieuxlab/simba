@@ -1,7 +1,8 @@
-from simba.load_data import LoadData
-from simba.preprocessor import Preprocessor
 import copy
+
+from simba.load_data import LoadData
 from simba.loader_saver import LoaderSaver
+from simba.preprocessor import Preprocessor
 
 
 class PreprocessingSimba:

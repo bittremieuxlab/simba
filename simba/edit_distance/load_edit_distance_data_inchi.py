@@ -1,6 +1,6 @@
-from functools import lru_cache
 import pandas as pd
 import pubchempy as pcp
+from functools import lru_cache
 from rdkit import Chem
 from tqdm import tqdm
 

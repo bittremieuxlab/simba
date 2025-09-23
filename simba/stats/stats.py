@@ -1,6 +1,6 @@
+import matplotlib.pyplot as plt
 import numpy as np
 from sklearn.metrics import precision_recall_curve, auc
-import matplotlib.pyplot as plt
 
 
 class Stats:

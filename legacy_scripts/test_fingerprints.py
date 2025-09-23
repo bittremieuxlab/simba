@@ -1,17 +1,18 @@
 import dill
-import torch
-from torch.utils.data import DataLoader
-from simba.transformers.load_data import LoadData
 import lightning.pytorch as pl
-from simba.transformers.embedder_fingerprint import EmbedderFingerprint
-from pytorch_lightning.callbacks import ProgressBar
-from simba.transformers.postprocessing import Postprocessing
-from sklearn.metrics import r2_score
-from simba.train_utils import TrainUtils
 import matplotlib.pyplot as plt
+import torch
+from pytorch_lightning.callbacks import ProgressBar
+from sklearn.metrics import r2_score
+from torch.utils.data import DataLoader
+
+from simba.config import Config
 from simba.deterministic_similarity import DetSimilarity
 from simba.plotting import Plotting
-from simba.config import Config
+from simba.train_utils import TrainUtils
+from simba.transformers.embedder_fingerprint import EmbedderFingerprint
+from simba.transformers.load_data import LoadData
+from simba.transformers.postprocessing import Postprocessing
 
 # parameters
 dataset_path = "/scratch/antwerpen/209/vsc20939/data/dataset_processed_augmented_20231207_fingerprints.pkl"
@@ -27,7 +28,9 @@ if torch.cuda.is_available():
     print(f"Number of GPUs available: {gpu_count}")
 
     # Get the name of the current GPU
-    current_gpu = torch.cuda.get_device_name(0)  # assuming you have at least one GPU
+    current_gpu = torch.cuda.get_device_name(
+        0
+    )  # assuming you have at least one GPU
     print(f"Current GPU: {current_gpu}")
 
     # Check if PyTorch is currently using GPU
@@ -111,8 +114,12 @@ print("Convert data to a dictionary")
 dataloader_train = DataLoader(
     dataset_train, batch_size=Config.BATCH_SIZE, shuffle=True, num_workers=64
 )
-dataloader_test = DataLoader(dataset_test, batch_size=Config.BATCH_SIZE, shuffle=False)
-dataloader_val = DataLoader(dataset_val, batch_size=Config.BATCH_SIZE, shuffle=False)
+dataloader_test = DataLoader(
+    dataset_test, batch_size=Config.BATCH_SIZE, shuffle=False
+)
+dataloader_val = DataLoader(
+    dataset_val, batch_size=Config.BATCH_SIZE, shuffle=False
+)
 
 print("define checkpoint")
 # Define the ModelCheckpoint callback

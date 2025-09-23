@@ -1,7 +1,8 @@
-from simba.load_data import LoadData
+import math
+
 import dill
 
-import math
+from simba.load_data import LoadData
 
 
 class LoaderSaver:

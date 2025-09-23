@@ -1,6 +1,6 @@
-import random
 import copy
 import numpy as np
+import random
 
 
 class Augmentation:

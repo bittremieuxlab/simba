@@ -1,17 +1,19 @@
-import dill
-from simba.load_data import LoadData
-from sklearn.model_selection import train_test_split
-from simba.train_utils import TrainUtils
-from simba.preprocessor import Preprocessor
 import pickle
 import sys
+
+import dill
 import numpy as np
+from sklearn.model_selection import train_test_split
+
+from simba.load_data import LoadData
+from simba.preprocessor import Preprocessor
+from simba.train_utils import TrainUtils
 
 ## PARAMETERS
-mgf_path = r"/scratch/antwerpen/209/vsc20939/data/ALL_GNPS_NO_PROPOGATED_wb.mgf"
-all_spectrums_path = (
-    "/scratch/antwerpen/209/vsc20939/data/dataset_processed_augmented_20231124.pkl"
+mgf_path = (
+    r"/scratch/antwerpen/209/vsc20939/data/ALL_GNPS_NO_PROPOGATED_wb.mgf"
 )
+all_spectrums_path = "/scratch/antwerpen/209/vsc20939/data/dataset_processed_augmented_20231124.pkl"
 dataset_path = "/scratch/antwerpen/209/vsc20939/data/dataset.pkl"
 output_file = "./dataset_processed_augmented_20231410_experiments.pkl"
 # max_number_spectra=70000
@@ -52,7 +54,9 @@ raw_adducts = [s.split(" ")[-1] for s in all_spectrums_original]
 clean_adducts = [LoadData._clean_adduct(r) for r in raw_adducts]
 
 # count adducts
-adduct_repetitions, number_repetitions = np.unique(clean_adducts, return_counts=True)
+adduct_repetitions, number_repetitions = np.unique(
+    clean_adducts, return_counts=True
+)
 
 
 # Create a list of tuples with (element, count)

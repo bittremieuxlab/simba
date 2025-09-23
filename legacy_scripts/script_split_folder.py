@@ -1,7 +1,6 @@
 import os
 import shutil
 
-
 NUMBER_SPLITS = 10
 INPUT_PREFIX = "indexes_tani_incremental_"
 OUTPUT_PREFIX = "INPUT_SPECIFIC_PAIRS_indexes_tani_incremental_"
@@ -21,7 +20,9 @@ def move_and_rename_files(source_dir, destination_dir):
                 target_split = str(index % NUMBER_SPLITS)
 
                 # Define the new file name starting with 'STAR_'
-                new_file_name = OUTPUT_PREFIX + file_name.split(INPUT_PREFIX)[-1]
+                new_file_name = (
+                    OUTPUT_PREFIX + file_name.split(INPUT_PREFIX)[-1]
+                )
 
                 # Construct full source and destination paths
                 source_path = os.path.join(source_dir, file_name)

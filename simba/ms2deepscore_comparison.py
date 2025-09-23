@@ -1,10 +1,10 @@
+import tensorflow as tf
+from matchms import calculate_scores
+from matchms.filtering import add_fingerprint
+from matchms.similarity import FingerprintSimilarity
 from ms2deepscore.models import load_model
 from ms2deepscore import MS2DeepScore
 from tqdm import tqdm
-from matchms.similarity import FingerprintSimilarity
-from matchms.filtering import add_fingerprint
-from matchms import calculate_scores
-import tensorflow as tf
 
 
 class MS2DeepScoreComparison:

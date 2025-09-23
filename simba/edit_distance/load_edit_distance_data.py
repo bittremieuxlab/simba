@@ -1,15 +1,14 @@
-import pandas as pd
-import subprocess
+import csv
+import gzip
 import os
+import pickle
+import subprocess
+
 import matplotlib.pyplot as plt
 import numpy as np
-import pickle
-from rdkit import Chem
 import pandas as pd
-import os
+from rdkit import Chem
 from tqdm import tqdm
-import gzip
-import csv
 
 
 class LoadEditDistanceData:

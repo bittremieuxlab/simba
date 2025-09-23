@@ -1,10 +1,12 @@
+import os
+
+import numpy as np
+import pandas as pd
+from tqdm import tqdm
+
+from simba.config import Config
 from simba.load_mces.load_mces import LoadMCES
 from simba.mces.mces_computation import MCES
-import numpy as np
-from tqdm import tqdm
-import pandas as pd
-import os
-from simba.config import Config
 
 config = Config()
 
@@ -17,7 +19,9 @@ INPUT_FOLDER_ED_format = "preprocessing_mces_threshold20_newdata_20240925_"
 
 NUMBER_MCES_FOLDERS = 10
 # OUTPUT_FOLDER= data_folder + 'preprocessing_mces20_edit_distance_merged_20240912/'
-OUTPUT_FOLDER = data_folder + "preprocessing_mces_threshold20_newdata_20240925/"
+OUTPUT_FOLDER = (
+    data_folder + "preprocessing_mces_threshold20_newdata_20240925/"
+)
 SPLITS = ["_val", "_test", "_train"]
 
 
@@ -28,7 +32,9 @@ for split in SPLITS:
     ## Load data EDIT DISTANCE
     for index_ed in range(0, NUMBER_MCES_FOLDERS):
         edit_distance_data = LoadMCES.load_raw_data(
-            directory_path=data_folder + INPUT_FOLDER_ED_format + str(index_ed),
+            directory_path=data_folder
+            + INPUT_FOLDER_ED_format
+            + str(index_ed),
             prefix="INPUT_SPECIFIC_PAIRS_indexes_tani_incremental" + split,
         )
 
@@ -43,14 +49,18 @@ for split in SPLITS:
         df_edit_distance_data_all["new_key"] = df_edit_distance_data_all.apply(
             lambda x: (str(x["index_0"]) + "_" + str(x["index_1"])), axis=1
         ).astype(str)
-        df_edit_distance_data_all = df_edit_distance_data_all.set_index("new_key")
+        df_edit_distance_data_all = df_edit_distance_data_all.set_index(
+            "new_key"
+        )
 
         del edit_distance_data
 
         print(f"edit distance: {df_edit_distance_data_all}")
 
         mces_data = LoadMCES.load_raw_data(
-            directory_path=data_folder + INPUT_FOLDER_ED_format + str(index_ed),
+            directory_path=data_folder
+            + INPUT_FOLDER_ED_format
+            + str(index_ed),
             prefix="indexes_tani_incremental" + split,
         )
 
@@ -91,7 +101,9 @@ for split in SPLITS:
         print("joint:")
         print(df_joint)
 
-        print(f"shape of edit_distance_data {df_edit_distance_data_all.shape[0]}")
+        print(
+            f"shape of edit_distance_data {df_edit_distance_data_all.shape[0]}"
+        )
         print(f"shape of mces_data {mces_data.shape[0]}")
 
         ## Split the array and save

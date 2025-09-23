@@ -2,12 +2,13 @@
 import os
 
 os.chdir("/scratch/antwerpen/209/vsc20939/metabolomics")
-import dill
-from simba.config import Config
 import os
-from simba.parser import Parser
-from simba.molecule_pairs_opt import MoleculePairsOpt
 
+import dill
+
+from simba.config import Config
+from simba.molecule_pairs_opt import MoleculePairsOpt
+from simba.parser import Parser
 
 config = Config()
 parser = Parser()

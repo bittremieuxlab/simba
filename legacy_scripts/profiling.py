@@ -1,24 +1,24 @@
-from torch.profiler import profile, record_function, ProfilerActivity
-import dill
-import torch
-from torch.utils.data import DataLoader
-from simba.transformers.load_data import LoadData
-import lightning.pytorch as pl
-from simba.transformers.embedder import Embedder
-from pytorch_lightning.callbacks import ProgressBar
-from simba.train_utils import TrainUtils
-import matplotlib.pyplot as plt
-from simba.config import Config
-import numpy as np
-from torch.utils.data import DataLoader, WeightedRandomSampler
 import os
-from simba.parser import Parser
 import random
-from simba.weight_sampling import WeightSampling
+
+import dill
+import lightning.pytorch as pl
+import matplotlib.pyplot as plt
+import numpy as np
+import torch
+from pytorch_lightning.callbacks import ProgressBar
+from torch.profiler import ProfilerActivity, profile, record_function
+from torch.utils.data import DataLoader, WeightedRandomSampler
+
+from simba.config import Config
 from simba.losscallback import LossCallback
 from simba.molecular_pairs_set import MolecularPairsSet
+from simba.parser import Parser
 from simba.sanity_checks import SanityChecks
-
+from simba.train_utils import TrainUtils
+from simba.transformers.embedder import Embedder
+from simba.transformers.load_data import LoadData
+from simba.weight_sampling import WeightSampling
 
 config = Config()
 parser = Parser()
@@ -44,7 +44,9 @@ if torch.cuda.is_available():
     print(f"Number of GPUs available: {gpu_count}")
 
     # Get the name of the current GPU
-    current_gpu = torch.cuda.get_device_name(0)  # assuming you have at least one GPU
+    current_gpu = torch.cuda.get_device_name(
+        0
+    )  # assuming you have at least one GPU
     print(f"Current GPU: {current_gpu}")
 
     # Check if PyTorch is currently using GPU
@@ -89,7 +91,9 @@ uniformed_molecule_pairs_test = dataset["uniformed_molecule_pairs_test"]
 print(f"Number of pairs for train: {len(molecule_pairs_train)}")
 print(f"Number of pairs for val: {len(molecule_pairs_val)}")
 print(f"Number of pairs for test: {len(molecule_pairs_test)}")
-print(f"Number of pairs for uniform test: {len(uniformed_molecule_pairs_test)}")
+print(
+    f"Number of pairs for uniform test: {len(uniformed_molecule_pairs_test)}"
+)
 
 
 sanity_check_ids = SanityChecks.sanity_checks_ids(
@@ -128,8 +132,12 @@ print(weights)
 print(range_weights)
 
 
-weights_tr = WeightSampling.compute_sample_weights(molecule_pairs_train, weights)
-weights_val = WeightSampling.compute_sample_weights(molecule_pairs_val, weights)
+weights_tr = WeightSampling.compute_sample_weights(
+    molecule_pairs_train, weights
+)
+weights_val = WeightSampling.compute_sample_weights(
+    molecule_pairs_val, weights
+)
 
 print("Similarity of the first 20 molecule pairs")
 print([molecule_pairs_train[i].similarity for i in range(0, 20)])
@@ -140,10 +148,14 @@ print("loading datasets")
 if use_uniform_data:
     print("Uniformize the data")
     uniformed_molecule_pairs_train, train_binned_list = TrainUtils.uniformise(
-        molecule_pairs_train, number_bins=bins_uniformise, return_binned_list=True
+        molecule_pairs_train,
+        number_bins=bins_uniformise,
+        return_binned_list=True,
     )
     uniformed_molecule_pairs_val, _ = TrainUtils.uniformise(
-        molecule_pairs_val, number_bins=bins_uniformise, return_binned_list=True
+        molecule_pairs_val,
+        number_bins=bins_uniformise,
+        return_binned_list=True,
     )
     # uniformed_molecule_pairs_test,_ =TrainUtils.uniformise(molecule_pairs_test, number_bins=bins_uniformise, return_binned_list=True)
     m_train = uniformed_molecule_pairs_train
@@ -184,7 +196,10 @@ val_sampler = WeightedRandomSampler(
 
 print("Creating train data loader")
 dataloader_train = DataLoader(
-    dataset_train, batch_size=config.BATCH_SIZE, sampler=train_sampler, num_workers=10
+    dataset_train,
+    batch_size=config.BATCH_SIZE,
+    sampler=train_sampler,
+    num_workers=10,
 )
 
 # dataloader_test = DataLoader(dataset_test, batch_size=config.BATCH_SIZE, shuffle=False)
@@ -252,7 +267,8 @@ trainer = pl.Trainer(
 )
 
 with profile(
-    activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA], record_shapes=True
+    activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA],
+    record_shapes=True,
 ) as prof:
     with record_function("model_training"):
         trainer.fit(

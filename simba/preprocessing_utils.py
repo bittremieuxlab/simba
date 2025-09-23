@@ -1,11 +1,12 @@
-import numpy as np
-from itertools import groupby
-import requests
-from rdkit import Chem, DataStructs, RDLogger
-import json
-import pandas as pd
-import functools
 import copy
+import functools
+import json
+import requests
+from itertools import groupby
+
+import numpy as np
+import pandas as pd
+from rdkit import Chem, DataStructs, RDLogger
 
 
 class PreprocessingUtils:

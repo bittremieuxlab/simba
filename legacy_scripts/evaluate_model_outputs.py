@@ -1,26 +1,26 @@
+import argparse
+import os
+import sys
+
 import dill
-import torch
-from torch.utils.data import DataLoader
-from simba.transformers.load_data import LoadData
 import lightning.pytorch as pl
+import matplotlib.pyplot as plt
+import numpy as np
+import torch
+from pytorch_lightning.callbacks import ProgressBar
+from scipy.stats import spearmanr
+from sklearn.metrics import r2_score
+from torch.utils.data import DataLoader, WeightedRandomSampler
+
+from simba.config import Config
+from simba.deterministic_similarity import DetSimilarity
+from simba.parser import Parser
+from simba.plotting import Plotting
+from simba.train_utils import TrainUtils
 from simba.transformers.embedder import Embedder
 from simba.transformers.embedder_fingerprint import EmbedderFingerprint
-from pytorch_lightning.callbacks import ProgressBar
+from simba.transformers.load_data import LoadData
 from simba.transformers.postprocessing import Postprocessing
-from sklearn.metrics import r2_score
-from simba.train_utils import TrainUtils
-import matplotlib.pyplot as plt
-from simba.deterministic_similarity import DetSimilarity
-from simba.plotting import Plotting
-from simba.config import Config
-import numpy as np
-from torch.utils.data import DataLoader, WeightedRandomSampler
-from scipy.stats import spearmanr
-import argparse
-import sys
-import os
-from simba.parser import Parser
-
 
 # parse arguments
 config = Config()
@@ -39,7 +39,9 @@ if torch.cuda.is_available():
     print(f"Number of GPUs available: {gpu_count}")
 
     # Get the name of the current GPU
-    current_gpu = torch.cuda.get_device_name(0)  # assuming you have at least one GPU
+    current_gpu = torch.cuda.get_device_name(
+        0
+    )  # assuming you have at least one GPU
     print(f"Current GPU: {current_gpu}")
 
     # Check if PyTorch is currently using GPU
@@ -94,7 +96,9 @@ params_1 = [m.params_1 for m in m_test]
 
 # dataset_train = LoadData.from_molecule_pairs_to_dataset(m_train)
 dataset_test = LoadData.from_molecule_pairs_to_dataset(m_test)
-dataloader_test = DataLoader(dataset_test, batch_size=config.BATCH_SIZE, shuffle=False)
+dataloader_test = DataLoader(
+    dataset_test, batch_size=config.BATCH_SIZE, shuffle=False
+)
 
 # Testinbest_model = Embedder.load_from_checkpoint(checkpoint_callback.best_model_path, d_model=64, n_layers=2)
 trainer = pl.Trainer(max_epochs=2, enable_progress_bar=enable_progress_bar)

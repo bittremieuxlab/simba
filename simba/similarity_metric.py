@@ -26,12 +26,16 @@ class SimilarityMetric:
             )
 
             # calculate scores
-            if (spectrum_found_0_ms is not None) and (spectrum_found_1_ms is not None):
+            if (spectrum_found_0_ms is not None) and (
+                spectrum_found_1_ms is not None
+            ):
                 score = calculate_scores(
                     [spectrum_found_0_ms], [spectrum_found_1_ms], similarity
                 )
 
-                score = score.scores_by_query(spectrum_found_1_ms, sort=True)[0][1]
+                score = score.scores_by_query(spectrum_found_1_ms, sort=True)[
+                    0
+                ][1]
 
                 if compute_tanimoto:
                     tanimoto_measure = FingerprintSimilarity(

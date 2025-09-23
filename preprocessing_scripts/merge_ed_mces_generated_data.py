@@ -1,7 +1,9 @@
-import numpy as np
-import pickle
-from simba.config import Config
 import os
+import pickle
+
+import numpy as np
+
+from simba.config import Config
 
 config = Config()
 ## merge edit distance and mces data
@@ -9,11 +11,13 @@ config = Config()
 ## make sure to define not defined values to the desired values
 
 # edit distance data
-ed_data_path = (
-    "/scratch/antwerpen/209/vsc20939/data/preprocessing_edit_distance_20250117/"
+ed_data_path = "/scratch/antwerpen/209/vsc20939/data/preprocessing_edit_distance_20250117/"
+mces_data_path = (
+    "/scratch/antwerpen/209/vsc20939/data/preprocessing_mces_20250118/"
 )
-mces_data_path = "/scratch/antwerpen/209/vsc20939/data/preprocessing_mces_20250118/"
-output_path = "/scratch/antwerpen/209/vsc20939/data/preprocessing_ed_mces_20250123/"
+output_path = (
+    "/scratch/antwerpen/209/vsc20939/data/preprocessing_ed_mces_20250123/"
+)
 
 # create folder if it does not exist
 if not (os.path.exists(output_path)):
@@ -91,7 +95,9 @@ for partition in ["train", "val", "test"]:
             print("The data loaded correspond to the same pairs")
 
             total_data = np.column_stack((ed_data, mces_data[:, 2]))
-            print(f"The data loaded has the original shape: {total_data.shape}")
+            print(
+                f"The data loaded has the original shape: {total_data.shape}"
+            )
 
             print("Preprocessing:")
             total_data = preprocess_data(total_data)
@@ -102,4 +108,6 @@ for partition in ["train", "val", "test"]:
                 total_data,
             )
         else:
-            print("ERROR: The data loaded does not correspond to the same pairs")
+            print(
+                "ERROR: The data loaded does not correspond to the same pairs"
+            )

@@ -4,12 +4,13 @@ GNPS Utils - Molecule Utils
 This file contains utility functions around molecules and molecules modification based on RDKit library.
 """
 
-from rdkit import Chem
-from rdkit.Chem import rdFMCS
 from copy import deepcopy
 
 import rdkit.rdBase as rkrb
 import rdkit.RDLogger as rkl
+from rdkit import Chem
+from rdkit.Chem import rdFMCS
+
 
 logger = rkl.logger()
 logger.setLevel(rkl.ERROR)

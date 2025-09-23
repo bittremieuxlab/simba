@@ -1,5 +1,7 @@
 import os
+
 import numpy as np
+
 from simba.config import Config
 
 
@@ -146,7 +148,12 @@ class LoadMCES:
         return merged_array
 
     def merge_numpy_arrays_multitask(
-        directory_path, prefix, remove_percentage=0.00, add_high_similarity_pairs=False, normalize_mces=True, normalize_ed=True,
+        directory_path,
+        prefix,
+        remove_percentage=0.00,
+        add_high_similarity_pairs=False,
+        normalize_mces=True,
+        normalize_ed=True,
     ):
         """
         load np arrays containing data as well as apply normalization
@@ -186,7 +193,9 @@ class LoadMCES:
             )
 
         if normalize_mces:
-            if not (config.USE_TANIMOTO):  # if not using tanimoto normalize between 0 and 1
+            if not (
+                config.USE_TANIMOTO
+            ):  # if not using tanimoto normalize between 0 and 1
                 merged_array[:, config.COLUMN_MCES20] = LoadMCES.normalize_mces20(
                     merged_array[:, config.COLUMN_MCES20],
                     max_value=config.MCES20_MAX_VALUE,
@@ -249,12 +258,14 @@ class LoadMCES:
         sample_size = indexes_tani.shape[0] - int(
             remove_percentage * indexes_tani.shape[0]
         )
-        print(f'Shape of data loaded from folder: {indexes_tani.shape[0]}')
+        print(f"Shape of data loaded from folder: {indexes_tani.shape[0]}")
         # filter by high or low similarity, assuming MCES distance
         indexes_tani_high = indexes_tani[indexes_tani[:, target_column] < max_value]
         indexes_tani_low = indexes_tani[indexes_tani[:, target_column] >= max_value]
 
-        print(f'indexes_tani_low.shape[0]: {indexes_tani_low.shape[0]}, sample_size:{sample_size}')
+        print(
+            f"indexes_tani_low.shape[0]: {indexes_tani_low.shape[0]}, sample_size:{sample_size}"
+        )
         if remove_percentage > 0:
             random_samples = np.random.randint(
                 0, indexes_tani_low.shape[0], sample_size

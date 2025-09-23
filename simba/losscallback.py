@@ -67,7 +67,7 @@ class LossCallback(Callback):
 from lightning.pytorch.callbacks import Callback
 import matplotlib.pyplot as plt
 
-'''
+"""
 class LossCallback(Callback):
     def __init__(self, file_path, n_val_sanity_checks=2):
         super().__init__()
@@ -114,4 +114,4 @@ class LossCallback(Callback):
         plt.tight_layout()
         plt.savefig(file_path)
         plt.close(fig)
-'''
+"""

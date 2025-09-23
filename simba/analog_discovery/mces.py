@@ -1,6 +1,5 @@
 from rdkit import Chem
-from rdkit.Chem import rdFMCS
-from rdkit.Chem import rdRascalMCES
+from rdkit.Chem import rdFMCS, rdRascalMCES
 
 
 class MCES:
@@ -19,7 +18,9 @@ class MCES:
         mcs_mol = Chem.MolFromSmarts(mcs_smarts)
         # mcs_count = len(Chem.GetMolFrags(mcs_mol))
         mcs_count = mcs_mol.GetNumAtoms()
-        similarity = mcs_count / (mol1.GetNumAtoms() + mol2.GetNumAtoms() - mcs_count)
+        similarity = mcs_count / (
+            mol1.GetNumAtoms() + mol2.GetNumAtoms() - mcs_count
+        )
 
         return similarity, mcs_mol
 
@@ -37,7 +38,9 @@ class MCES:
             similarity_tier2 = results[0].tier2Sim
 
             if similarity_tier2 != -1:
-                return similarity_tier2  # if the lower threshold is not surpassed
+                return (
+                    similarity_tier2  # if the lower threshold is not surpassed
+                )
             else:
                 return similarity_tier1
         else:

@@ -10,21 +10,19 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-
 from depthcharge.data import AnnotatedSpectrumDataset
 from depthcharge.tokenizers import PeptideTokenizer
 from depthcharge.transformers import (
     SpectrumTransformerEncoder,
     # PeptideTransformerEncoder,
 )
+
+from simba.config import Config
+from simba.ordinal_classification.ordinal_classification import OrdinalClassification
+from simba.transformers.embedder import Embedder
 from simba.transformers.spectrum_transformer_encoder_custom import (
     SpectrumTransformerEncoderCustom,
 )
-import torch
-from simba.config import Config
-
-from simba.transformers.embedder import Embedder
-from simba.ordinal_classification.ordinal_classification import OrdinalClassification
 
 
 class CustomizedCrossEntropyLoss(nn.Module):
@@ -32,8 +30,9 @@ class CustomizedCrossEntropyLoss(nn.Module):
         super(CustomizedCrossEntropyLoss, self).__init__()
 
         n_classes = 6
-        penalty_matrix = np.array([[abs(i - j) for j in range(n_classes)] for i in range(n_classes)])
-        
+        penalty_matrix = np.array(
+            [[abs(i - j) for j in range(n_classes)] for i in range(n_classes)]
+        )
 
         # normalize:
         # penalty_matrix = penalty_matrix/(np.sum(penalty_matrix, axis=0))
@@ -47,7 +46,9 @@ class CustomizedCrossEntropyLoss(nn.Module):
 
         self.n_classes = n_classes
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        self.penalty_matrix = torch.tensor(penalty_matrix).to(self.device) / np.max(penalty_matrix)
+        self.penalty_matrix = torch.tensor(penalty_matrix).to(self.device) / np.max(
+            penalty_matrix
+        )
 
     def forward(self, logits, target):
         batch_size = logits.size(0)

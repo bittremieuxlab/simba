@@ -1,11 +1,12 @@
-from simba.ordinal_classification.embedder_multitask import EmbedderMultitask
 import lightning.pytorch as pl
-import pandas as pd
 import numpy as np
-from simba.molecule_pairs_opt import MoleculePairsOpt
-from simba.ordinal_classification.load_data_multitasking import LoadDataMultitasking
+import pandas as pd
 from torch.utils.data import DataLoader
 from tqdm import tqdm
+
+from simba.molecule_pairs_opt import MoleculePairsOpt
+from simba.ordinal_classification.embedder_multitask import EmbedderMultitask
+from simba.ordinal_classification.load_data_multitasking import LoadDataMultitasking
 
 
 class ADMultitask:

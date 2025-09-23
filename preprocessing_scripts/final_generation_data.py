@@ -1,24 +1,23 @@
+import argparse
+import os
+import pickle
+import random
+import sys
+from datetime import datetime
+
 import dill
+import numpy as np
 
 # from simba.load_data import LoadData
 from sklearn.model_selection import train_test_split
-from simba.train_utils import TrainUtils
-from simba.preprocessor import Preprocessor
-import pickle
-import sys
+
 from simba.config import Config
-from simba.parser import Parser
-from datetime import datetime
 from simba.loader_saver import LoaderSaver
-import pickle
-import numpy as np
 from simba.mces.mces_computation import MCES
-import random
-import os
-
-import argparse
-
+from simba.parser import Parser
+from simba.preprocessor import Preprocessor
 from simba.simba.preprocessing_simba import PreprocessingSimba
+from simba.train_utils import TrainUtils
 
 
 def preprocess_data(array):
@@ -82,7 +81,9 @@ output_pairs_file = config.PREPROCESSING_DIR + config.PREPROCESSING_PICKLE_FILE
 output_np_indexes_train = (
     config.PREPROCESSING_DIR + f"indexes_tani_mces_train{subfix}.npy"
 )
-output_np_indexes_val = config.PREPROCESSING_DIR + f"indexes_tani_mces_val{subfix}.npy"
+output_np_indexes_val = (
+    config.PREPROCESSING_DIR + f"indexes_tani_mces_val{subfix}.npy"
+)
 output_np_indexes_test = (
     config.PREPROCESSING_DIR + f"indexes_tani_mces_test{subfix}.npy"
 )
@@ -255,7 +256,9 @@ if __name__ == "__main__":
                 print("The data loaded correspond to the same pairs")
 
                 total_data = np.column_stack((ed_data, mces_data[:, 2]))
-                print(f"The data loaded has the original shape: {total_data.shape}")
+                print(
+                    f"The data loaded has the original shape: {total_data.shape}"
+                )
 
                 print("Preprocessing:")
                 total_data = preprocess_data(total_data)
@@ -266,4 +269,6 @@ if __name__ == "__main__":
                     total_data,
                 )
             else:
-                print("ERROR: The data loaded does not correspond to the same pairs")
+                print(
+                    "ERROR: The data loaded does not correspond to the same pairs"
+                )

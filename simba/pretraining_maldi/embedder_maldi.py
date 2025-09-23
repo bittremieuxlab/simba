@@ -17,11 +17,11 @@ from depthcharge.transformers import (
     SpectrumTransformerEncoder,
     # PeptideTransformerEncoder,
 )
+
+from simba.config import Config
 from simba.transformers.spectrum_transformer_encoder_custom import (
     SpectrumTransformerEncoderCustom,
 )
-import torch
-from simba.config import Config
 
 # from dadaptation import DAdaptAdam
 # Set our plotting theme:

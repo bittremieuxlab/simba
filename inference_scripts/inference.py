@@ -1,23 +1,25 @@
-import dill
-import torch
-from torch.utils.data import DataLoader
-from simba.transformers.load_data_unique import LoadDataUnique
-import lightning.pytorch as pl
-from simba.transformers.embedder import Embedder
-from simba.transformers.postprocessing import Postprocessing
-from sklearn.metrics import r2_score
-from simba.train_utils import TrainUtils
-import matplotlib.pyplot as plt
-from simba.deterministic_similarity import DetSimilarity
-from simba.plotting import Plotting
-from simba.config import Config
-import numpy as np
-from torch.utils.data import DataLoader
 import argparse
-import sys
 import os
-from simba.parser import Parser
+import sys
+
+import dill
+import lightning.pytorch as pl
+import matplotlib.pyplot as plt
+import numpy as np
+import seaborn as sns
+import torch
 from scipy.stats import spearmanr
+from sklearn.metrics import r2_score
+from torch.utils.data import DataLoader
+
+from simba.config import Config
+from simba.deterministic_similarity import DetSimilarity
+from simba.parser import Parser
+from simba.plotting import Plotting
+from simba.train_utils import TrainUtils
+from simba.transformers.embedder import Embedder
+from simba.transformers.load_data_unique import LoadDataUnique
+from simba.transformers.postprocessing import Postprocessing
 
 # parse arguments
 config = Config()
@@ -45,7 +47,9 @@ if torch.cuda.is_available():
     print(f"Number of GPUs available: {gpu_count}")
 
     # Get the name of the current GPU
-    current_gpu = torch.cuda.get_device_name(0)  # assuming you have at least one GPU
+    current_gpu = torch.cuda.get_device_name(
+        0
+    )  # assuming you have at least one GPU
     print(f"Current GPU: {current_gpu}")
 
     # Check if PyTorch is currently using GPU
@@ -87,7 +91,9 @@ else:
 
 # dataset_train = LoadData.from_molecule_pairs_to_dataset(m_train)
 dataset_test = LoadDataUnique.from_molecule_pairs_to_dataset(m_test)
-dataloader_test = DataLoader(dataset_test, batch_size=config.BATCH_SIZE, shuffle=False)
+dataloader_test = DataLoader(
+    dataset_test, batch_size=config.BATCH_SIZE, shuffle=False
+)
 
 # Testinbest_model = Embedder.load_from_checkpoint(checkpoint_callback.best_model_path, d_model=64, n_layers=2)
 trainer = pl.Trainer(max_epochs=2, enable_progress_bar=enable_progress_bar)
@@ -139,17 +145,18 @@ plt.grid()
 plt.savefig(fig_path)
 
 # hexbin plot
-import numpy as np
-import seaborn as sns
-
 print(f"Number of test samples: {len(y)}")
 sns.set_theme(style="ticks")
-plot = sns.jointplot(x=x, y=y, kind="hex", color="#4CB391", joint_kws=dict(alpha=1))
+plot = sns.jointplot(
+    x=x, y=y, kind="hex", color="#4CB391", joint_kws=dict(alpha=1)
+)
 # Set x and y labels
 plot.set_axis_labels("Tanimoto similarity", "Model prediction", fontsize=12)
 plt.savefig(config.CHECKPOINT_DIR + f"hexbin_plot_{config.MODEL_CODE}.png")
 
 
 # comparison with
-DetSimilarity.compute_all_scores(m_test, model_file=best_model_path, config=config)
+DetSimilarity.compute_all_scores(
+    m_test, model_file=best_model_path, config=config
+)
 # Plotting.plot_similarity_graphs(similarities, similarities_tanimoto, config=config)

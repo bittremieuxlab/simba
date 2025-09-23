@@ -1,7 +1,8 @@
 import dill
+
+from simba.config import Config
 from simba.sanity_checks import SanityChecks
 from simba.train_utils import TrainUtils
-from simba.config import Config
 
 config = Config()
 
@@ -88,9 +89,11 @@ molecule_pairs_val.indexes_tani = molecule_pairs_val.indexes_tani[
 molecule_pairs_test.indexes_tani = molecule_pairs_test.indexes_tani[
     molecule_pairs_test.indexes_tani[:, 2] <= 1
 ]
-uniformed_molecule_pairs_test.indexes_tani = uniformed_molecule_pairs_test.indexes_tani[
-    uniformed_molecule_pairs_test.indexes_tani[:, 2] <= 1
-]
+uniformed_molecule_pairs_test.indexes_tani = (
+    uniformed_molecule_pairs_test.indexes_tani[
+        uniformed_molecule_pairs_test.indexes_tani[:, 2] <= 1
+    ]
+)
 
 write_data(
     dataset_path_out,
@@ -106,4 +109,6 @@ print("saved")
 print(f"Number of pairs saved for dataset: {len(molecule_pairs_train)}")
 print(f"Number of pairs saved for dataset: {len(molecule_pairs_val)}")
 print(f"Number of pairs saved for dataset: {len(molecule_pairs_test)}")
-print(f"Number of pairs for uniform test: {len(uniformed_molecule_pairs_test)}")
+print(
+    f"Number of pairs for uniform test: {len(uniformed_molecule_pairs_test)}"
+)

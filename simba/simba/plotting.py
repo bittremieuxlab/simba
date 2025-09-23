@@ -1,7 +1,7 @@
+import matplotlib.pyplot as plt
+import numpy as np
 import seaborn as sns
 from sklearn.metrics import confusion_matrix, accuracy_score
-import numpy as np
-import matplotlib.pyplot as plt
 
 
 class Plotting:
@@ -13,7 +13,7 @@ class Plotting:
         threshold_mces=20,
     ):
 
-        flat_pred_test2= np.round(flat_pred_test2)
+        flat_pred_test2 = np.round(flat_pred_test2)
         if remove_threshold_values:
             x = similarities_test2[similarities_test2 != threshold_mces]
             y = flat_pred_test2[similarities_test2 != threshold_mces]
@@ -32,30 +32,37 @@ class Plotting:
         # Set x-axis limits
         plot.ax_joint.set_ylim(0, 40)
 
-    def plot_cm(true, preds, config=None, file_name="cm.png", normalize_per_row=True, inverse_labels=True, save_fig=False):
+    def plot_cm(
+        true,
+        preds,
+        config=None,
+        file_name="cm.png",
+        normalize_per_row=True,
+        inverse_labels=True,
+        save_fig=False,
+    ):
 
         # reverse the labels only for displaying:
-        true= np.array(true)
-        preds= np.array(preds)
+        true = np.array(true)
+        preds = np.array(preds)
 
         if inverse_labels:
-            true = 5-np.reshape(true,-1)
-            preds = 5-np.reshape(preds,-1)
-
+            true = 5 - np.reshape(true, -1)
+            preds = 5 - np.reshape(preds, -1)
 
         # Compute the confusion matrix and accuracy
         cm = confusion_matrix(true, preds)
-        print('Confusion matrix per sample:')
+        print("Confusion matrix per sample:")
         print(cm)
         accuracy = accuracy_score(true, preds)
         print("Accuracy:", accuracy)
 
         # Normalize the confusion matrix by the number of true instances per class
-        #cm_normalized = cm.astype("float") / cm.sum(axis=0)[:, np.newaxis]
+        # cm_normalized = cm.astype("float") / cm.sum(axis=0)[:, np.newaxis]
         if normalize_per_row:
             cm_normalized = cm.astype("float") / cm.sum(axis=1)[:, np.newaxis]
         else:
-            cm_normalized = cm.astype("float") /cm.sum()
+            cm_normalized = cm.astype("float") / cm.sum()
 
         print(cm_normalized)
         # Create the plot

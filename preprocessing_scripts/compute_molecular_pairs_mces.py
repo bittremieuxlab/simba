@@ -1,21 +1,21 @@
+import os
+import pickle
+import random
+import sys
+from datetime import datetime
+
 import dill
+import numpy as np
 
 # from simba.load_data import LoadData
 from sklearn.model_selection import train_test_split
-from simba.train_utils import TrainUtils
-from simba.preprocessor import Preprocessor
-import pickle
-import sys
-from simba.config import Config
-from simba.parser import Parser
-from datetime import datetime
-from simba.loader_saver import LoaderSaver
-import pickle
-import numpy as np
-from simba.mces.mces_computation import MCES
-import random
-import os
 
+from simba.config import Config
+from simba.loader_saver import LoaderSaver
+from simba.mces.mces_computation import MCES
+from simba.parser import Parser
+from simba.preprocessor import Preprocessor
+from simba.train_utils import TrainUtils
 
 # Get the current date and time
 print("Initiating molecular pair script ...")
@@ -40,7 +40,9 @@ output_pairs_file = config.PREPROCESSING_DIR + config.PREPROCESSING_PICKLE_FILE
 output_np_indexes_train = (
     config.PREPROCESSING_DIR + f"indexes_tani_mces_train{subfix}.npy"
 )
-output_np_indexes_val = config.PREPROCESSING_DIR + f"indexes_tani_mces_val{subfix}.npy"
+output_np_indexes_val = (
+    config.PREPROCESSING_DIR + f"indexes_tani_mces_val{subfix}.npy"
+)
 output_np_indexes_test = (
     config.PREPROCESSING_DIR + f"indexes_tani_mces_test{subfix}.npy"
 )

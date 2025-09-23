@@ -1,7 +1,9 @@
-from simba.mces.mces_computation import MCES
 import numpy as np
+
 from simba.edit_distance.edit_distance import EditDistance
+from simba.mces.mces_computation import MCES
 from simba.tanimoto import Tanimoto
+
 
 class GroundTruth:
 
@@ -41,7 +43,8 @@ class GroundTruth:
         for i, s0 in enumerate(smiles0):
             for j, s1 in enumerate(smiles1):
                 ground_tanimoto[i, j] = Tanimoto.compute_tanimoto_from_smiles(
-                    s0, s1, 
+                    s0,
+                    s1,
                 )
 
         return ground_tanimoto

@@ -1,7 +1,7 @@
-from spectrum_utils.spectrum import MsmsSpectrum
-import numpy as np
 from typing import Iterable, Union
+
 import numpy as np
+from spectrum_utils.spectrum import MsmsSpectrum
 
 
 class SpectrumExt(MsmsSpectrum):

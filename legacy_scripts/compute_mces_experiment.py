@@ -1,6 +1,5 @@
 from myopic_mces import MCES
 
-
 # s0= r'CC1OC(OC(=O)C23CCC(C)(C)CC2C2=CCC4C5(C)CCC(OC6OC(C(=O)O)C(O)C(OC7OCC(O)C(O)C7O)C6OC6OC(CO)C(O)C(O)C6O)C(C)(C=O)C5CCC4(C)C2(C)CC3O)C(OC2OC(C)C(OC3OCC(O)C(OC4OCC(O)(CO)C4O)C3O)C(OC3OC(CO)C(O)C(O)C3O)C2O)C(O)C1O'
 # s1=r'CC(=O)OC1C(C)OC(OC2C(C)OC(OC(=O)C34CCC(C)(C)CC3C3=CCC5C6(C)CCC(OC7OC(C(=O)O)C(O)C(OC8OCC(O)C(O)C8O)C7OC7OC(CO)C(O)C(O)C7O)C(C)(C=O)C6CCC5(C)C3(C)CC4)C(OC3OC(C)C(O)C(OC4OCC(O)C(OC5OCC(O)C(O)C5O)C4O)C3O)C2O)C(O)C1OC(C)=O'
 # s0=r'COC(=O)c1cc(S(C)(=O)=O)ccc1[N+](=O)[O-]'
@@ -11,11 +10,12 @@ print("Starting computation:")
 
 import time
 
-
-import pandas as pd
 import numpy as np
+import pandas as pd
 
-df = pd.read_csv("/scratch/antwerpen/209/vsc20939/data/smiles_train_16012025.csv")
+df = pd.read_csv(
+    "/scratch/antwerpen/209/vsc20939/data/smiles_train_16012025.csv"
+)
 
 smiles = df["Smiles"].values
 
@@ -69,6 +69,8 @@ distance_total = np.array(distance_total)
 print(f"distances: {distance_total}")
 print(f"all samples: {distance_total.shape[0]} ")
 print(f" less than 20: {distance_total[distance_total<20].shape[0]}")
-print(f"Percentage of   indetermined samples: {100*np.isnan(distance_total).sum()/N}")
+print(
+    f"Percentage of   indetermined samples: {100*np.isnan(distance_total).sum()/N}"
+)
 
 print(f"Unique values of distance_total: {np.unique(distance_total)}")

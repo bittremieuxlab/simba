@@ -1,11 +1,10 @@
 import gensim
 import matchms.filtering as msfilters
-
+from matchms import calculate_scores
+from matchms.filtering import add_fingerprint
+from matchms.similarity import FingerprintSimilarity
 from spec2vec import Spec2Vec
 from tqdm import tqdm
-from matchms import calculate_scores
-from matchms.similarity import FingerprintSimilarity
-from matchms.filtering import add_fingerprint
 
 
 class Spec2VecComparison:

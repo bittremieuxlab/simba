@@ -1,8 +1,9 @@
+import random
+
 import torch
 from torch.utils.data import Dataset
-import random
+
 from simba.pretraining_maldi.self_supervision import SelfSupervision
-import random
 
 
 class CustomDatasetMaldi(Dataset):

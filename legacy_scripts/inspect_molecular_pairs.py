@@ -1,4 +1,5 @@
 import dill
+
 from simba.sanity_checks import SanityChecks
 from simba.train_utils import TrainUtils
 
@@ -22,7 +23,9 @@ uniformed_molecule_pairs_test = dataset["uniformed_molecule_pairs_test"]
 print(f"Number of pairs for train: {len(molecule_pairs_train)}")
 print(f"Number of pairs for val: {len(molecule_pairs_val)}")
 print(f"Number of pairs for test: {len(molecule_pairs_test)}")
-print(f"Number of pairs for uniform test: {len(uniformed_molecule_pairs_test)}")
+print(
+    f"Number of pairs for uniform test: {len(uniformed_molecule_pairs_test)}"
+)
 
 
 sanity_check_ids = SanityChecks.sanity_checks_ids(

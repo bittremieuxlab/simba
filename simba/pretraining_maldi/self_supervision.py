@@ -1,6 +1,7 @@
-import numpy as np
-import random
 import math
+import random
+
+import numpy as np
 
 
 class SelfSupervision:

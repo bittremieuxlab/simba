@@ -1,9 +1,11 @@
+import random
+
+import numpy as np
 import torch
 from torch.utils.data import Dataset
-import random
-from simba.transformers.augmentation import Augmentation
-import numpy as np
 from tqdm import tqdm
+
+from simba.transformers.augmentation import Augmentation
 
 
 class CustomDatasetMultitasking(Dataset):
@@ -173,22 +175,18 @@ class CustomDatasetMultitasking(Dataset):
 
         if self.use_fingerprints:
 
-            ind= int(indexes_unique_0[0])
+            ind = int(indexes_unique_0[0])
 
             if self.training:
-                if (ind%2)==0:
-                    sample["fingerprint_0"] = self.fingerprint_0[
-                        ind
-                    ].astype(np.float32)
+                if (ind % 2) == 0:
+                    sample["fingerprint_0"] = self.fingerprint_0[ind].astype(np.float32)
                 else:
                     # return 0s
-                    sample["fingerprint_0"] = 0*self.fingerprint_0[
-                        ind
-                    ].astype(np.float32)
+                    sample["fingerprint_0"] = 0 * self.fingerprint_0[ind].astype(
+                        np.float32
+                    )
             else:
-                sample["fingerprint_0"] = self.fingerprint_0[
-                        ind
-                    ].astype(np.float32)
+                sample["fingerprint_0"] = self.fingerprint_0[ind].astype(np.float32)
 
         # print(sample["mz_0"]).shape
         # print(sample["intensity_0"].shape)

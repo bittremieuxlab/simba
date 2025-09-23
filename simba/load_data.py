@@ -1,24 +1,23 @@
 import logging
+import pickle
 from typing import Dict, IO, Iterator, Sequence, Union
 
-from pyteomics import mgf
-import pyteomics
-from spectrum_utils.spectrum import MsmsSpectrum
-from simba.spectrum_ext import SpectrumExt
 import matplotlib.pyplot as plt
-import spectrum_utils.plot as sup
-import spectrum_utils as su
 import numpy as np
-from simba.config import Config
-from simba.preprocessing_utils import PreprocessingUtils
-from simba.murcko_scaffold import MurckoScaffold
-
+import pyteomics
+import spectrum_utils as su
+import spectrum_utils.plot as sup
+from pyteomics import mgf
+from spectrum_utils.spectrum import MsmsSpectrum
 from tqdm import tqdm
 
+from simba.config import Config
+from simba.murcko_scaffold import MurckoScaffold
 from simba.nist_loader import NistLoader
+from simba.preprocessing_utils import PreprocessingUtils
 from simba.preprocessor import Preprocessor
+from simba.spectrum_ext import SpectrumExt
 from simba.utils import spectrum_hash
-import pickle
 
 
 class LoadData:

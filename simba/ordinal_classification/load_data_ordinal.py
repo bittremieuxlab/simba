@@ -1,10 +1,12 @@
-from simba.transformers.CustomDatasetUnique import CustomDatasetUnique
-import numpy as np
-from simba.preprocessor import Preprocessor
-from tqdm import tqdm
-from simba.molecule_pairs_opt import MoleculePairsOpt
 import copy
+
+import numpy as np
+from tqdm import tqdm
+
+from simba.molecule_pairs_opt import MoleculePairsOpt
+from simba.preprocessor import Preprocessor
 from simba.ordinal_classification.ordinal_classification import OrdinalClassification
+from simba.transformers.CustomDatasetUnique import CustomDatasetUnique
 
 
 class LoadDataOrdinal:

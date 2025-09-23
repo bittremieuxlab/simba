@@ -1,22 +1,25 @@
 ## Parameters
-data_folder="/scratch/antwerpen/209/vsc20939/data/"
-preprocessing_folder =  data_folder + "preprocessing_ed_mces_20250123/"
-molecular_file= preprocessing_folder + "edit_distance_neurips_nist_exhaustive.pkl"
+data_folder = "/scratch/antwerpen/209/vsc20939/data/"
+preprocessing_folder = data_folder + "preprocessing_ed_mces_20250123/"
+molecular_file = (
+    preprocessing_folder + "edit_distance_neurips_nist_exhaustive.pkl"
+)
 
 new_preprocessing_folder = data_folder + "preprocessing_massspecgym_20250415/"
-molecular_file_output =   new_preprocessing_folder +  'mapping.pkl'
-USE_TRAINING=True
+molecular_file_output = new_preprocessing_folder + "mapping.pkl"
+USE_TRAINING = True
 
-
- 
 
 # In[283]:
 import pickle
 import sys
-import simba
+
 import numpy as np
 import pandas as pd
-sys.modules['src']=simba
+
+import simba
+
+sys.modules["src"] = simba
 
 
 # In[284]:
@@ -25,20 +28,18 @@ sys.modules['src']=simba
 from simba.config import Config
 from simba.load_mces.load_mces import LoadMCES
 
-
 # In[285]:
 
 
-config=Config()
-
+config = Config()
 
 
 config.PREPROCESSING_DIR_TRAIN = preprocessing_folder
 # In[287]:
 
 
-with open(molecular_file, 'rb') as f:
-    dataset= pickle.load(f)
+with open(molecular_file, "rb") as f:
+    dataset = pickle.load(f)
 
 
 # In[288]:
@@ -54,8 +55,8 @@ uniformed_molecule_pairs_test = dataset["uniformed_molecule_pairs_test"]
 
 
 ## Load molecular file
-## Based on the pairs numpy array, filter only those pairs where both molecules are from massspecgym 
-## Change the indexes to the new mapping 
+## Based on the pairs numpy array, filter only those pairs where both molecules are from massspecgym
+## Change the indexes to the new mapping
 
 
 # In[290]:
@@ -78,52 +79,59 @@ def remove_duplicates_array(array):
     return result
 
 
-
 # In[293]:
 
 
-from simba.filtering_massspecgym.filtering_massspecgym import FilteringMassSpecGym
-
+from simba.filtering_massspecgym.filtering_massspecgym import (
+    FilteringMassSpecGym,
+)
 
 # In[304]:
 
 # In[ ]:
 
 if USE_TRAINING:
-    molecule_pairs_train_filtered, indexes_tani_multitasking_train_filtered=FilteringMassSpecGym.filter_massspecgym(
-                                    molecule_pairs_train, 
-                                    path_pairs=config.PREPROCESSING_DIR_TRAIN , 
-                                    config=config,
-                                    prefix="ed_mces_indexes_tani_incremental_train")
+    molecule_pairs_train_filtered, indexes_tani_multitasking_train_filtered = (
+        FilteringMassSpecGym.filter_massspecgym(
+            molecule_pairs_train,
+            path_pairs=config.PREPROCESSING_DIR_TRAIN,
+            config=config,
+            prefix="ed_mces_indexes_tani_incremental_train",
+        )
+    )
 
 else:
-    molecule_pairs_train_filtered=molecule_pairs_train
+    molecule_pairs_train_filtered = molecule_pairs_train
     indexes_tani_multitasking_train_filtered = indexes_tani_multitasking_train
 # In[295]:
 
 
-molecule_pairs_test_filtered, indexes_tani_multitasking_test_filtered=FilteringMassSpecGym.filter_massspecgym(
-                                molecule_pairs_test, 
-                                path_pairs=config.PREPROCESSING_DIR_TRAIN , 
-                                config=config,
-                                prefix="ed_mces_indexes_tani_incremental_test")
+molecule_pairs_test_filtered, indexes_tani_multitasking_test_filtered = (
+    FilteringMassSpecGym.filter_massspecgym(
+        molecule_pairs_test,
+        path_pairs=config.PREPROCESSING_DIR_TRAIN,
+        config=config,
+        prefix="ed_mces_indexes_tani_incremental_test",
+    )
+)
 
 
 # In[ ]:
 
 
-molecule_pairs_val_filtered, indexes_tani_multitasking_val_filtered=FilteringMassSpecGym.filter_massspecgym(
-                                molecule_pairs_val, 
-                                path_pairs=config.PREPROCESSING_DIR_TRAIN , 
-                                config=config,
-                                prefix="ed_mces_indexes_tani_incremental_val")
-
-
-
+molecule_pairs_val_filtered, indexes_tani_multitasking_val_filtered = (
+    FilteringMassSpecGym.filter_massspecgym(
+        molecule_pairs_val,
+        path_pairs=config.PREPROCESSING_DIR_TRAIN,
+        config=config,
+        prefix="ed_mces_indexes_tani_incremental_val",
+    )
+)
 
 
 import os
-if not(os.path.exists(new_preprocessing_folder)):
+
+if not (os.path.exists(new_preprocessing_folder)):
     os.mkdir(new_preprocessing_folder)
 
 
@@ -155,6 +163,7 @@ def write_data(
 
 # ## Write data
 
+
 # In[297]:
 def save_array_in_chunks(array, output_folder, base_filename, n_parts=10):
     """
@@ -182,38 +191,37 @@ save_array_in_chunks(
     indexes_tani_multitasking_train_filtered,
     output_folder=new_preprocessing_folder,
     base_filename="ed_mces_indexes_tani_incremental_train",
-    n_parts=10
+    n_parts=10,
 )
 
 save_array_in_chunks(
     indexes_tani_multitasking_val_filtered,
     output_folder=new_preprocessing_folder,
     base_filename="ed_mces_indexes_tani_incremental_val",
-    n_parts=10
+    n_parts=10,
 )
 
 save_array_in_chunks(
     indexes_tani_multitasking_test_filtered,
     output_folder=new_preprocessing_folder,
     base_filename="ed_mces_indexes_tani_incremental_test",
-    n_parts=10
+    n_parts=10,
 )
 
 
 # In[301]:
 
 
-write_data(molecular_file_output,  all_spectrums_train=None,
+write_data(
+    molecular_file_output,
+    all_spectrums_train=None,
     all_spectrums_val=None,
     all_spectrums_test=None,
     molecule_pairs_train=molecule_pairs_train_filtered,
     molecule_pairs_val=molecule_pairs_val_filtered,
     molecule_pairs_test=molecule_pairs_test_filtered,
-    uniformed_molecule_pairs_test=None,)
+    uniformed_molecule_pairs_test=None,
+)
 
 
 # In[ ]:
-
-
-
-

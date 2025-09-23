@@ -8,7 +8,9 @@ class OrdinalClassification:
         """
         convert a float between 0 and 1 to an integer value between 0 and N_max
         """
-        return OrdinalClassification.custom_random(array * (N_classes - 1)).astype(int)
+        return OrdinalClassification.custom_random(
+            array * (N_classes - 1)
+        ).astype(int)
 
     @staticmethod
     def custom_random(array):

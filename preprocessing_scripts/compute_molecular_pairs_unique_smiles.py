@@ -1,17 +1,18 @@
+import pickle
+import sys
+from datetime import datetime
+
 import dill
+import numpy as np
 
 # from simba.load_data import LoadData
 from sklearn.model_selection import train_test_split
-from simba.train_utils import TrainUtils
-from simba.preprocessor import Preprocessor
-import pickle
-import sys
+
 from simba.config import Config
-from simba.parser import Parser
-from datetime import datetime
 from simba.loader_saver import LoaderSaver
-import pickle
-import numpy as np
+from simba.parser import Parser
+from simba.preprocessor import Preprocessor
+from simba.train_utils import TrainUtils
 
 # Get the current date and time
 print("Initiating molecular pair script ...")
@@ -21,7 +22,9 @@ print(f"Current time: {datetime.now()}")
 config = Config()
 parser = Parser()
 config = parser.update_config(config)
-gnps_path = r"/scratch/antwerpen/209/vsc20939/data/ALL_GNPS_NO_PROPOGATED_wb.mgf"
+gnps_path = (
+    r"/scratch/antwerpen/209/vsc20939/data/ALL_GNPS_NO_PROPOGATED_wb.mgf"
+)
 nist_path = r"/scratch/antwerpen/209/vsc20939/data/hr_msms_nist_all.MSP"
 
 # pickle files

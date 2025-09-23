@@ -1,3 +1,5 @@
+*.egg-info/
+
 *.h5
 
 *.pyc
@@ -22,3 +24,5 @@ model_checkpoints*
 .ipynb_checkpoints/
 
 notebooks_local/
+
+output_dir*

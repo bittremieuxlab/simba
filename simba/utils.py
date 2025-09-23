@@ -1,6 +1,7 @@
+import hashlib
+
 import numpy as np
 import spectrum_utils.spectrum as sus
-import hashlib
 
 
 def spectrum_hash(

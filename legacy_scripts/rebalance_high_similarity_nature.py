@@ -2,12 +2,14 @@
 import os
 
 os.chdir("/scratch/antwerpen/209/vsc20939/metabolomics")
-import dill
-from simba.config import Config
 import os
-from simba.parser import Parser
-from simba.molecule_pairs_opt import MoleculePairsOpt
+
+import dill
 import numpy as np
+
+from simba.config import Config
+from simba.molecule_pairs_opt import MoleculePairsOpt
+from simba.parser import Parser
 
 ####
 ### THIS SCRIPT INTENDS TO GET LOW RANGE TRAINING DATA THAT IS SIMILAR TO HIGH SIMILARITY PAIRS
@@ -70,8 +72,12 @@ for k in ["molecule_pairs_train", "molecule_pairs_val"]:
     )
 
     # matched_data_indexes = [True if ((row[0] in high_range_indexes)or(row[1] in high_range_indexes)) else False for row in low_train_data ]
-    matched_data_indexes_1 = (np.isin(low_train_data[:, 0], list(high_range_indexes)),)
-    matched_data_indexes_2 = (np.isin(low_train_data[:, 1], list(high_range_indexes)),)
+    matched_data_indexes_1 = (
+        np.isin(low_train_data[:, 0], list(high_range_indexes)),
+    )
+    matched_data_indexes_2 = (
+        np.isin(low_train_data[:, 1], list(high_range_indexes)),
+    )
     matched_data_1 = low_train_data[matched_data_indexes_1]
     matched_data_2 = low_train_data[matched_data_indexes_2]
     matched_data = np.concatenate((matched_data_1, matched_data_2), axis=0)

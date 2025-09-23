@@ -1,24 +1,26 @@
-from itertools import combinations
-from tqdm import tqdm
-from simba.tanimoto import Tanimoto
-import numpy as np
-import random
-from simba.molecule_pair import MoleculePair
-from simba.preprocessor import Preprocessor
-from simba.preprocessing_utils import PreprocessingUtils
-from simba.config import Config
+import concurrent.futures
 import functools
 import random
-from simba.molecular_pairs_set import MolecularPairsSet
-import concurrent.futures
 from datetime import datetime
-from rdkit import Chem
-from itertools import product
-from numba import njit
+from itertools import combinations, product
+
+import numpy as np
 import pandas as pd
-from simba.spectrum_ext import SpectrumExt
+from numba import njit
+from rdkit import Chem
+from tqdm import tqdm
+
+from simba.config import Config
+from simba.molecular_pairs_set import MolecularPairsSet
+from simba.molecule_pair import MoleculePair
 from simba.molecule_pairs_opt import MoleculePairsOpt
-from simba.ordinal_classification.ordinal_classification import OrdinalClassification
+from simba.ordinal_classification.ordinal_classification import (
+    OrdinalClassification,
+)
+from simba.preprocessing_utils import PreprocessingUtils
+from simba.preprocessor import Preprocessor
+from simba.spectrum_ext import SpectrumExt
+from simba.tanimoto import Tanimoto
 
 
 class TrainUtils:
@@ -76,9 +78,13 @@ class TrainUtils:
         test_bms = unique_values[val_index:]
 
         # get data
-        spectrums_train = [s for s in spectrums if s.murcko_scaffold in train_bms]
+        spectrums_train = [
+            s for s in spectrums if s.murcko_scaffold in train_bms
+        ]
         spectrums_val = [s for s in spectrums if s.murcko_scaffold in val_bms]
-        spectrums_test = [s for s in spectrums if s.murcko_scaffold in test_bms]
+        spectrums_test = [
+            s for s in spectrums if s.murcko_scaffold in test_bms
+        ]
         return spectrums_train, spectrums_val, spectrums_test
 
     @staticmethod
@@ -104,7 +110,9 @@ class TrainUtils:
         # fingerprints = [Chem.RDKFingerprint(m) if m is not None else None for m in mols ]
 
         for i in range(0, len(all_spectrums)):
-            fp = Tanimoto.compute_fingerprint(all_spectrums[i].params["smiles"])
+            fp = Tanimoto.compute_fingerprint(
+                all_spectrums[i].params["smiles"]
+            )
             fingerprints.append(fp)
         return fingerprints
 
@@ -124,14 +132,20 @@ class TrainUtils:
         df["index"] = [i for i, s in enumerate(all_spectrums)]
         for i, s in tqdm(enumerate(all_spectrums)):
             # compute max and min
-            diff_total_max = total_mz - (all_spectrums[i].precursor_mz + max_mass_diff)
-            diff_total_min = total_mz - (all_spectrums[i].precursor_mz + min_mass_diff)
+            diff_total_max = total_mz - (
+                all_spectrums[i].precursor_mz + max_mass_diff
+            )
+            diff_total_min = total_mz - (
+                all_spectrums[i].precursor_mz + min_mass_diff
+            )
             min_mz_index = np.where((diff_total_min > 0))[0]
             max_mz_index = np.where((diff_total_max > 0))[0]  # get list
 
             min_mz_index = min_mz_index[0] if len(min_mz_index) > 0 else 0
             max_mz_index = (
-                max_mz_index[0] if len(max_mz_index) > 0 else len(all_spectrums) - 1
+                max_mz_index[0]
+                if len(max_mz_index) > 0
+                else len(all_spectrums) - 1
             )
             df.loc[i, "min_index"] = min_mz_index
             df.loc[i, "max_index"] = max_mz_index
@@ -162,13 +176,16 @@ class TrainUtils:
         unique_smiles = np.unique(canon_smiles)
         # indexes
         table_smiles = {
-            s: [i for i, c in enumerate(canon_smiles) if c == s] for s in unique_smiles
+            s: [i for i, c in enumerate(canon_smiles) if c == s]
+            for s in unique_smiles
         }
 
         df_smiles = pd.DataFrame()
         df_smiles["canon_smiles"] = list(unique_smiles)
         df_smiles["indexes"] = [table_smiles[k] for k in unique_smiles]
-        df_smiles["number_indexes"] = [len(table_smiles[k]) for k in unique_smiles]
+        df_smiles["number_indexes"] = [
+            len(table_smiles[k]) for k in unique_smiles
+        ]
 
         indexes_original = [canon_smiles.index(u_s) for u_s in unique_smiles]
 
@@ -178,7 +195,9 @@ class TrainUtils:
         df_smiles["inchi"] = [all_inchi[u_s] for u_s in indexes_original]
         df_smiles["ionmode"] = [all_ionmode[u_s] for u_s in indexes_original]
         df_smiles["bms"] = [all_bms[u_s] for u_s in indexes_original]
-        df_smiles["superclass"] = [all_superclass[u_s] for u_s in indexes_original]
+        df_smiles["superclass"] = [
+            all_superclass[u_s] for u_s in indexes_original
+        ]
         df_smiles["classe"] = [all_classe[u_s] for u_s in indexes_original]
         df_smiles["subclass"] = [all_subclass[u_s] for u_s in indexes_original]
 
@@ -194,7 +213,9 @@ class TrainUtils:
         canon_smiles_not_ordered = [s.smiles for s in spectrums_unique]
         canon_smiles_ordered = [s.smiles for s in spectrums_unique_ordered]
 
-        new_indexes = [canon_smiles_ordered.index(s) for s in canon_smiles_not_ordered]
+        new_indexes = [
+            canon_smiles_ordered.index(s) for s in canon_smiles_not_ordered
+        ]
         df_smiles.set_index(pd.Index(new_indexes), inplace=True)
         df_smiles = df_smiles.sort_index()
         return spectrums_unique_ordered, df_smiles
@@ -250,7 +271,9 @@ class TrainUtils:
             else TrainUtils.compute_all_tanimoto_results
         )
 
-        spectrums_unique, df_smiles = TrainUtils.get_unique_spectra(spectrums_original)
+        spectrums_unique, df_smiles = TrainUtils.get_unique_spectra(
+            spectrums_original
+        )
 
         molecule_pairs_unique = function_tanimoto(
             spectrums_unique,
@@ -361,7 +384,9 @@ class TrainUtils:
                         progress_bar.update(1)
 
         # avoid duplicates:
-        print(f"Number of effective pairs originally computed: {indexes_np.shape[0]} ")
+        print(
+            f"Number of effective pairs originally computed: {indexes_np.shape[0]} "
+        )
         indexes_np = np.unique(indexes_np, axis=0)
 
         # remove reordered
@@ -411,7 +436,9 @@ class TrainUtils:
         print("Computing all the tanimoto results")
         if use_tqdm:
             # Initialize tqdm with the total number of iterations
-            progress_bar = tqdm(total=exhaustive_combinations, desc="Processing")
+            progress_bar = tqdm(
+                total=exhaustive_combinations, desc="Processing"
+            )
             # progress_bar = tqdm(total=len(all_spectrums), desc="Processing")
         # Compute all the fingerprints:
         print("Compute all the fingerprints")
@@ -473,7 +500,9 @@ class TrainUtils:
         return molecular_pair_set
 
     @staticmethod
-    def count_ranges(list_elements, number_bins=5, bin_sim_1=False, max_value=1):
+    def count_ranges(
+        list_elements, number_bins=5, bin_sim_1=False, max_value=1
+    ):
         # count the instances in the  bins from 0 to 1
         # Group the values into the corresponding bins, adding one for sim=1
         counts = []
@@ -570,6 +599,8 @@ class TrainUtils:
         number_bins,
         bin_sim_1=False,  # if you want to try sim=1 as a different bin
     ):
+        """
+        divide data into bins using ordinal classification approach"""
         # Initialize lists to store values for each bin
         binned_molecule_pairs = []
 
@@ -657,9 +688,13 @@ class TrainUtils:
         for target_molecule_pairs in binned_molecule_pairs:
 
             sampled_rows = np.random.choice(
-                target_molecule_pairs.indexes_tani.shape[0], size=min_bin, replace=False
+                target_molecule_pairs.indexes_tani.shape[0],
+                size=min_bin,
+                replace=False,
             )
-            sampled_indexes_tani = target_molecule_pairs.indexes_tani[sampled_rows]
+            sampled_indexes_tani = target_molecule_pairs.indexes_tani[
+                sampled_rows
+            ]
 
             ## check if there are tanimotos as second similarity metric appended
             if target_molecule_pairs.tanimotos is not None:
@@ -679,7 +714,9 @@ class TrainUtils:
             if uniform_molecule_pairs is None:
                 uniform_molecule_pairs = sampled_molecule_pairs
             else:
-                uniform_molecule_pairs = uniform_molecule_pairs + sampled_molecule_pairs
+                uniform_molecule_pairs = (
+                    uniform_molecule_pairs + sampled_molecule_pairs
+                )
 
         # insert spectrum vectors
         # uniform_molecule_pairs = TrainUtils.insert_spectrum_vector_into_molecule_pairs(uniform_molecule_pairs)
@@ -706,5 +743,8 @@ class TrainUtils:
         """
         get global variables from a spectrum such as precursor mass
         """
-        list_global_variables = [spectrum.precursor_mz, spectrum.precursor_charge]
+        list_global_variables = [
+            spectrum.precursor_mz,
+            spectrum.precursor_charge,
+        ]
         return np.array(list_global_variables)

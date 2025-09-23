@@ -1,6 +1,7 @@
-from simba.transformers.embedder import Embedder
 import torch
 import torch.nn as nn
+
+from simba.transformers.embedder import Embedder
 
 
 class EmbedderClass(Embedder):
