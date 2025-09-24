@@ -6,6 +6,7 @@ channels:
   - conda-forge
   - defaults
 dependencies:
+  - python=3.11.7
   - jupyter=1.0.0
   - jupyter-lsp=2.2.0
   - jupyter_client=8.6.0
@@ -22,26 +23,26 @@ dependencies:
       - git+https://github.com/wfondrie/depthcharge.git@bd2861f#egg=depthcharge-ms
       - dill==0.3.8
       - gensim==4.3.2
-      - ipython==8.12.3
+      - ipython==8.20.0          
       - keras==2.15.0
       - lightning==2.1.4
-      - matchms==0.30.2
+      - matchms==0.24.1
       - matplotlib==3.7.2
       - ms2deepscore==2.5.0
       - msbuddy==0.3.12
       - myopic_mces==1.0.1
       - numba==0.57.1
-      - numpy==1.24.0
-      - pandas==2.3.2
-      - Pillow==11.3.0
+      - numpy==1.24.4
+      - pandas==2.2.0
+      - Pillow==10.2.0          
       - PubChemPy==1.0.4
       - PuLP==2.8.0
       - pyteomics==4.6.3
       - pytorch_lightning==2.1.4
       - rdkit==2023.9.4
-      - Requests==2.32.5
+      - Requests==2.32.3         
       - scikit_learn==1.4.0
-      - scipy==1.16.2
+      - scipy==1.10.1
       - seaborn==0.13.2
       - setuptools==68.2.2
       - shap==0.44.1
@@ -50,5 +51,4 @@ dependencies:
       - tensorflow_macos==2.15.0
       - torch==2.3.1
       - tqdm==4.66.4
-
 prefix: /Users/sebas/miniconda3/envs/simba_cleaned
