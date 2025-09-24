@@ -1,4 +1,4 @@
-name: simba
+name: simba_cleaned
 channels:
   - pytorch
   - anaconda
@@ -51,4 +51,4 @@ dependencies:
       - torch==2.3.1
       - tqdm==4.66.4
 
-prefix: /Users/sebas/miniconda3/envs/simba
+prefix: /Users/sebas/miniconda3/envs/simba_cleaned
