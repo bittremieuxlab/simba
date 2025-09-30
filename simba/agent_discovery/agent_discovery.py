@@ -260,6 +260,8 @@ def predict_subformulas_msms(
                 for sf in res.subform_list
             ]
 
+            # compute the neutral loss
+            
             summary.append({
                 "idx": int(i),
                 "mz_obs": float(mz_array[i]),
