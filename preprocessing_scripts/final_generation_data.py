@@ -50,6 +50,8 @@ parser.add_argument(f"--MAX_SPECTRA_VAL", type=int, default=100)
 parser.add_argument(f"--MAX_SPECTRA_TEST", type=int, default=100)
 parser.add_argument(f"--mapping_file_name", type=str, default=None)
 parser.add_argument(f"--PREPROCESSING_NUM_WORKERS", type=int, default=None)
+parser.add_argument(f"--VAL_SPLIT", type=float, default=0.1)
+parser.add_argument(f"--TEST_SPLIT", type=float, default=0.1)
 args = parser.parse_args()
 
 ## Parsing arguments
@@ -68,6 +70,8 @@ config.PREPROCESSING_NUM_WORKERS = args.PREPROCESSING_NUM_WORKERS
 MAX_SPECTRA_TRAIN = args.MAX_SPECTRA_TRAIN
 MAX_SPECTRA_VAL = args.MAX_SPECTRA_VAL
 MAX_SPECTRA_TEST = args.MAX_SPECTRA_TEST
+VAL_SPLIT = args.VAL_SPLIT
+TEST_SPLIT =args.TEST_SPLIT 
 
 if config.RANDOM_MCES_SAMPLING:
     subfix = ""
@@ -155,7 +159,7 @@ if __name__ == "__main__":
 
     print("Dividing between training, validation and test")
     all_spectrums_train, all_spectrums_val, all_spectrums_test = (
-        TrainUtils.train_val_test_split_bms(all_spectrums)
+        TrainUtils.train_val_test_split_bms(all_spectrums, val_split=VAL_SPLIT, test_split=TEST_SPLIT)
     )
 
     # In[12]:
