@@ -278,6 +278,7 @@ def predict_subformulas_msms(
                 for sf in res.subform_list
             ]
 
+            # compute the neutral loss
             summary.append(
                 {
                     "idx": int(i),

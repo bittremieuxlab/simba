@@ -46,11 +46,13 @@ def preprocess_data(array):
 parser = argparse.ArgumentParser(description="script.")
 parser.add_argument(f"--spectra_path", type=str, default=None)
 parser.add_argument(f"--workspace", type=str, default=None)
-parser.add_argument(f"--MAX_SPECTRA_TRAIN", type=int, default=100)
-parser.add_argument(f"--MAX_SPECTRA_VAL", type=int, default=100)
-parser.add_argument(f"--MAX_SPECTRA_TEST", type=int, default=100)
+parser.add_argument(f"--MAX_SPECTRA_TRAIN", type=int, default=10000000000)
+parser.add_argument(f"--MAX_SPECTRA_VAL", type=int, default=1000000000000)
+parser.add_argument(f"--MAX_SPECTRA_TEST", type=int, default=100000000000)
 parser.add_argument(f"--mapping_file_name", type=str, default=None)
 parser.add_argument(f"--PREPROCESSING_NUM_WORKERS", type=int, default=None)
+parser.add_argument(f"--VAL_SPLIT", type=float, default=0.1)
+parser.add_argument(f"--TEST_SPLIT", type=float, default=0.1)
 args = parser.parse_args()
 
 ## Parsing arguments
@@ -69,6 +71,8 @@ config.PREPROCESSING_NUM_WORKERS = args.PREPROCESSING_NUM_WORKERS
 MAX_SPECTRA_TRAIN = args.MAX_SPECTRA_TRAIN
 MAX_SPECTRA_VAL = args.MAX_SPECTRA_VAL
 MAX_SPECTRA_TEST = args.MAX_SPECTRA_TEST
+VAL_SPLIT = args.VAL_SPLIT
+TEST_SPLIT = args.TEST_SPLIT
 
 if config.RANDOM_MCES_SAMPLING:
     subfix = ""
@@ -158,7 +162,9 @@ if __name__ == "__main__":
     # In[11]:
 
     all_spectra_train, all_spectra_val, all_spectra_test = (
-        TrainUtils.train_val_test_split_bms(all_spectra)
+        TrainUtils.train_val_test_split_bms(
+            all_spectra, val_split=VAL_SPLIT, test_split=TEST_SPLIT
+        )
     )
     logger.info(
         f"Train: {len(all_spectra_train)}, Val: {len(all_spectra_val)}, Test: {len(all_spectra_test)}"
