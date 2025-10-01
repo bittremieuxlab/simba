@@ -3,6 +3,7 @@ import functools
 import random
 from datetime import datetime
 from itertools import combinations, product
+from typing import List, Tuple
 
 import numpy as np
 import pandas as pd
@@ -52,8 +53,29 @@ class TrainUtils:
         return new_molecule_pairs
 
     @staticmethod
-    def train_val_test_split_bms(spectrums, val_split=0.1, test_split=0.1):
+    def train_val_test_split_bms(
+        spectrums: List[SpectrumExt],
+        val_split: float = 0.1,
+        test_split: float = 0.1,
+    ) -> Tuple[List[SpectrumExt], List[SpectrumExt], List[SpectrumExt]]:
+        """
+        Split data into train, validation, and test sets based on Murcko scaffolds
+        ensuring that scaffolds do not overlap between sets.
 
+        Parameters
+        ----------
+        spectrums: List[SpectrumExt]
+            List of SpectrumExt objects to be split.
+        val_split: float
+            Proportion of data to be used for validation.
+        test_split: float
+            Proportion of data to be used for testing.
+
+        Returns
+        -------
+        Tuple[List[SpectrumExt], List[SpectrumExt], List[SpectrumExt]]
+            Three lists containing the training, validation, and test spectra.
+        """
         # get the percentage of training data
         train_split = 1 - val_split - test_split
         # get the murcko scaffold

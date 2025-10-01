@@ -1,11 +1,12 @@
 import copy
 import functools
 import json
-import requests
 from itertools import groupby
+from typing import Optional, Tuple
 
 import numpy as np
 import pandas as pd
+import requests
 from rdkit import Chem, DataStructs, RDLogger
 
 
@@ -25,7 +26,9 @@ class PreprocessingUtils:
 
         # Group the elements based on the 'x' property
         spectrums_by_charge = {}
-        for key, group in groupby(spectrums_new, key=lambda a: a.precursor_charge):
+        for key, group in groupby(
+            spectrums_new, key=lambda a: a.precursor_charge
+        ):
             spectrums_by_charge[key] = list(group)
         return spectrums_by_charge
 
@@ -43,9 +46,13 @@ class PreprocessingUtils:
         for charge in spectrums_by_charge:
 
             # order by mz
-            mzs = np.array([s.precursor_mz for s in spectrums_by_charge[charge]])
+            mzs = np.array(
+                [s.precursor_mz for s in spectrums_by_charge[charge]]
+            )
             ordered_indexes = np.argsort(mzs)
-            temp_spectrums = [spectrums_by_charge[charge][r] for r in ordered_indexes]
+            temp_spectrums = [
+                spectrums_by_charge[charge][r] for r in ordered_indexes
+            ]
             total_spectrums = total_spectrums + temp_spectrums
 
         return total_spectrums
@@ -57,7 +64,24 @@ class PreprocessingUtils:
             return None
 
     @functools.lru_cache
-    def get_class(inchi, smiles):
+    def get_class(
+        inchi: str, smiles: str
+    ) -> Tuple[Optional[str], Optional[str], Optional[str]]:
+        """
+        Get the superclass, class and subclass of a molecule using Classyfire.
+        Either InChI or SMILES can be used as input.
+        Parameters
+        ----------
+        inchi : str
+            The InChI string of the molecule.
+        smiles : str
+            The SMILES string of the molecule.
+        Returns
+        -------
+        tuple
+            A tuple (superclass, class, subclass) if successful,
+            (None, None, None) otherwise.
+        """
         clss = (
             PreprocessingUtils._get_class("inchi", inchi)
             if inchi is not None and inchi != "N/A"
@@ -66,14 +90,32 @@ class PreprocessingUtils:
         if clss is None and not pd.isna(smiles) and smiles != "N/A":
             mol = PreprocessingUtils._smiles_to_mol(smiles)
             clss = (
-                PreprocessingUtils._get_class("smiles", Chem.MolToSmiles(mol, False))
+                PreprocessingUtils._get_class(
+                    "smiles", Chem.MolToSmiles(mol, False)
+                )
                 if mol is not None
                 else None
             )
         return clss if clss is not None else (None, None, None)
 
     @functools.lru_cache
-    def _get_class(mol_type, mol_val):
+    def _get_class(
+        mol_type: str, mol_val: str
+    ) -> Optional[Tuple[str, str, str]]:
+        """
+        Get the superclass, class and subclass of a molecule using Classyfire.
+        Either InChI or SMILES can be used as input.
+        Parameters
+        ----------
+        mol_type : str
+            Either "inchi" or "smiles".
+        mol_val : str
+            The InChI or SMILES string of the molecule.
+        Returns
+        -------
+        tuple or None
+            A tuple (superclass, class, subclass) if successful, None otherwise.
+        """
         r = requests.get(
             f"https://gnps-structure.ucsd.edu/classyfire?{mol_type}={mol_val}"
         )

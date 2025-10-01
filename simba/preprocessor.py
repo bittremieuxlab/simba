@@ -1,5 +1,6 @@
 import copy
 import random
+from typing import Optional
 
 import numpy as np
 from scipy.signal import find_peaks
@@ -104,19 +105,47 @@ class Preprocessor:
 
     def preprocess_spectrum(
         self,
-        spectrum,
-        fragment_tol_mass=10,
-        fragment_tol_mode="ppm",
-        min_intensity=0.01,
-        max_num_peaks=100,
-        # max_num_peaks=40,
-        scale_intensity=None,
+        spectrum: SpectrumExt,
+        fragment_tol_mass: float = 10,
+        fragment_tol_mode: str = "ppm",
+        min_intensity: float = 0.01,
+        max_num_peaks: int = 100,
+        # max_num_peaks: int =40,
+        scale_intensity: Optional[str] = None,
         # scale_intensity="root",
-    ):
+    ) -> SpectrumExt:
+        """
+        Preprocess a single spectrum
+        1. remove the precursor peak
+        2. filter low-intensity peaks + limit the number of peaks
+        3. scale intensities
+
+        Parameters
+        ----------
+        spectrum : SpectrumExt
+            The spectrum to preprocess.
+        fragment_tol_mass : float
+            The fragment tolerance mass, by default 10.
+        fragment_tol_mode : str
+            The fragment tolerance mode, by default "ppm".
+        min_intensity : float
+            The minimum intensity, by default 0.01.
+        max_num_peaks : int
+            The maximum number of peaks, by default 100.
+        scale_intensity : Optional[str]
+            The scaling method for intensities, by default None.
+
+        Returns
+        -------
+        SpectrumExt
+            The preprocessed spectrum.
+        """
 
         # Process the spectrum.
         return (
-            spectrum.remove_precursor_peak(fragment_tol_mass, fragment_tol_mode)
+            spectrum.remove_precursor_peak(
+                fragment_tol_mass, fragment_tol_mode
+            )
             # .set_mz_range(min_mz=self.min_mz, max_mz=self.max_mz)
             .filter_intensity(
                 min_intensity=min_intensity, max_num_peaks=max_num_peaks
@@ -174,6 +203,8 @@ class Preprocessor:
         input_spectra = [copy.deepcopy(s) for s in spectra_original]
         preprocessed_spectra = self.preprocess_all_spectrums(input_spectra)
         valid_indexes = [
-            i for i, s in enumerate(preprocessed_spectra) if len(s.mz) > min_peaks
+            i
+            for i, s in enumerate(preprocessed_spectra)
+            if len(s.mz) > min_peaks
         ]
         return [spectra_original[i] for i in valid_indexes]

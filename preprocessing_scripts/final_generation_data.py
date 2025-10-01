@@ -1,4 +1,5 @@
 import argparse
+import logging
 import os
 import pickle
 import random
@@ -13,6 +14,7 @@ from sklearn.model_selection import train_test_split
 
 from simba.config import Config
 from simba.loader_saver import LoaderSaver
+from simba.logger_setup import logger
 from simba.mces.mces_computation import MCES
 from simba.parser import Parser
 from simba.preprocessor import Preprocessor
@@ -99,7 +101,7 @@ high_tanimoto_range = (
 )  # to get more high similarity pairs
 
 
-print(f"output_file:{output_pairs_file}")
+logging.info(f"Pairs will be saved to {output_pairs_file}")
 # params
 max_number_spectra_neurips = 1000000000
 max_number_spectra_nist = 10000000000
@@ -139,6 +141,7 @@ def write_data(
         "molecule_pairs_test": molecule_pairs_test,
         "uniformed_molecule_pairs_test": uniformed_molecule_pairs_test,
     }
+    logger.info(f"Writing data to {file_path}")
     with open(file_path, "wb") as file:
         pickle.dump(dataset, file)
 
@@ -146,36 +149,38 @@ def write_data(
 if __name__ == "__main__":
     # In[10]:
 
-    all_spectrums = PreprocessingSimba.load_spectra(
+    # Load and preprocess spectra
+    all_spectra = PreprocessingSimba.load_spectra(
         spectra_path, config, use_gnps_format=False
     )
-
-    # ## Division, training, validation, test
+    logger.info(f"Read {len(all_spectra)} spectra from {spectra_path}")
 
     # In[11]:
 
-    print("Dividing between training, validation and test")
-    all_spectrums_train, all_spectrums_val, all_spectrums_test = (
-        TrainUtils.train_val_test_split_bms(all_spectrums)
+    all_spectra_train, all_spectra_val, all_spectra_test = (
+        TrainUtils.train_val_test_split_bms(all_spectra)
+    )
+    logger.info(
+        f"Train: {len(all_spectra_train)}, Val: {len(all_spectra_val)}, Test: {len(all_spectra_test)}"
     )
 
     # In[12]:
 
-    all_spectrums_train = all_spectrums_train[0:MAX_SPECTRA_TRAIN]
-    all_spectrums_val = all_spectrums_val[0:MAX_SPECTRA_VAL]
-    all_spectrums_test = all_spectrums_test[0:MAX_SPECTRA_TEST]
+    all_spectra_train = all_spectra_train[0:MAX_SPECTRA_TRAIN]
+    all_spectra_val = all_spectra_val[0:MAX_SPECTRA_VAL]
+    all_spectra_test = all_spectra_test[0:MAX_SPECTRA_TEST]
 
     # In[13]:
     molecule_pairs = {}
-    print("Validation pairs ...")
+    logger.info("Computing distances ...")
     for type_data in ["_train", "_val", "_test"]:
 
         if type_data == "_train":
-            spectra = all_spectrums_train
+            spectra = all_spectra_train
         elif type_data == "_val":
-            spectra = all_spectrums_val
+            spectra = all_spectra_val
         elif type_data == "_test":
-            spectra = all_spectrums_test
+            spectra = all_spectra_test
 
         for use_edit_distance in [False, True]:
             molecule_pairs[type_data] = MCES.compute_all_mces_results_unique(
@@ -222,7 +227,7 @@ if __name__ == "__main__":
             index = file_loaded.split("_")[-1].split(".npy")[0]
             index = int(index)
 
-            print(f"Loading index: {index}")
+            logger.info(f"Loading index: {index}")
 
             sufix = "indexes_tani_incremental_" + partition + "_"
             prefix_ed = "edit_distance_"
@@ -240,35 +245,35 @@ if __name__ == "__main__":
 
             # load data
             ed_data = np.load(file_ed)
-            print(f"ed_data: {ed_data}")
+            logger.info(f"ed_data: {ed_data}")
 
             try:
                 mces_data = np.load(file_mces)
-                print(f"mces_data {mces_data}")
+                logger.info(f"mces_data {mces_data}")
             except:
-                print("The MCES partition is not present.")
+                logger.warning("The MCES partition is not present.")
                 continue
 
             ## check that the indexes are the same:
             if np.all(ed_data[:, 0] == mces_data[:, 0]) and np.all(
                 ed_data[:, 1] == mces_data[:, 1]
             ):
-                print("The data loaded correspond to the same pairs")
+                logger.info("The data loaded correspond to the same pairs")
 
                 total_data = np.column_stack((ed_data, mces_data[:, 2]))
-                print(
+                logger.info(
                     f"The data loaded has the original shape: {total_data.shape}"
                 )
 
-                print("Preprocessing:")
+                logger.info("Preprocessing:")
                 total_data = preprocess_data(total_data)
 
-                print(total_data)
+                logger.info(f"Processed data: {total_data}")
                 np.save(
                     file_output,
                     total_data,
                 )
             else:
-                print(
-                    "ERROR: The data loaded does not correspond to the same pairs"
+                logger.error(
+                    "The data loaded does not correspond to the same pairs"
                 )

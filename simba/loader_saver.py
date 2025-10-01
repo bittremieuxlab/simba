@@ -1,8 +1,11 @@
 import math
+from typing import IO, List, Union
 
 import dill
 
+from simba.config import Config
 from simba.load_data import LoadData
+from simba.spectrum_ext import SpectrumExt
 
 
 class LoaderSaver:
@@ -28,14 +31,40 @@ class LoaderSaver:
 
     def get_all_spectrums(
         self,
-        file,
-        num_samples=10,
-        compute_classes=False,
-        use_tqdm=True,
-        use_nist=False,
-        config=None,
-        use_janssen=False,
-    ):
+        file: Union[str, IO],
+        num_samples: int = 10,
+        compute_classes: bool = False,
+        use_tqdm: bool = True,
+        use_nist: bool = False,
+        config: Config = None,
+        use_janssen: bool = False,
+    ) -> List[SpectrumExt]:
+        """
+        Get all spectrums from a file.
+        If a pickle path is provided, it will save the loaded spectrums to that path.
+
+        Parameters
+        ----------
+        file : Union[str, IO]
+            The file path or file object to load spectrums from.
+        num_samples : int, optional
+            The number of samples to load, by default 10.
+        compute_classes : bool, optional
+            Whether to compute classes for the spectrums, by default False.
+        use_tqdm : bool, optional
+            Whether to use tqdm for progress indication, by default True.
+        use_nist : bool, optional
+            Whether the file is in NIST format, by default False.
+        config : Config, optional
+            Configuration object, by default None.
+        use_janssen : bool, optional
+            Whether the file is in Janssen format, by default False.
+
+        Returns
+        -------
+        List[SpectrumExt]
+            A list of loaded spectrums.
+        """
 
         if use_janssen:
             spectrums = LoadData.get_all_spectrums_mgf(
@@ -71,7 +100,12 @@ class LoaderSaver:
         return spectrums
 
     def load_and_save_nist(
-        self, file, num_samples=100, compute_classes=False, use_tqdm=True, config=None
+        self,
+        file,
+        num_samples=100,
+        compute_classes=False,
+        use_tqdm=True,
+        config=None,
     ):
 
         # get the number of lines of the file

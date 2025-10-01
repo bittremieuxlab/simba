@@ -5,14 +5,12 @@ import numpy as np
 import pandas as pd
 from myopic_mces.myopic_mces import MCES as MCES2
 from rdkit import Chem, DataStructs, Geometry
-from rdkit.Chem import AllChem
-from rdkit.Chem import Draw
-from rdkit.Chem import rdFMCS
-from rdkit.Chem import PandasTools
+from rdkit.Chem import AllChem, Draw, PandasTools, rdFMCS
 from rdkit.Chem.Fingerprints import FingerprintMols
 from tqdm import tqdm
 
 import simba.edit_distance.mol_utils as mu
+from simba.logger_setup import logger
 
 
 class EditDistance:
@@ -20,7 +18,7 @@ class EditDistance:
     @staticmethod
     def create_input_df(smiles, indexes_0, indexes_1):
         df = pd.DataFrame()
-        print(f"Length of spectrums: {len(smiles)}")
+        logger.info(f"Number of spectra: {len(smiles)}")
 
         df["smiles_0"] = [smiles[int(r)] for r in indexes_0]
         df["smiles_1"] = [smiles[int(r)] for r in indexes_1]
@@ -38,8 +36,7 @@ class EditDistance:
         mols,
         use_edit_distance,
     ):
-        print(f"Processing: {sampled_index}")
-        # print(f'id')
+        logger.info(f"Processing: {sampled_index}")
         # where to save results
         indexes_np = np.zeros(
             (int(size_batch), 3),
@@ -47,8 +44,12 @@ class EditDistance:
         # initialize randomness
         if random_sampling:
             np.random.seed(identifier)
-            indexes_np[:, 0] = np.random.randint(0, len(smiles), int(size_batch))
-            indexes_np[:, 1] = np.random.randint(0, len(smiles), int(size_batch))
+            indexes_np[:, 0] = np.random.randint(
+                0, len(smiles), int(size_batch)
+            )
+            indexes_np[:, 1] = np.random.randint(
+                0, len(smiles), int(size_batch)
+            )
         else:
             indexes_np[:, 0] = sampled_index
             indexes_np[:, 1] = np.arange(0, size_batch)
@@ -96,7 +97,10 @@ class EditDistance:
                 and bond.GetEndAtomIdx() in intersect
             ):
                 continue
-            if bond.GetBeginAtomIdx() in intersect or bond.GetEndAtomIdx() in intersect:
+            if (
+                bond.GetBeginAtomIdx() in intersect
+                or bond.GetEndAtomIdx() in intersect
+            ):
                 modification_edges.append(bond.GetIdx())
 
         return modification_edges
@@ -104,7 +108,9 @@ class EditDistance:
     def get_edit_distance_from_smiles(smiles1, smiles2, return_nans=True):
         mol1 = Chem.MolFromSmiles(smiles1)
         mol2 = Chem.MolFromSmiles(smiles2)
-        return EditDistance.simba_get_edit_distance(mol1, mol2, return_nans=return_nans)
+        return EditDistance.simba_get_edit_distance(
+            mol1, mol2, return_nans=return_nans
+        )
 
     def simba_get_edit_distance(mol1, mol2, return_nans=True):
         """
@@ -162,7 +168,9 @@ class EditDistance:
         if tanimoto < 0.2:
             # print("The Tanimoto similarity is too low.")
             # distance = np.nan
-            distance = 666  # very high number to remark that they are very different
+            distance = (
+                666  # very high number to remark that they are very different
+            )
         else:
             # mol0 = EditDistance.return_mol(s0)
             # mol1 = EditDistance.return_mol(s1)
@@ -190,7 +198,9 @@ class EditDistance:
         if tanimoto < 0.2:
             # print("The Tanimoto similarity is too low.")
             # distance = np.nan
-            distance = 666  # very high number to remark that they are very different
+            distance = (
+                666  # very high number to remark that they are very different
+            )
         else:
             # mol0 = EditDistance.return_mol(s0)
             # mol1 = EditDistance.return_mol(s1)
