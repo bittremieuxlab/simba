@@ -101,16 +101,30 @@ class LoadData:
         cond_mz_array = len(spectrum["m/z array"]) >= config.MIN_N_PEAKS
 
         if "ionmode" in spectrum["params"]:
-            cond_ion_mode = spectrum["params"]["ionmode"] == "Positive"
+            cond_ion_mode = spectrum["params"]["ionmode"].lower() == "positive"
         else:
             cond_ion_mode = True
-        cond_name = spectrum["params"]["adduct"] in ["M+", "[M+H]+", "M+H"]  # adduct
-        cond_centroid = PreprocessingUtils.is_centroid(spectrum["intensity array"])
-        cond_inchi_smiles = (
+
+        if "adduct" in spectrum["params"]:
+
+            cond_name = spectrum["params"]["adduct"] in ["M+", "[M+H]+", "M+H"]  # adduct
+        else:
+            print('WARNING: Adduct information not found in spectrum. Please make sure the spectra corresponds to protonozied adducts [M+H]')
+            cond_name= True
+
+
+        if 'smiles' in spectrum["params"]:
+            cond_inchi_smiles = (
             # spectrum['params']["inchi"] != "N/A" or
             spectrum["params"]["smiles"]
             != "N/A"
-        )
+            )
+        else:
+            print('WARNING: Smiles not found on spectra.')
+            cond_inchi_smiles = True
+
+        cond_centroid = PreprocessingUtils.is_centroid(spectrum["intensity array"])
+        
         ##cond_name=True
         ##cond_name=True
         dict_results = {
@@ -123,7 +137,7 @@ class LoadData:
             "cond_centroid": cond_centroid,
             "cond_inchi_smiles": cond_inchi_smiles,
         }
-
+        print(dict_results)
         # return cond_ion_mode and cond_mz_array
 
         total_condition = (
@@ -227,7 +241,8 @@ class LoadData:
         params = spectrum_dict["params"]
         library = library
         inchi = inchi
-        smiles = spectrum_dict["params"]["smiles"]
+        smiles = spectrum_dict["params"]["smiles"] if 'smiles' in spectrum_dict["params"] else ''
+
         if "ionmode" in spectrum_dict["params"]:
             ionmode = spectrum_dict["params"]["ionmode"]
         else:

@@ -2,6 +2,7 @@ from matchms.Spectrum import Spectrum
 
 import numpy as np
 
+from spectrum_utils.spectrum import MsmsSpectrum
 
 class MatchmsUtils:
 
@@ -36,3 +37,17 @@ class MatchmsUtils:
             metadata=metadata_matchms,
         )
         return spectrum_matchms
+
+    @staticmethod
+    def from_matchms_to_su(spectrum_matchms):
+        params =spectrum_matchms.metadata
+
+        spectrum_su =  MsmsSpectrum(
+                spectrum_matchms['identifier'],
+                spectrum_matchms['precursor_mz'],
+                spectrum_matchms['precursor_charge'],
+                spectrum_matchms['mz'],
+                spectrum_matchms['intensity'],
+                spectrum_matchms['retention_time']
+            )
+        return spectrum_su
