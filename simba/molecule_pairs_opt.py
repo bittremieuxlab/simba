@@ -1,7 +1,7 @@
 import numpy as np
 
-from simba.molecule_pair import MoleculePair
 from simba.molecular_pairs_set import MolecularPairsSet
+from simba.molecule_pair import MoleculePair
 
 
 class MoleculePairsOpt(MolecularPairsSet):
@@ -33,14 +33,16 @@ class MoleculePairsOpt(MolecularPairsSet):
     def __add__(self, other):
         # only to be used when the spectrums are the same
 
-        if self.are_spectrums_the_same(
+        if self.spectra_equal(
             self.spectrums_original, other.spectrums_original
         ):
             new_indexes_tani = np.concatenate(
                 (self.indexes_tani, other.indexes_tani), axis=0
             )
             if (self.tanimotos is not None) and (other.tanimotos is not None):
-                tanimotos = np.concatenate((self.tanimotos, other.tanimotos), axis=0)
+                tanimotos = np.concatenate(
+                    (self.tanimotos, other.tanimotos), axis=0
+                )
             else:
                 tanimotos = None
             return MoleculePairsOpt(
@@ -51,7 +53,9 @@ class MoleculePairsOpt(MolecularPairsSet):
                 tanimotos=tanimotos,
             )
         else:
-            print("ERROR: Attempting to add 2 set of spectrums with different content")
+            print(
+                "ERROR: Attempting to add 2 set of spectrums with different content"
+            )
             return 0
 
     def get_molecular_pair(self, index):
@@ -71,14 +75,24 @@ class MoleculePairsOpt(MolecularPairsSet):
             smiles_0=self.spectrums[i].smiles,
             smiles_1=self.spectrums[j].smiles,
             similarity=tani,
-            global_feats_0=MolecularPairsSet.get_global_variables(self.spectrums[i]),
-            global_feats_1=MolecularPairsSet.get_global_variables(self.spectrums[j]),
+            global_feats_0=MolecularPairsSet.get_global_variables(
+                self.spectrums[i]
+            ),
+            global_feats_1=MolecularPairsSet.get_global_variables(
+                self.spectrums[j]
+            ),
             index_in_spectrum_0=self.get_original_index_from_unique_index(
                 i, 0
             ),  # index in the spectrum list used as input
-            index_in_spectrum_1=self.get_original_index_from_unique_index(j, 1),
-            spectrum_object_0=self.get_original_spectrum_from_unique_index(i, 0),
-            spectrum_object_1=self.get_original_spectrum_from_unique_index(j, 1),
+            index_in_spectrum_1=self.get_original_index_from_unique_index(
+                j, 1
+            ),
+            spectrum_object_0=self.get_original_spectrum_from_unique_index(
+                i, 0
+            ),
+            spectrum_object_1=self.get_original_spectrum_from_unique_index(
+                j, 1
+            ),
             params_0=self.get_original_spectrum_from_unique_index(i, 0).params,
             params_1=self.get_original_spectrum_from_unique_index(j, 1).params,
         )

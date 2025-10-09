@@ -12,6 +12,7 @@ from spectrum_utils.spectrum import MsmsSpectrum
 from tqdm import tqdm
 
 from simba.config import Config
+from simba.logger_setup import logger
 from simba.murcko_scaffold import MurckoScaffold
 from simba.nist_loader import NistLoader
 from simba.preprocessing_utils import PreprocessingUtils
@@ -351,8 +352,8 @@ class LoadData:
         """
 
         num_samples = 10**8 if num_samples == -1 else num_samples
-        spectrums = []  # to save all the spectrums
-        spectra = LoadData.get_spectra(
+        spectra = []  # to save all the spectrums
+        spectra_to_process = LoadData.get_spectra(
             file,
             compute_classes=compute_classes,
             config=config,
@@ -369,17 +370,17 @@ class LoadData:
 
         for i in iterator:
             try:
-                spectrum = next(spectra)
+                spectrum = next(spectra_to_process)
                 # spectrum = pp.preprocess_spectrum(spectrum)
-                spectrums.append(spectrum)
+                spectra.append(spectrum)
             except (
                 StopIteration
             ):  # in case it is not possible to get more samples
-                print(f"We reached the end of the array at index {i}")
+                logger.info(f"Only {i} spectra found.")
                 break
             # go to next iteration
 
-        return spectrums
+        return spectra
 
     def get_all_spectrums_nist(
         file,

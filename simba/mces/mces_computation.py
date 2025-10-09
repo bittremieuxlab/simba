@@ -27,20 +27,9 @@ from simba.train_utils import TrainUtils
 class MCES:
     @staticmethod
     def compute_all_mces_results_unique(
-        spectrums_original: List[SpectrumExt],
+        spectra_original: List[SpectrumExt],
         max_combinations: int = 1000000,
-        limit_low_tanimoto: bool = True,
-        max_low_pairs: float = 0.5,
-        use_tqdm: bool = True,
-        max_mass_diff: Optional[
-            float
-        ] = None,  # maximum number of elements in which we stop adding new items
-        min_mass_diff: float = 0,
         num_workers: int = 15,
-        MIN_SIM: float = 0.8,
-        MAX_SIM: float = 1,
-        high_tanimoto_range: float = 0.5,
-        use_exhaustive: bool = True,
         random_sampling: bool = True,
         config: Config = None,
         identifier: str = "",
@@ -48,46 +37,61 @@ class MCES:
         loaded_molecule_pairs=None,  # TODO: type hint
     ):
         """
-        compute tanimoto results using unique spectrums
+        Compute MCES or edit distance for all pairs of spectra using multiprocessing.
+
+        Parameters
+        ----------
+        spectra_original : List[SpectrumExt]
+            List of all spectrum objects.
+        max_combinations : int, optional
+            Maximum number of combinations to compute, by default 1000000.
+        num_workers : int, optional
+            Number of worker processes to use, by default 15.
+        random_sampling : bool, optional
+            If True, use random sampling; otherwise, compute all pairs, by default True.
+        config : Config, optional
+            Configuration object containing parameters, by default None.
+        identifier : str, optional
+            Identifier for the computation run, by default "".
+        use_edit_distance : bool, optional
+            If True, compute edit distance instead of MCES, by default False.
+        loaded_molecular_pairs : Optional[MolecularPairsSet], optional
+            Precomputed molecular pairs to use instead of computing new ones, by default None.
+
+        Returns
+        -------
+        MoleculePairsOpt
+            An object containing the spectra and their computed pair distances.
         """
 
         logger.info("Computing MCES results based on unique smiles")
 
         if loaded_molecule_pairs is None:
-            function_tanimoto = MCES.compute_all_mces_results_exhaustive
-
-            spectrums_unique, df_smiles = TrainUtils.get_unique_spectra(
-                spectrums_original
+            # get dummy spectra for unique smiles and associated metadata
+            spectra_unique, df_smiles = TrainUtils.get_unique_spectra(
+                spectra_original
             )
 
-            molecule_pairs_unique = function_tanimoto(
-                spectrums_unique,
+            molecular_pairs = MCES.compute_all_mces_results_exhaustive(
+                spectra_unique,
                 max_combinations=max_combinations,
-                limit_low_tanimoto=limit_low_tanimoto,
-                max_low_pairs=max_low_pairs,
-                use_tqdm=use_tqdm,
-                max_mass_diff=max_mass_diff,  # maximum number of elements in which we stop adding new items
-                min_mass_diff=min_mass_diff,
                 num_workers=num_workers,
-                MIN_SIM=MIN_SIM,
-                MAX_SIM=MAX_SIM,
-                high_tanimoto_range=high_tanimoto_range,
                 random_sampling=random_sampling,
                 config=config,
                 identifier=identifier,
                 use_edit_distance=use_edit_distance,
             )
         else:
-            molecule_pairs_unique = loaded_molecule_pairs
-            df_smiles = molecule_pairs_unique.df_smiles
-            spectrums_unique = molecule_pairs_unique.spectrums
-            spectrums_original = (molecule_pairs_unique.spectrums_original,)
+            molecular_pairs = loaded_molecule_pairs
+            df_smiles = molecular_pairs.df_smiles
+            spectra_unique = molecular_pairs.spectrums
+            spectra_original = molecular_pairs.spectrums_original
 
         return MoleculePairsOpt(
-            spectrums_original=spectrums_original,
-            spectrums_unique=spectrums_unique,
+            spectrums_original=spectra_original,
+            spectrums_unique=spectra_unique,
             df_smiles=df_smiles,
-            indexes_tani_unique=molecule_pairs_unique.indexes_tani,
+            indexes_tani_unique=molecular_pairs.pair_distances,
         )
 
     @staticmethod
@@ -221,8 +225,8 @@ class MCES:
         batch_size_random: int = 100,
     ):
         """
-        Get sample indexes. Supports random and deterministic sampling.
-        Samples all spectra if random_sampling is False.
+        Get sample indices. Supports random and deterministic sampling.
+        Returns all spectra if random_sampling is False.
 
         Parameters
         ----------
@@ -238,16 +242,16 @@ class MCES:
         Returns
         -------
         sample_idx : np.ndarray
-            Array of sampled indexes.
+            Array of sampled spectrum indices.
         batch_size : int
             Size of each batch.
         """
         if random_sampling:
             logger.info("Random sampling")
             batch_size = batch_size_random
-            number_sampled_spectra = np.floor(max_combinations / batch_size)
+            num_samples = np.floor(max_combinations / batch_size)
             sample_idx = np.random.randint(
-                0, len(all_spectra), int(number_sampled_spectra)
+                0, len(all_spectra), int(num_samples)
             )
         else:
             logger.info("No random sampling")
@@ -258,81 +262,81 @@ class MCES:
     def compute_all_mces_results_exhaustive(
         all_spectra: List[SpectrumExt],
         max_combinations: int = 1000000,
-        limit_low_tanimoto: bool = True,
-        max_low_pairs: float = 0.5,
-        use_tqdm: bool = True,
-        max_mass_diff: Optional[
-            float
-        ] = None,  # maximum number of elements in which we stop adding new items
-        min_mass_diff: int = 0,
         num_workers: int = 15,
-        MIN_SIM: float = 0.8,
-        MAX_SIM: float = 1.0,
-        high_tanimoto_range: float = 0.5,
         random_sampling: bool = True,
         config: Config = None,
         identifier: str = "",
         use_edit_distance=False,
     ):
+        """
+        Compute MCES or edit distance for all pairs of spectra using multiprocessing.
 
+        Parameters
+        ----------
+        all_spectra : List[SpectrumExt]
+            List of all spectrum objects.
+        max_combinations : int, optional
+            Maximum number of combinations to compute, by default 1000000.
+        num_workers : int, optional
+            Number of worker processes to use, by default 15.
+        random_sampling : bool, optional
+            If True, use random sampling; otherwise, compute all pairs, by default True.
+        config : Config, optional
+            Configuration object containing parameters, by default None.
+        identifier : str, optional
+            Identifier for the computation run, by default "".
+        use_edit_distance : bool, optional
+            If True, compute edit distance instead of MCES, by default False.
+
+        Returns
+        -------
+        MolecularPairsSet
+            An object containing the spectra and their computed pair distances.
+        """
         num_workers = num_workers if num_workers > 0 else 1
 
         logger.info(
             f"Starting computation of molecule pairs with {num_workers} workers"
         )
 
+        # sample spectrum indices
         sample_idx, batch_size = MCES.get_samples(
             all_spectra, random_sampling, max_combinations
         )
 
-        # Use ProcessPoolExecutor for parallel processing
         all_smiles = [s.params["smiles"] for s in all_spectra]
-
-        N = num_workers * 10
-        indexes_np = np.array([])
 
         if config.COMPUTE_SPECIFIC_PAIRS:  ## specifically for mces
             directory_path = config.PREPROCESSING_DIR
             prefix = config.FORMAT_FILE_SPECIFIC_PAIRS + identifier
-            indexes_np_loaded = LoadMCES.load_raw_data(directory_path, prefix)
-            # indexes_np_loaded = LoadMCES.remove_excess_low_pairs(indexes_np_loaded, remove_percentage=0.99, max_mces=config.THRESHOLD_MCES)
+            indices_np_loaded = LoadMCES.load_raw_data(directory_path, prefix)
 
             print(
-                f"Size of the pairs loaded for computing specific pairs: {indexes_np_loaded.shape[0]}"
+                f"Size of the pairs loaded for computing specific pairs: {indices_np_loaded.shape[0]}"
             )
 
-            size_chunks = config.PREPROCESSING_BATCH_SIZE * num_workers
-            N = int(np.ceil(indexes_np_loaded.shape[0] / size_chunks))
-            split_arrays = np.array_split(indexes_np_loaded, N)
+            chunk_size = config.PREPROCESSING_BATCH_SIZE * num_workers
+            num_chunks = int(np.ceil(indices_np_loaded.shape[0] / chunk_size))
+            chunks = np.array_split(indices_np_loaded, num_chunks)
 
         else:
-            # Calculate the number of chunks needed
-            num_chunks = int(np.ceil(len(sample_idx) / N))
-            # Split the array into chunks of size N using np.array_split
-            split_arrays = np.array_split(sample_idx, num_chunks)
+            # Split the sample idx array into chunks of size chunk_size
+            chunk_size = num_workers * 10
+            num_chunks = int(np.ceil(len(sample_idx) / chunk_size))
+            chunks = np.array_split(sample_idx, num_chunks)
 
-        logger.info(f"Number of split arrays: {len(split_arrays)}")
-        logger.info(f"Size of each array: {split_arrays[0].shape[0]}")
+        logger.info(f"Number of chunks: {num_chunks}")
+        logger.info(f"Size of each chunk: {chunks[0].shape[0]}")
         logger.info(
-            f"Size of each sub-array: {np.array_split(split_arrays[0], num_workers)[0].shape[0]}"
+            f"Size of each sub-chunk: {np.array_split(chunks[0], num_workers)[0].shape[0]}"
         )
 
-        # using the loading of csv
-        # comp_function = EditDistance.compute_edit_distance if use_edit_distance else MCES.compute_mces_myopic
+        computed_pair_distances = np.empty((0, 3))
 
-        # using the edit distance repository
-        # comp_function = EditDistance.compute_edit_distance if use_edit_distance else EditDistance.compute_mces_myopic
-        comp_function = EditDistance.compute_ed_or_mces
-
-        ## SINCE I WANT TO EXECUTE THE PREPROCESSING ACROSS SEVERAL NDOES, I WANT TO EXECUTE ONLY SOME indexes
-
-        for index_array, array in enumerate(split_arrays):
-            # Create a multiprocessing pool
-            # pool = multiprocessing.Pool(processes=num_workers)      ## USE MULTIPLE PROCESSES - PRIVATE MEMORY
-
-            # if (index_array>38) and ((index_array%config.PREPROCESSING_NUM_NODES)==config.PREPROCESSING_CURRENT_NODE):
+        for chunk_idx, chunk in enumerate(chunks):
+            # select chunks to compute based on node number
             if (
-                (index_array % config.PREPROCESSING_NUM_NODES)
+                (chunk_idx % config.PREPROCESSING_NUM_NODES)
                 == config.PREPROCESSING_CURRENT_NODE
             ) or (config.PREPROCESSING_CURRENT_NODE is None):
                 prefix_file = (
@@ -341,36 +345,34 @@ class MCES:
                 filename = (
                     f"{config.PREPROCESSING_DIR}"
                     + prefix_file
-                    + f"indexes_tani_incremental{identifier}_{str(index_array)}.npy"
+                    + f"indexes_tani_incremental{identifier}_{str(chunk_idx)}.npy"
                 )
 
                 if not (
                     os.path.exists(filename)
-                ):  ## by default not overwriting
-                    logger.info(
-                        f"Processing index_array: {index_array}/{len(split_arrays)}"
-                    )
-                    # pool = multiprocessing.dummy.Pool(processes=num_workers)      ## USE MULTIPLE PROCESSES - PRIVATE MEMOR
+                ):  # do not overwrite existing files
+                    logger.info(f"Processing split {chunk_idx}/{len(chunks)}")
+
                     pool = multiprocessing.Pool(processes=num_workers)
 
-                    logger.info(
-                        f"Value of COMPUTE_SPECIFIC_PAIRS: {config.COMPUTE_SPECIFIC_PAIRS}"
-                    )
                     if config.COMPUTE_SPECIFIC_PAIRS:
-                        logger.info(f"Size of each array {array.shape[0]}")
-                        sub_arrays = np.array_split(array, num_workers)
+                        logger.info(
+                            "Computing specific pairs from loaded indexes ..."
+                        )
+                        logger.info(f"Size of each array {chunk.shape[0]}")
+                        sub_arrays = np.array_split(chunk, num_workers)
                         logger.info(
                             f"Size of each sub-array {sub_arrays[0].shape[0]}"
                         )
 
                         results = [
                             pool.apply_async(
-                                comp_function,
+                                EditDistance.compute_ed_or_mces,  # TODO: fix this
                                 args=(
                                     all_smiles,
                                     None,
                                     batch_size,
-                                    (index_array * split_arrays[0].shape[0])
+                                    (chunk_idx * chunks[0].shape[0])
                                     + sub_index,
                                     None,
                                     config,
@@ -383,27 +385,20 @@ class MCES:
                             )
                         ]
                     else:
-                        # if use_edit_distance:
-
-                        logger.info("Computing mols from smiles ...")
-
                         mols = [Chem.MolFromSmiles(s) for s in all_smiles]
-                        logger.info("Computing fingerprints ...")
                         fpgen = AllChem.GetRDKitFPGenerator(
                             maxPath=3, fpSize=512
                         )
                         fps = [fpgen.GetFingerprint(m) for m in mols]
 
-                        logger.info("Done computing fingerprints")
                         results = [
                             pool.apply_async(
-                                comp_function,
+                                EditDistance.compute_ed_or_mces,
                                 args=(
                                     all_smiles,
                                     sampled_index,
                                     batch_size,
-                                    (index_array * len(split_arrays[0]))
-                                    + sub_index,
+                                    (chunk_idx * len(chunks[0])) + sub_index,
                                     random_sampling,
                                     config,
                                     fps,
@@ -411,33 +406,27 @@ class MCES:
                                     use_edit_distance,
                                 ),
                             )
-                            for sub_index, sampled_index in enumerate(array)
+                            for sub_index, sampled_index in enumerate(chunk)
                         ]
-                        # else:
-
-                        # results = [pool.apply_async(comp_function, args=(smiles,
-                        #                        sampled_index,
-                        #                        size_batch,
-                        #                        sampled_index,
-                        #                        #(index_array*len(split_arrays[0]))+sub_index,
-                        #                        random_sampling, config,
-                        #                        )) for sub_index, sampled_index in enumerate(array)]
 
                     # Close the pool and wait for all processes to finish
                     pool.close()
                     pool.join()
 
                     # Get results from async objects
-                    indexes_np_temp = np.concatenate(
+                    computed_pair_distances = np.concatenate(
                         [result.get() for result in results], axis=0
                     )
+                    # create parent directory if it does not exist
+                    os.makedirs(os.path.dirname(filename), exist_ok=True)
+                    np.save(arr=computed_pair_distances, file=filename)
 
-                    np.save(arr=indexes_np_temp, file=filename)
-
-        logger.info(f"Retrieved {indexes_np.shape[0]} pairs")
+        logger.info(
+            f"Computed distances for {computed_pair_distances.shape[0]} pairs."
+        )
 
         molecular_pair_set = MolecularPairsSet(
-            spectrums=all_spectra, indexes_tani=indexes_np
+            spectra=all_spectra, pair_distances=computed_pair_distances
         )
 
         return molecular_pair_set
@@ -533,7 +522,7 @@ class MCES:
         print(indexes_np[0:1000])
         # molecular_pair_set= MolecularPairsSet(spectrums=all_spectrums,indexes_tani= indexes)
         molecular_pair_set = MolecularPairsSet(
-            spectrums=all_spectrums, indexes_tani=indexes_np
+            spectra=all_spectrums, pair_distances=indexes_np
         )
 
         print(datetime.now())

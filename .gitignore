@@ -26,3 +26,4 @@ model_checkpoints*
 notebooks_local/
 
 output_dir*
+run_scripts_tfs*

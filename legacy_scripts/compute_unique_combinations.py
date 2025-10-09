@@ -128,14 +128,14 @@ indexes_np_val = get_indexes_np(molecule_pairs_val)
 
 # add info to
 new_molecule_pairs_train = MolecularPairsSet(
-    spectrums=molecule_pairs_train.spectrums,
-    indexes_tani=np.concatenate(
+    spectra=molecule_pairs_train.spectrums,
+    pair_distances=np.concatenate(
         (molecule_pairs_train.indexes_tani, indexes_np_train), axis=0
     ),
 )
 new_molecule_pairs_val = MolecularPairsSet(
-    spectrums=molecule_pairs_val.spectrums,
-    indexes_tani=np.concatenate(
+    spectra=molecule_pairs_val.spectrums,
+    pair_distances=np.concatenate(
         (molecule_pairs_val.indexes_tani, indexes_np_val), axis=0
     ),
 )

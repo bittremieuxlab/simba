@@ -1,5 +1,6 @@
 import argparse
 import os
+from typing import List
 
 import numpy as np
 import pandas as pd
@@ -7,9 +8,12 @@ from myopic_mces.myopic_mces import MCES as MCES2
 from rdkit import Chem, DataStructs, Geometry
 from rdkit.Chem import AllChem, Draw, PandasTools, rdFMCS
 from rdkit.Chem.Fingerprints import FingerprintMols
+from rdkit.Chem.rdchem import Mol
+from rdkit.DataStructs.cDataStructs import ExplicitBitVect
 from tqdm import tqdm
 
 import simba.edit_distance.mol_utils as mu
+from simba.config import Config
 from simba.logger_setup import logger
 
 
@@ -26,63 +30,85 @@ class EditDistance:
         return df
 
     def compute_ed_or_mces(
-        smiles,
-        sampled_index,
-        size_batch,
-        identifier,
-        random_sampling,
-        config,
-        fps,
-        mols,
-        use_edit_distance,
-    ):
-        logger.info(f"Processing: {sampled_index}")
-        # where to save results
-        indexes_np = np.zeros(
-            (int(size_batch), 3),
+        smiles: List[str],
+        sampled_index: np.int64,
+        batch_size: int,
+        identifier: int,
+        random_sampling: bool,
+        config: Config,
+        fps: List[ExplicitBitVect],
+        mols: List[Mol],
+        use_edit_distance: bool,
+    ) -> np.ndarray:
+        """
+        Compute the edit distance or MCES for a batch of molecule pairs.
+
+        Parameters
+        ----------
+        smiles : List[str]
+            List of SMILES strings.
+        sampled_index : np.int64
+            Index to sample from the smiles list.
+        batch_size : int
+            The size of the batch to process.
+        identifier : int
+            An identifier for the batch (used for random seed).
+        random_sampling : bool
+            Whether to use random sampling of pairs.
+        config : Config
+            Configuration object containing parameters.
+        fps : List[ExplicitBitVect]
+            List of fingerprints corresponding to the smiles.
+        mols : List[Mol]
+            List of RDKit Mol objects corresponding to the smiles.
+        use_edit_distance : bool
+            Whether to compute edit distance (True) or MCES (False).
+
+        Returns
+        -------
+        np.ndarray
+            A 2D numpy array with each row containing (index1, index2, distance).
+        """
+        # 2D array to store the indexes and distances
+        pair_distances = np.zeros(
+            (int(batch_size), 3),
         )
         # initialize randomness
         if random_sampling:
             np.random.seed(identifier)
-            indexes_np[:, 0] = np.random.randint(
-                0, len(smiles), int(size_batch)
+            pair_distances[:, 0] = np.random.randint(
+                0, len(smiles), int(batch_size)
             )
-            indexes_np[:, 1] = np.random.randint(
-                0, len(smiles), int(size_batch)
+            pair_distances[:, 1] = np.random.randint(
+                0, len(smiles), int(batch_size)
             )
         else:
-            indexes_np[:, 0] = sampled_index
-            indexes_np[:, 1] = np.arange(0, size_batch)
+            pair_distances[:, 0] = sampled_index
+            pair_distances[:, 1] = np.arange(0, batch_size)
 
-        # fpgen = AllChem.GetRDKitFPGenerator(maxPath=3,fpSize=512)
-
-        # df['edit_distance'] = df.apply(lambda x:EditDistance.simba_solve_pair_edit_distance(x['smiles_0'], x['smiles_1'], fpgen, ), axis=1)
         distances = []
 
-        for index in range(0, indexes_np.shape[0]):
-            # print('')
-            # print(f'id: {id}, {index}, S0: {s0}, S1: {s1}')
-            row = indexes_np[index]
+        for index in range(0, pair_distances.shape[0]):
+            pair = pair_distances[index]
 
-            s0 = smiles[int(row[0])]
-            s1 = smiles[int(row[1])]
-            fp0 = fps[int(row[0])]
-            fp1 = fps[int(row[1])]
-            mol0 = mols[int(row[0])]
-            mol1 = mols[int(row[1])]
+            s0 = smiles[int(pair[0])]
+            s1 = smiles[int(pair[1])]
+            fp0 = fps[int(pair[0])]
+            fp1 = fps[int(pair[1])]
+            mol0 = mols[int(pair[0])]
+            mol1 = mols[int(pair[1])]
             if use_edit_distance:
-                dist, tanimoto = EditDistance.simba_solve_pair_edit_distance(
+                dist, _ = EditDistance.simba_solve_pair_edit_distance(
                     s0, s1, fp0, fp1, mol0, mol1
                 )
             else:
-                dist, tanimoto = EditDistance.simba_solve_pair_mces(
+                dist, _ = EditDistance.simba_solve_pair_mces(
                     s0, s1, fp0, fp1, mol0, mol1, config.THRESHOLD_MCES
                 )
-            # print(dist)
             distances.append(dist)
 
-        indexes_np[:, 2] = distances
-        return indexes_np
+        pair_distances[:, 2] = distances
+        return pair_distances
 
     def get_number_of_modification_edges(mol, substructure):
         if not mol.HasSubstructMatch(substructure):

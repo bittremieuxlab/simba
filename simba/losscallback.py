@@ -14,7 +14,9 @@ class LossCallback(Callback):
     #    self.val_outs.append(outputs)
 
     def on_train_epoch_end(self, trainer, pl_module):
-        self.train_loss.append(float(trainer.callback_metrics["train_loss_epoch"]))
+        self.train_loss.append(
+            float(trainer.callback_metrics["train_loss_epoch"])
+        )
 
     # def on_validation_epoch_end(self, trainer, pl_module):
     #    self.val_loss.append(float(trainer.callback_metrics["validation_loss_epoch"]))
@@ -22,8 +24,12 @@ class LossCallback(Callback):
     #    #self.val_outs  # <- access them here
 
     def on_validation_end(self, trainer, pl_module):
-        self.val_loss.append(float(trainer.callback_metrics["validation_loss_epoch"]))
-        self.val_loss_step.append(float(trainer.callback_metrics["validation_loss"]))
+        self.val_loss.append(
+            float(trainer.callback_metrics["validation_loss_epoch"])
+        )
+        self.val_loss_step.append(
+            float(trainer.callback_metrics["validation_loss"])
+        )
         self.plot_loss(file_path=self.file_path)
 
     def plot_loss(self, file_path="./loss.png"):
@@ -52,7 +58,9 @@ class LossCallback(Callback):
         # ax2.legend()
         # ax2.grid()
 
-        ax2.plot(self.val_loss_step[1:], label="val step", marker="o", color="r")
+        ax2.plot(
+            self.val_loss_step[1:], label="val step", marker="o", color="r"
+        )
         ax2.set_title("Val Loss")
         ax2.set_xlabel("Number of Steps")
         ax2.set_ylabel("Loss")
@@ -62,10 +70,12 @@ class LossCallback(Callback):
         # Adjust layout to prevent overlapping
         plt.tight_layout()
         plt.savefig(file_path)
+        print(f"Saved loss figure to {file_path}")
+        plt.close(fig)
 
 
-from lightning.pytorch.callbacks import Callback
 import matplotlib.pyplot as plt
+from lightning.pytorch.callbacks import Callback
 
 """
 class LossCallback(Callback):

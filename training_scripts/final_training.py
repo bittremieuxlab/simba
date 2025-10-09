@@ -17,6 +17,7 @@ from torch.utils.data import DataLoader, WeightedRandomSampler
 import simba
 from simba.config import Config
 from simba.load_mces.load_mces import LoadMCES
+from simba.logger_setup import logger
 from simba.losscallback import LossCallback
 from simba.molecular_pairs_set import MolecularPairsSet
 from simba.ordinal_classification.embedder_multitask import EmbedderMultitask
@@ -57,7 +58,7 @@ enable_progress_bar = config.enable_progress_bar
 fig_path = config.CHECKPOINT_DIR + f"scatter_plot_{config.MODEL_CODE}.png"
 model_code = config.MODEL_CODE
 
-print("loading file")
+logger.info(f"Loading mapping file from {dataset_path}")
 # Load the dataset from the pickle file
 sys.modules["src"] = simba
 with open(dataset_path, "rb") as file:
@@ -86,7 +87,7 @@ def remove_duplicates_array(array):
     return result
 
 
-print("Loading pairs data ...")
+logger.info("Loading pairs data ...")
 indexes_tani_multitasking_train = LoadMCES.merge_numpy_arrays(
     config.PREPROCESSING_DIR_TRAIN,
     prefix="ed_mces_indexes_tani_incremental_train",
@@ -120,7 +121,7 @@ molecule_pairs_val.indexes_tani = indexes_tani_multitasking_val[
     :, [0, 1, config.COLUMN_EDIT_DISTANCE]
 ]
 
-print(f"shape of similarity1: {molecule_pairs_train.indexes_tani.shape}")
+logger.info(f"shape of similarity1: {molecule_pairs_train.indexes_tani.shape}")
 
 # add tanimotos
 
@@ -132,12 +133,12 @@ molecule_pairs_val.tanimotos = indexes_tani_multitasking_val[
 ]
 
 
-print(f"shape of similarity2: {molecule_pairs_train.tanimotos.shape}")
-print(f"Number of pairs for train: {len(molecule_pairs_train)}")
-print(f"Number of pairs for val: {len(molecule_pairs_val)}")
-print(
-    f"Example of data loaded for tanimotos: {molecule_pairs_train.tanimotos}"
-)
+logger.info(f"shape of similarity2: {molecule_pairs_train.tanimotos.shape}")
+logger.info(f"Number of pairs for train: {len(molecule_pairs_train)}")
+logger.info(f"Number of pairs for val: {len(molecule_pairs_val)}")
+# logger.info(
+#     f"Example of data loaded for tanimotos: {molecule_pairs_train.tanimotos}"
+# )
 ## Sanity checks
 sanity_check_ids = SanityChecks.sanity_checks_ids(
     molecule_pairs_train,
@@ -153,8 +154,8 @@ sanity_check_bms = SanityChecks.sanity_checks_bms(
 )
 
 
-print(f"Sanity check ids. Passed? {sanity_check_ids}")
-print(f"Sanity check bms. Passed? {sanity_check_bms}")
+logger.info(f"Sanity check ids. Passed? {sanity_check_ids}")
+logger.info(f"Sanity check bms. Passed? {sanity_check_bms}")
 
 
 ## CALCULATION OF WEIGHTS
@@ -184,9 +185,9 @@ molecule_pairs_train_similarity2.indexes_tani[:, 2] = (
 # print(f'Ranges of second similarity:{range_weights2}')
 
 # check distribution of similarities
-print("SAMPLES PER RANGE:")
-for lista in train_binned_list:
-    print(f"samples: {len(lista)}")
+# print("SAMPLES PER EDIT DISTANCE RANGE:")
+# for lista in train_binned_list:
+#     print(f"samples: {len(lista)}")
 
 plt.hist(
     molecule_pairs_train.indexes_tani[
@@ -245,7 +246,7 @@ val_sampler = CustomWeightedRandomSampler(
     weights=weights_val, num_samples=len(dataset_val), replacement=True
 )
 
-print("Creating train data loader")
+logger.info("Creating train data loader")
 dataloader_train = DataLoader(
     dataset_train,
     batch_size=config.BATCH_SIZE,
@@ -291,10 +292,10 @@ plt.savefig(config.CHECKPOINT_DIR + "similarity_distribution_2.png")
 
 counting, bins, patches = plt.hist(similarities_sampled, bins=6)
 
-print(
+logger.info(
     f"SIMILARITY 1: Distribution of similarity for dataset train: {counting}"
 )
-print(f"SIMILARITY 1: Ranges of similarity for dataset train: {bins}")
+logger.info(f"SIMILARITY 1: Ranges of similarity for dataset train: {bins}")
 
 # count the number of samples between
 counting2, bins2 = TrainUtils.count_ranges(
@@ -304,10 +305,10 @@ counting2, bins2 = TrainUtils.count_ranges(
     max_value=1,
 )
 
-print(
+logger.info(
     f"SIMILARITY 2: Distribution of similarity for dataset train: {counting2}"
 )
-print(f"SIMILARITY 2: Ranges of similarity for dataset train: {bins2}")
+logger.info(f"SIMILARITY 2: Ranges of similarity for dataset train: {bins2}")
 
 weights2 = np.array(
     [np.sum(counting2) / c if c != 0 else 0 for c in counting2]
@@ -324,7 +325,7 @@ Plotting.plot_weights(
     xlabel="weight bin similarity 2",
     filepath=config.CHECKPOINT_DIR + "weights_similarity_2.png",
 )
-print(f"WEIGHTS CALCULATED FOR SECOND SIMILARITY: {weights2}")
+logger.info(f"WEIGHTS CALCULATED FOR SECOND SIMILARITY: {weights2}")
 
 
 def worker_init_fn(
@@ -337,7 +338,7 @@ def worker_init_fn(
     random.seed(seed)
 
 
-print("Creating val data loader")
+logger.info("Creating val data loader")
 dataloader_val = DataLoader(
     dataset_val,
     batch_size=config.BATCH_SIZE,
@@ -370,7 +371,7 @@ progress_bar_callback = ProgressBar()
 
 # loss callback
 losscallback = LossCallback(file_path=config.CHECKPOINT_DIR + f"loss.png")
-print("define model")
+logger.info("define model")
 
 
 ## use or not use weights for the second similarity loss
@@ -416,7 +417,7 @@ if config.load_pretrained:
             tau_gumbel_softmax=config.TAU_GUMBEL_SOFTMAX,
             gumbel_reg_weight=config.GUMBEL_REG_WEIGHT,
         )
-        print("loaded full model!!")
+        logger.info("loaded full model!!")
     except:
         model_pretrained = Embedder.load_from_checkpoint(
             config.pretrained_path,
@@ -431,9 +432,9 @@ if config.load_pretrained:
         )
 
         model.spectrum_encoder = model_pretrained.spectrum_encoder
-        print("Loaded pretrained encoder model")
+        logger.info("Loaded pretrained encoder model")
 else:
-    print("Not loaded pretrained model")
+    logger.info("Not loaded pretrained model")
 
 trainer = pl.Trainer(
     # max_steps=100000,
@@ -454,3 +455,5 @@ trainer.fit(
 
 if torch.distributed.is_available() and torch.distributed.is_initialized():
     torch.distributed.destroy_process_group()
+
+logger.info("Training finished")

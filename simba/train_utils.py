@@ -175,41 +175,53 @@ class TrainUtils:
         return df
 
     @staticmethod
-    def get_unique_spectra(all_spectrums):
+    def get_unique_spectra(all_spectra):
         """
         table witht he information of indexes per unique smiles
 
-        """
-        canon_smiles = [Chem.CanonSmiles(s.smiles) for s in all_spectrums]
+        Parameters
+        ----------
+        all_spectra : List[SpectrumExt]
+            List of SpectrumExt objects.
 
-        print("getting metadata")
-        # get all metadata
-        all_mz = [s.precursor_mz for s in all_spectrums]
-        all_charge = [s.precursor_charge for s in all_spectrums]
-        all_library = [s.library for s in all_spectrums]
-        all_inchi = [s.inchi for s in all_spectrums]
-        all_ionmode = [s.ionmode for s in all_spectrums]
-        all_bms = [s.murcko_scaffold for s in all_spectrums]
-        all_superclass = [s.superclass for s in all_spectrums]
-        all_classe = [s.classe for s in all_spectrums]
-        all_subclass = [s.subclass for s in all_spectrums]
-        print("finished getting metadata")
+        Returns
+        -------
+        Tuple[List[SpectrumExt], pd.DataFrame]
+            A tuple containing a list of unique SpectrumExt objects and a DataFrame with smiles metadata.
+        """
+        # convert to canonical smiles
+        canon_smiles = [Chem.CanonSmiles(s.smiles) for s in all_spectra]
+
+        # get all metadata associated with the spectra
+        all_mz = [s.precursor_mz for s in all_spectra]
+        all_charge = [s.precursor_charge for s in all_spectra]
+        all_library = [s.library for s in all_spectra]
+        all_inchi = [s.inchi for s in all_spectra]
+        all_ionmode = [s.ionmode for s in all_spectra]
+        all_bms = [s.murcko_scaffold for s in all_spectra]
+        all_superclass = [s.superclass for s in all_spectra]
+        all_classe = [s.classe for s in all_spectra]
+        all_subclass = [s.subclass for s in all_spectra]
 
         unique_smiles = np.unique(canon_smiles)
-        # indexes
-        table_smiles = {
+        # map unique smiles to spectrum indexes
+        smiles_to_spectra_map = {
             s: [i for i, c in enumerate(canon_smiles) if c == s]
             for s in unique_smiles
         }
 
         df_smiles = pd.DataFrame()
         df_smiles["canon_smiles"] = list(unique_smiles)
-        df_smiles["indexes"] = [table_smiles[k] for k in unique_smiles]
-        df_smiles["number_indexes"] = [
-            len(table_smiles[k]) for k in unique_smiles
+        df_smiles["indexes"] = [
+            smiles_to_spectra_map[k] for k in unique_smiles
+        ]
+        df_smiles["number_indexes"] = [  # TODO: rename to num_spectra
+            len(smiles_to_spectra_map[k]) for k in unique_smiles
         ]
 
-        indexes_original = [canon_smiles.index(u_s) for u_s in unique_smiles]
+        indexes_original = [
+            canon_smiles.index(u_s) for u_s in unique_smiles
+        ]  # first index of each unique smiles
 
         df_smiles["mz"] = [all_mz[u_s] for u_s in indexes_original]
         df_smiles["charge"] = [all_charge[u_s] for u_s in indexes_original]
@@ -223,52 +235,67 @@ class TrainUtils:
         df_smiles["classe"] = [all_classe[u_s] for u_s in indexes_original]
         df_smiles["subclass"] = [all_subclass[u_s] for u_s in indexes_original]
 
-        print("creating dummy spectra...")
-        spectrums_unique = TrainUtils.create_dummy_spectra(df_smiles)
-
-        # organize the spectrums based on mz
-        spectrums_unique_ordered = PreprocessingUtils.order_spectrums_by_mz(
-            spectrums_unique
+        # create dummy spectra for the unique smiles
+        spectra_unique = TrainUtils.create_dummy_spectra(df_smiles)
+        # order spectra by charge and precursor mz
+        spectra_unique_ordered = PreprocessingUtils.order_spectra_by_mz(
+            spectra_unique
         )
-
         # reindex df_smiles
-        canon_smiles_not_ordered = [s.smiles for s in spectrums_unique]
-        canon_smiles_ordered = [s.smiles for s in spectrums_unique_ordered]
+        canon_smiles_not_ordered = [s.smiles for s in spectra_unique]
+        canon_smiles_ordered = [s.smiles for s in spectra_unique_ordered]
 
         new_indexes = [
             canon_smiles_ordered.index(s) for s in canon_smiles_not_ordered
         ]
         df_smiles.set_index(pd.Index(new_indexes), inplace=True)
         df_smiles = df_smiles.sort_index()
-        return spectrums_unique_ordered, df_smiles
+        return spectra_unique_ordered, df_smiles
 
     @staticmethod
-    def create_dummy_spectra(df_smiles):
-        spectrums_dummy = []
-        for index, row in df_smiles.iterrows():
-            spectrum_temp = SpectrumExt(
-                identifier=str(index),
-                precursor_mz=row["mz"],
-                precursor_charge=row["charge"],
-                mz=np.zeros(1),
-                intensity=np.zeros(1),
-                retention_time=np.nan,
-                params={"smiles": row["canon_smiles"]},
-                library=row["library"],
-                inchi=row["inchi"],
-                smiles=row["canon_smiles"],
-                ionmode=row["ionmode"],
-                bms=row["bms"],
-                superclass=row["superclass"],
-                classe=row["classe"],
-                subclass=row["subclass"],
+    def create_dummy_spectra(df_smiles: pd.DataFrame) -> List[SpectrumExt]:
+        """
+        Create dummy spectra based on the smiles information and associated metadata.
+        The spectra will have empty mz and intensity arrays.
+
+        Parameters
+        ----------
+        df_smiles : pd.DataFrame
+            DataFrame containing smiles and associated metadata.
+
+        Returns
+        -------
+        List[SpectrumExt]
+            A list of dummy SpectrumExt objects.
+        """
+        # Use DataFrame.itertuples for faster iteration and preallocate arrays
+        zeros_array = np.zeros(1)
+        nan_value = np.nan
+        dummy_spectra = [
+            SpectrumExt(
+                identifier=str(row.Index),
+                precursor_mz=row.mz,
+                precursor_charge=row.charge,
+                mz=zeros_array,
+                intensity=zeros_array,
+                retention_time=nan_value,
+                params={"smiles": row.canon_smiles},
+                library=row.library,
+                inchi=row.inchi,
+                smiles=row.canon_smiles,
+                ionmode=row.ionmode,
+                bms=row.bms,
+                superclass=row.superclass,
+                classe=row.classe,
+                subclass=row.subclass,
             )
-            spectrums_dummy.append(spectrum_temp)
-        return spectrums_dummy
+            for row in df_smiles.itertuples()
+        ]
+        return dummy_spectra
 
     @staticmethod
     def compute_all_tanimoto_results_unique(
-        spectrums_original,
+        spectra_original,
         max_combinations=1000000,
         limit_low_tanimoto=True,
         max_low_pairs=0.5,
@@ -294,7 +321,7 @@ class TrainUtils:
         )
 
         spectrums_unique, df_smiles = TrainUtils.get_unique_spectra(
-            spectrums_original
+            spectra_original
         )
 
         molecule_pairs_unique = function_tanimoto(
@@ -311,10 +338,10 @@ class TrainUtils:
             high_tanimoto_range=high_tanimoto_range,
         )
         return MoleculePairsOpt(
-            spectrums_original=spectrums_original,
+            spectrums_original=spectra_original,
             spectrums_unique=spectrums_unique,
             df_smiles=df_smiles,
-            indexes_tani_unique=molecule_pairs_unique.indexes_tani,
+            indexes_tani_unique=molecule_pairs_unique.pair_distances,
         )
 
     @staticmethod
@@ -416,7 +443,7 @@ class TrainUtils:
         print(f"Number of effective pairs retrieved: {indexes_np.shape[0]} ")
         # molecular_pair_set= MolecularPairsSet(spectrums=all_spectrums,indexes_tani= indexes)
         molecular_pair_set = MolecularPairsSet(
-            spectrums=all_spectrums, indexes_tani=indexes_np
+            spectra=all_spectrums, pair_distances=indexes_np
         )
 
         print(datetime.now())
@@ -515,7 +542,7 @@ class TrainUtils:
         print(f"Number of effective pairs retrieved: {indexes_np.shape[0]} ")
         # molecular_pair_set= MolecularPairsSet(spectrums=all_spectrums,indexes_tani= indexes)
         molecular_pair_set = MolecularPairsSet(
-            spectrums=all_spectrums, indexes_tani=indexes_np
+            spectra=all_spectrums, pair_distances=indexes_np
         )
 
         print(datetime.now())
