@@ -21,6 +21,9 @@ class CustomDatasetMultitasking(Dataset):
         use_fingerprints=False,
         fingerprint_0=None,
         max_num_peaks=None,
+        use_extra_metadata=False,
+        ionization_mode_precursor=False,
+        adduct_mass_precursor=False,
     ):
         self.data = your_dict
         self.keys = list(your_dict.keys())
@@ -36,6 +39,10 @@ class CustomDatasetMultitasking(Dataset):
         if self.use_fingerprints:
             self.fingerprint_0 = fingerprint_0
         self.max_num_peaks = max_num_peaks
+
+        if self.use_extra_metadata:
+            self.ionization_mode_precursor = ionization_mode_precursor
+            self.adduct_mass_precursor= adduct_mass_precursor 
 
     def __len__(self):
         return len(self.data[self.keys[0]])
@@ -63,6 +70,13 @@ class CustomDatasetMultitasking(Dataset):
         dictionary["precursor_charge_0"] = np.zeros((len_data, 1), dtype=np.int32)
         dictionary["precursor_mass_1"] = np.zeros((len_data, 1), dtype=np.float32)
         dictionary["precursor_charge_1"] = np.zeros((len_data, 1), dtype=np.int32)
+
+        ### add extra metadata in case it is necessary
+        if self.use_extra_metadata:
+            dictionary['ionization_mode_precursor_0'] = np.zeros((len_data, 1), dtype=np.float32)
+            dictionary['ionization_mode_precursor_1'] = np.zeros((len_data, 1), dtype=np.float32)
+            dictionary['adduct_mass_precursor_0']=  np.zeros((len_data, 1), dtype=np.float32)
+            dictionary['adduct_mass_precursor_1']= np.zeros((len_data, 1), dtype=np.float32) 
 
         if self.use_fingerprints:
             print("Defining fingerprints ...")
@@ -106,6 +120,20 @@ class CustomDatasetMultitasking(Dataset):
             dictionary["similarity2"][idx] = sample_unique["similarity2"].astype(
                 np.float32
             )
+            if self.use_extra_metadata:
+                dictionary["ionization_mode_precursor_0"][idx] = self.ionization_mode_precursor[
+                indexes_original_0
+                ].astype(np.float32)
+                dictionary["ionization_mode_precursor_1"][idx] = self.ionization_mode_precursor[
+                indexes_original_1
+                ].astype(np.float32)
+
+                dictionary["adduct_mass_precursor_0"][idx] = self.adduct_mass_precursor[
+                indexes_original_0
+                ].astype(np.float32)
+                dictionary["adduct_mass_precursor_1"][idx] = self.adduct_mass_precursor[
+                indexes_original_1
+                ].astype(np.float32)
 
             if self.use_fingerprints:
                 dictionary["fingerprint_0"][idx] = self.fingeprint_0[
