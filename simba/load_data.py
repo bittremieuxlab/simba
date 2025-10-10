@@ -137,7 +137,7 @@ class LoadData:
             "cond_centroid": cond_centroid,
             "cond_inchi_smiles": cond_inchi_smiles,
         }
-        print(dict_results)
+        
         # return cond_ion_mode and cond_mz_array
 
         total_condition = (
