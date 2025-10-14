@@ -83,8 +83,8 @@ class LoadDataMultitasking:
             precursor_charge[i] = l.precursor_charge
 
             if use_extra_metadata:
-                ionization_mode_precursor[i]= 1.00 if l.params['ionmode'].lower == 'positive' else -1
-                adduct_mass_precursor[i]= l.params['adduct_mass']
+                ionization_mode_precursor[i]= 1.00 if l.params['ion_mode'].lower == 'positive' else -1
+                adduct_mass_precursor[i]= float(l.params['adduct_mass'])
 
         print("Normalizing intensities")
         # Normalize the intensity array
