@@ -34,6 +34,7 @@ class LoaderSaver:
         use_nist=False,
         config=None,
         use_janssen=False,
+        use_only_protonized_adducts=True,
     ):
 
         if use_janssen:
@@ -44,6 +45,7 @@ class LoaderSaver:
                 use_tqdm=use_tqdm,
                 config=config,
                 use_gnps_format=not (use_janssen),
+                use_only_protonized_adducts=use_only_protonized_adducts,
             )  # Janssen data does not use the GNPS format
             if self.pickle_janssen_path is not None:
                 self.save_pickle(self.pickle_janssen_path, spectrums)
@@ -63,6 +65,7 @@ class LoaderSaver:
                 compute_classes=compute_classes,
                 use_tqdm=use_tqdm,
                 config=config,
+                use_only_protonized_adducts=use_only_protonized_adducts,
             )
             if self.pickle_gnps_path is not None:
                 self.save_pickle(self.pickle_gnps_path, spectrums)

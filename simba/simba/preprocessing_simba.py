@@ -7,7 +7,7 @@ from simba.loader_saver import LoaderSaver
 class PreprocessingSimba:
 
     def load_spectra(
-        file_name, config, min_peaks=6, n_samples=500000, use_gnps_format=False
+        file_name, config, min_peaks=6, n_samples=500000, use_gnps_format=False, use_only_protonized_adducts=True,
     ):
         # load
         print(file_name)
@@ -26,6 +26,7 @@ class PreprocessingSimba:
                 use_nist=False,
                 config=config,
                 use_janssen=not (use_gnps_format),
+                use_only_protonized_adducts=use_only_protonized_adducts,
             )
         elif file_name.endswith(".pkl"):
             all_spectrums = LoadData.get_all_spectrums_casmi(
