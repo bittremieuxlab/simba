@@ -282,7 +282,8 @@ def write_data(
         "molecule_pairs_test": molecule_pairs_test,
         "uniformed_molecule_pairs_test": uniformed_molecule_pairs_test,
     }
-    logger.info(f"Writing molecule -> spectra mapping to {file_path}")
+    logger.info(f"Writing molecule to spectra mapping to {file_path}")
+    os.makedirs(os.path.dirname(file_path), exist_ok=True)
     with open(file_path, "wb") as file:
         pickle.dump(dataset, file)
 
@@ -401,13 +402,14 @@ if __name__ == "__main__":
 
     if config.PREPROCESSING_OVERWRITE:
         logger.info("Removing existing distance files...")
-        for file in os.listdir(config.PREPROCESSING_DIR):
-            file_path = os.path.join(config.PREPROCESSING_DIR, file)
-            try:
-                if os.path.isfile(file_path):
-                    os.remove(file_path)
-            except Exception as e:
-                logger.error(f"Error deleting file {file_path}: {e}")
+        if os.path.exists(config.PREPROCESSING_DIR):
+            for file in os.listdir(config.PREPROCESSING_DIR):
+                file_path = os.path.join(config.PREPROCESSING_DIR, file)
+                try:
+                    if os.path.isfile(file_path):
+                        os.remove(file_path)
+                except Exception as e:
+                    logger.error(f"Error deleting file {file_path}: {e}")
 
     # to get more high similarity pairs
     USE_ONLY_LOW_RANGE = True
