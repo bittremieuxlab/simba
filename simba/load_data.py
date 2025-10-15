@@ -29,6 +29,7 @@ class LoadData:
         compute_classes=False,
         config=None,
         use_gnps_format=True,
+        use_only_protonized_adducts=True,
     ) -> Iterator[SpectrumExt]:
         """
         Get the MS/MS spectra from the given MGF file, optionally filtering by
@@ -74,14 +75,18 @@ class LoadData:
             total_results = []
             for spectrum in spectrum_it():
                 # try:
-                if use_gnps_format:
-                    condition, res = LoadData.is_valid_spectrum_gnps(
-                        spectrum, config
-                    )
-                else:  # janssen format
-                    condition, res = LoadData.is_valid_spectrum_janssen(
-                        spectrum, config
-                    )
+                if use_only_protonized_adducts:
+                    if use_gnps_format:
+                        condition, res = LoadData.is_valid_spectrum_gnps(
+                            spectrum, config
+                        )
+                    else:  # janssen format
+                        condition, res = LoadData.is_valid_spectrum_janssen(
+                            spectrum, config
+                        )
+                else:
+                    condition, res = LoadData.default_filters(spectrum, config)
+
                 total_results.append(res)
                 if condition:
                     # yield spectrum['params']['name']
@@ -92,6 +97,88 @@ class LoadData:
                     )
             # except ValueError as e:
             #    pass
+
+    @staticmethod
+    def default_filters(spectrum: SpectrumExt, config):
+        cond_library = True  # all the library is good
+        cond_charge = True
+        cond_pepmass = True
+        cond_mz_array = len(spectrum["m/z array"]) >= config.MIN_N_PEAKS
+        cond_ion_mode = True
+        cond_name = True
+        cond_inchi_smiles = True
+        cond_centroid = PreprocessingUtils.is_centroid(
+            spectrum["intensity array"]
+        )
+
+        ##cond_name=True
+        ##cond_name=True
+        dict_results = {
+            "cond_library": cond_library,
+            "cond_charge": cond_charge,
+            "cond_pepmass": cond_pepmass,
+            "cond_mz_array": cond_mz_array,
+            "cond_ion_mode": cond_ion_mode,
+            "cond_name": cond_name,
+            "cond_centroid": cond_centroid,
+            "cond_inchi_smiles": cond_inchi_smiles,
+        }
+
+        # return cond_ion_mode and cond_mz_array
+
+        total_condition = (
+            cond_library
+            and cond_charge
+            and cond_pepmass
+            and cond_mz_array
+            and cond_ion_mode
+            and cond_name
+            and cond_centroid
+            and cond_inchi_smiles
+        )
+
+        return total_condition, dict_results
+
+    @staticmethod
+    def default_filters(spectrum: SpectrumExt, config: Config):
+        cond_library = True  # all the library is good
+        cond_charge = True
+        cond_pepmass = True
+        cond_mz_array = len(spectrum["m/z array"]) >= config.MIN_N_PEAKS
+        cond_ion_mode = True
+        cond_name = True
+        cond_inchi_smiles = True
+        cond_centroid = PreprocessingUtils.is_centroid(
+            spectrum["intensity array"]
+        )
+
+        ##cond_name=True
+        ##cond_name=True
+        dict_results = {
+            "cond_library": cond_library,
+            "cond_charge": cond_charge,
+            "cond_pepmass": cond_pepmass,
+            "cond_mz_array": cond_mz_array,
+            "cond_ion_mode": cond_ion_mode,
+            "cond_name": cond_name,
+            "cond_centroid": cond_centroid,
+            "cond_inchi_smiles": cond_inchi_smiles,
+        }
+
+        # return cond_ion_mode and cond_mz_array
+
+        total_condition = (
+            cond_library
+            and cond_charge
+            and cond_pepmass
+            and cond_mz_array
+            and cond_ion_mode
+            and cond_name
+            and cond_centroid
+            and cond_inchi_smiles
+        )
+
+        return total_condition, dict_results
 
     @staticmethod
     def is_valid_spectrum_janssen(spectrum: SpectrumExt, config: Config):
@@ -113,22 +200,37 @@ class LoadData:
         cond_mz_array = len(spectrum["m/z array"]) >= config.MIN_N_PEAKS
 
         if "ionmode" in spectrum["params"]:
-            cond_ion_mode = spectrum["params"]["ionmode"] == "Positive"
+            cond_ion_mode = spectrum["params"]["ionmode"].lower() == "positive"
         else:
             cond_ion_mode = True
-        cond_name = spectrum["params"]["adduct"] in [
-            "M+",
-            "[M+H]+",
-            "M+H",
-        ]  # adduct
+
+        if "adduct" in spectrum["params"]:
+
+            cond_name = spectrum["params"]["adduct"] in [
+                "M+",
+                "[M+H]+",
+                "M+H",
+            ]  # adduct
+        else:
+            print(
+                "WARNING: Adduct information not found in spectrum. Please make sure the spectra corresponds to protonozied adducts [M+H]"
+            )
+            cond_name = True
+
+        if "smiles" in spectrum["params"]:
+            cond_inchi_smiles = (
+                # spectrum['params']["inchi"] != "N/A" or
+                spectrum["params"]["smiles"]
+                != "N/A"
+            )
+        else:
+            print("WARNING: Smiles not found on spectra.")
+            cond_inchi_smiles = True
+
         cond_centroid = PreprocessingUtils.is_centroid(
             spectrum["intensity array"]
         )
-        cond_inchi_smiles = (
-            # spectrum['params']["inchi"] != "N/A" or
-            spectrum["params"]["smiles"]
-            != "N/A"
-        )
+
         ##cond_name=True
         ##cond_name=True
         dict_results = {
@@ -257,7 +359,12 @@ class LoadData:
         params = spectrum_dict["params"]
         library = library
         inchi = inchi
-        smiles = spectrum_dict["params"]["smiles"]
+        smiles = (
+            spectrum_dict["params"]["smiles"]
+            if "smiles" in spectrum_dict["params"]
+            else ""
+        )
+
         if "ionmode" in spectrum_dict["params"]:
             ionmode = spectrum_dict["params"]["ionmode"]
         else:
@@ -324,6 +431,7 @@ class LoadData:
         use_tqdm: bool = True,
         config=None,
         use_gnps_format: bool = True,
+        use_only_protonized_adducts=True,
     ) -> List[SpectrumExt]:
         """
         Get the MS/MS spectra from the given MGF file, optionally filtering by
@@ -345,6 +453,9 @@ class LoadData:
         use_gnps_format : bool
             Whether the MGF file follows the GNPS format. If `False`, it is assumed
             to follow the Janssen format.
+        use_only_protonized_adducts : bool
+            Whether to filter spectra to only include those with protonated adducts
+            ([M+H]+).
         Returns
         -------
         List[SpectrumExt]
@@ -358,6 +469,7 @@ class LoadData:
             compute_classes=compute_classes,
             config=config,
             use_gnps_format=use_gnps_format,
+            use_only_protonized_adducts=use_only_protonized_adducts,
         )
 
         if use_tqdm:

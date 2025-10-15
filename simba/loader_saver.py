@@ -38,6 +38,7 @@ class LoaderSaver:
         use_nist: bool = False,
         config: Config = None,
         use_janssen: bool = False,
+        use_only_protonized_adducts: bool = True,
     ) -> List[SpectrumExt]:
         """
         Get all spectrums from a file.
@@ -59,6 +60,8 @@ class LoaderSaver:
             Configuration object, by default None.
         use_janssen : bool, optional
             Whether the file is in Janssen format, by default False.
+        use_only_protonized_adducts : bool, optional
+            Whether to use only protonized adducts, by default True.
 
         Returns
         -------
@@ -74,6 +77,7 @@ class LoaderSaver:
                 use_tqdm=use_tqdm,
                 config=config,
                 use_gnps_format=not (use_janssen),
+                use_only_protonized_adducts=use_only_protonized_adducts,
             )  # Janssen data does not use the GNPS format
             if self.pickle_janssen_path is not None:
                 self.save_pickle(self.pickle_janssen_path, spectrums)
@@ -93,6 +97,7 @@ class LoaderSaver:
                 compute_classes=compute_classes,
                 use_tqdm=use_tqdm,
                 config=config,
+                use_only_protonized_adducts=use_only_protonized_adducts,
             )
             if self.pickle_gnps_path is not None:
                 self.save_pickle(self.pickle_gnps_path, spectrums)

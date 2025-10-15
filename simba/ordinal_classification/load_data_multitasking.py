@@ -22,6 +22,7 @@ class LoadDataMultitasking:
         training=False,  # shuffle the spectrum 0 and 1 for data augmentation
         N_classes=6,
         use_fingerprints=False,
+        use_extra_metadata=False,
     ):
         """
         preprocess the spectra and convert it for being used in Pytorch
@@ -61,6 +62,15 @@ class LoadDataMultitasking:
         precursor_charge = np.zeros(
             (len(molecule_pairs.spectrums_original), 1), dtype=np.int32
         )
+        if use_extra_metadata:
+            ionization_mode_precursor = np.zeros(
+                (len(molecule_pairs.spectrums_original), 1), dtype=np.float32
+            )
+            adduct_mass_precursor = np.zeros(
+                (len(molecule_pairs.spectrums_original), 1), dtype=np.float32
+            )
+            
+
 
         print("loading data")
         for i, l in enumerate(molecule_pairs.spectrums_original):
@@ -73,6 +83,10 @@ class LoadDataMultitasking:
 
             precursor_mass[i] = l.precursor_mz
             precursor_charge[i] = l.precursor_charge
+
+            if use_extra_metadata:
+                ionization_mode_precursor[i]= 1.00 if l.params['ion_mode'].lower == 'positive' else -1
+                adduct_mass_precursor[i]= float(l.params['adduct_mass'])
 
         print("Normalizing intensities")
         # Normalize the intensity array
@@ -117,4 +131,5 @@ class LoadDataMultitasking:
             use_fingerprints=use_fingerprints,
             fingerprint_0=fingerprint_0,
             max_num_peaks=max_num_peaks,
+            use_extra_metadata=use_extra_metadata,
         )

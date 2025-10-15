@@ -71,10 +71,13 @@ def get_formula_subformulas(
                     precursor_formula=results_formula[k],
                 )
             else:
-                subformula_results[k] = [
-                    {"best_subformula": None}
-                    for s in subformula_results["formula_rank_1"]
-                ]
+                if "formula_rank_1" in subformula_results:
+                    subformula_results[k] = [
+                        {"best_subformula": None}
+                        for s in subformula_results["formula_rank_1"]
+                    ]
+                else:
+                    subformula_results[k] = [{"best_subformula": None}]
         subformula_results = [
             [subformula_results[k][n]["best_subformula"] for k in keys]
             for n in range(0, len(subformula_results["formula_rank_1"]))

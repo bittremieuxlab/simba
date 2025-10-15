@@ -17,6 +17,7 @@ class PreprocessingSimba:
         min_peaks: int = 6,
         n_samples: int = 500000,
         use_gnps_format: bool = False,
+        use_only_protonized_adducts: bool = True,
     ) -> List[SpectrumExt]:
         """Load and preprocess spectra from a file.
         Parameters
@@ -31,6 +32,9 @@ class PreprocessingSimba:
             The number of samples to load, by default 500000.
         use_gnps_format : bool, optional
             Whether to use GNPS format for loading, by default False.
+        use_only_protonized_adducts : bool, optional
+            Whether to use only protonized adducts, by default True.
+
         Returns
         -------
         List[SpectrumExt]
@@ -50,6 +54,7 @@ class PreprocessingSimba:
                 use_nist=False,
                 config=config,
                 use_janssen=not (use_gnps_format),
+                use_only_protonized_adducts=use_only_protonized_adducts,
             )
         elif file_name.endswith(".pkl"):
             all_spectrums = LoadData.get_all_spectrums_casmi(

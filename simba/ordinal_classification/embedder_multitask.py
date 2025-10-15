@@ -93,6 +93,7 @@ class EmbedderMultitask(Embedder):
         tau_gumbel_softmax=10,
         gumbel_reg_weight=0.1,
         USE_LEARNABLE_MULTITASK=True,
+        use_extra_metadata=False,
     ):
         """Initialize the CCSPredictor"""
         super().__init__(
@@ -103,6 +104,7 @@ class EmbedderMultitask(Embedder):
             lr=lr,
             use_element_wise=use_element_wise,
             use_cosine_distance=use_cosine_distance,
+            use_extra_metadata=use_extra_metadata,
         )
         self.weights = weights
 
