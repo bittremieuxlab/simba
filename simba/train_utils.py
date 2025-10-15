@@ -57,6 +57,7 @@ class TrainUtils:
         spectrums: List[SpectrumExt],
         val_split: float = 0.1,
         test_split: float = 0.1,
+        seed: int = 42,
     ) -> Tuple[List[SpectrumExt], List[SpectrumExt], List[SpectrumExt]]:
         """
         Split data into train, validation, and test sets based on Murcko scaffolds
@@ -70,12 +71,17 @@ class TrainUtils:
             Proportion of data to be used for validation.
         test_split: float
             Proportion of data to be used for testing.
+        seed: int
+            Random seed for reproducibility.
 
         Returns
         -------
         Tuple[List[SpectrumExt], List[SpectrumExt], List[SpectrumExt]]
             Three lists containing the training, validation, and test spectra.
         """
+        random.seed(seed)
+        np.random.seed(seed)
+
         # get the percentage of training data
         train_split = 1 - val_split - test_split
         # get the murcko scaffold
