@@ -50,8 +50,12 @@ class TrainUtils:
         return new_molecule_pairs
 
     @staticmethod
-    def train_val_test_split_bms(spectrums, val_split=0.1, test_split=0.1):
+    def train_val_test_split_bms(spectrums, val_split=0.1, test_split=0.1, seed=42):
 
+        # set random seed for determinism
+        random.seed(seed)
+        np.random.seed(seed)
+        
         # get the percentage of training data
         train_split = 1 - val_split - test_split
         # get the murcko scaffold
