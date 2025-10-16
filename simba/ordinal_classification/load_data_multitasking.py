@@ -117,7 +117,7 @@ class LoadDataMultitasking:
             "similarity2": similarity2,
             # "fingerprint_0": fingerprint_0,
         }
-        if self.use_extra_metadata:
+        if use_extra_metadata:
             return CustomDatasetMultitasking(
                 dictionary_data,
                 training=training,
