@@ -234,8 +234,8 @@ n_spectra = len(uniformed_molecule_pairs_test_ed)
 # n_spectra= len(uniformed_molecule_pairs_test_mces)
 # indexes_0 = uniformed_molecule_pairs_test_mces.indexes_tani[:,0]
 # indexes_1 = uniformed_molecule_pairs_test_mces.indexes_tani[:,1]
-indexes_0 = uniformed_molecule_pairs_test_ed.indexes_tani[:, 0]
-indexes_1 = uniformed_molecule_pairs_test_ed.indexes_tani[:, 1]
+indexes_0 = uniformed_molecule_pairs_test_ed.pair_distances[:, 0]
+indexes_1 = uniformed_molecule_pairs_test_ed.pair_distances[:, 1]
 spectra0 = [
     uniformed_molecule_pairs_test_mces.get_original_spectrum_from_unique_index(
         index, 0

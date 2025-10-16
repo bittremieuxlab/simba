@@ -6,7 +6,9 @@ from tqdm import tqdm
 
 from simba.molecule_pairs_opt import MoleculePairsOpt
 from simba.ordinal_classification.embedder_multitask import EmbedderMultitask
-from simba.ordinal_classification.load_data_multitasking import LoadDataMultitasking
+from simba.ordinal_classification.load_data_multitasking import (
+    LoadDataMultitasking,
+)
 
 
 class ADMultitask:
@@ -34,26 +36,33 @@ class ADMultitask:
         vector = vector + 1e-12
         return -np.sum(vector * np.log(vector), axis=-1)
 
-    def create_input_data_from_spectrums(self, spectrum_query, spectrums_candidates):
+    def create_input_data_from_spectrums(
+        self, spectrum_query, spectrums_candidates
+    ):
         """
         from the spectrums create the data object expected by the model
         """
 
         df_smiles = pd.DataFrame()
-        df_smiles.index = [index for index in range(0, len(spectrums_candidates) + 1)]
+        df_smiles.index = [
+            index for index in range(0, len(spectrums_candidates) + 1)
+        ]
         df_smiles["indexes"] = [[index] for index in df_smiles.index]
 
         # make all the possible pairs between spectrum query and candidates
         indexes_tani = np.array(
-            [[0, index, 0] for index in range(1, len(spectrums_candidates) + 1)]
+            [
+                [0, index, 0]
+                for index in range(1, len(spectrums_candidates) + 1)
+            ]
         )
 
         pair_temp = MoleculePairsOpt(
-            spectrums_original=[spectrum_query] + spectrums_candidates,
-            spectrums_unique=[spectrum_query] + spectrums_candidates,
+            original_spectra=[spectrum_query] + spectrums_candidates,
+            unique_spectra=[spectrum_query] + spectrums_candidates,
             df_smiles=df_smiles,
-            indexes_tani_unique=indexes_tani,
-            tanimotos=np.zeros(len(spectrums_candidates)),
+            pair_distances=indexes_tani,
+            extra_distances=np.zeros(len(spectrums_candidates)),
         )
         return pair_temp
 
@@ -65,7 +74,9 @@ class ADMultitask:
         pair_temp = self.create_input_data_from_spectrums(
             spectrum_query, spectrums_candidates
         )
-        dataset_test = LoadDataMultitasking.from_molecule_pairs_to_dataset(pair_temp)
+        dataset_test = LoadDataMultitasking.from_molecule_pairs_to_dataset(
+            pair_temp
+        )
         return DataLoader(
             dataset_test, batch_size=self.config.BATCH_SIZE, shuffle=False
         )

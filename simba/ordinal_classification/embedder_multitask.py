@@ -359,11 +359,9 @@ class EmbedderMultitask(Embedder):
         logits_list = self(batch)
         logits1 = logits_list[0]
         logits2 = logits_list[1]
-        target1 = torch.tensor(batch["similarity"], dtype=torch.long).to(
-            self.device
-        )
+        target1 = torch.tensor(batch["ed"], dtype=torch.long).to(self.device)
         target1 = target1.view(-1)
-        target2 = torch.tensor(batch["similarity2"], dtype=torch.float32).to(
+        target2 = torch.tensor(batch["mces"], dtype=torch.float32).to(
             self.device
         )
         target2 = target2.view(-1)
@@ -388,7 +386,7 @@ class EmbedderMultitask(Embedder):
                 loss1 = self.regression_loss(
                     predicted_value.float(), target1.float()
                 )
-                batch_size = batch["similarity"].size(0)
+                batch_size = batch["ed"].size(0)
                 diff_penalty = (
                     torch.sum(
                         (gumbel_probs_1[:, 2:] - gumbel_probs_1[:, 1:-1]) ** 2
@@ -462,9 +460,7 @@ class EmbedderMultitask(Embedder):
     def step_mse(self, batch, batch_idx, threshold=0.5):
         logits = self(batch)
         logits = F.softmax(logits, dim=-1)
-        target = (
-            torch.tensor(batch["similarity"]).to(self.device).view(-1).float()
-        )
+        target = torch.tensor(batch["ed"]).to(self.device).view(-1).float()
         predicted_value = torch.sum(
             logits * torch.arange(logits.size(1)).to(self.device), dim=1
         )

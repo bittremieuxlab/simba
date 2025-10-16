@@ -35,7 +35,7 @@ class MCES:
         identifier: str = "",
         use_edit_distance: bool = False,
         loaded_molecule_pairs=None,  # TODO: type hint
-    ):
+    ) -> MoleculePairsOpt:
         """
         Compute MCES or edit distance for all pairs of spectra using multiprocessing.
 
@@ -84,14 +84,14 @@ class MCES:
         else:
             molecular_pairs = loaded_molecule_pairs
             df_smiles = molecular_pairs.df_smiles
-            spectra_unique = molecular_pairs.spectrums
-            spectra_original = molecular_pairs.spectrums_original
+            spectra_unique = molecular_pairs.spectra
+            spectra_original = molecular_pairs.original_spectra
 
         return MoleculePairsOpt(
-            spectrums_original=spectra_original,
-            spectrums_unique=spectra_unique,
+            original_spectra=spectra_original,
+            unique_spectra=spectra_unique,
             df_smiles=df_smiles,
-            indexes_tani_unique=molecular_pairs.pair_distances,
+            pair_distances=molecular_pairs.pair_distances,
         )
 
     @staticmethod
@@ -267,7 +267,7 @@ class MCES:
         config: Config = None,
         identifier: str = "",
         use_edit_distance=False,
-    ):
+    ) -> MolecularPairsSet:
         """
         Compute MCES or edit distance for all pairs of spectra using multiprocessing.
 

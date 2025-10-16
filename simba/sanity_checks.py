@@ -13,9 +13,9 @@ class SanityChecks:
         """
         no train ids in test/val
         """
-        ids_train = [s.spectrum_hash for s in molecules_pairs_train.spectrums]
-        ids_val = [s.spectrum_hash for s in molecules_pairs_val.spectrums]
-        ids_test = [s.spectrum_hash for s in molecules_pairs_test.spectrums]
+        ids_train = [s.spectrum_hash for s in molecules_pairs_train.spectra]
+        ids_val = [s.spectrum_hash for s in molecules_pairs_val.spectra]
+        ids_test = [s.spectrum_hash for s in molecules_pairs_test.spectra]
 
         is_any_train_in_val = any([(id in ids_train) for id in [ids_val]])
         is_any_train_in_test = any([(id in ids_train) for id in [ids_test]])
@@ -32,11 +32,9 @@ class SanityChecks:
         """
         different mruck scaffold between train and test
         """
-        bms_train = [
-            s.murcko_scaffold for s in molecules_pairs_train.spectrums
-        ]
-        bms_val = [s.murcko_scaffold for s in molecules_pairs_val.spectrums]
-        bms_test = [s.murcko_scaffold for s in molecules_pairs_test.spectrums]
+        bms_train = [s.murcko_scaffold for s in molecules_pairs_train.spectra]
+        bms_val = [s.murcko_scaffold for s in molecules_pairs_val.spectra]
+        bms_test = [s.murcko_scaffold for s in molecules_pairs_test.spectra]
 
         is_any_bms_train_in_val = any([(id in bms_train) for id in [bms_val]])
         is_any_bms_train_in_test = any(

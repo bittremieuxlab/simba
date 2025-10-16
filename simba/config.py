@@ -89,6 +89,7 @@ class Config:
         self.validate_after_ratio = 0.0010  # it indicates the interval between validations. O.1 means 10 validations in 1 epoch
         self.extra_info = "_multitasking_mces20raw_gumbelhard_20241004"
 
+        self.PREPROCESSING_PICKLE_FILE = None
         self.PREPROCESSING_DIR = f"/scratch/antwerpen/209/vsc20939/data/preprocessing_edit_distance_20250117/"
         self.PREPROCESSING_DIR_TRAIN = f"/scratch/antwerpen/209/vsc20939/data/preprocessing_ed_mces_20250123/"
         self.PREPROCESSING_DIR_VAL_TEST = f"/scratch/antwerpen/209/vsc20939/data/preprocessing_mces_threshold20_newdata_20240925/"

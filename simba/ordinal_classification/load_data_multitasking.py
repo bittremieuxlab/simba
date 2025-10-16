@@ -3,11 +3,16 @@ import copy
 import numpy as np
 from tqdm import tqdm
 
+from simba.logger_setup import logger
 from simba.molecule_pairs_opt import MoleculePairsOpt
+from simba.ordinal_classification.ordinal_classification import (
+    OrdinalClassification,
+)
 from simba.preprocessor import Preprocessor
-from simba.ordinal_classification.ordinal_classification import OrdinalClassification
 from simba.tanimoto import Tanimoto
-from simba.transformers.CustomDatasetMultitasking import CustomDatasetMultitasking
+from simba.transformers.CustomDatasetMultitasking import (
+    CustomDatasetMultitasking,
+)
 
 
 class LoadDataMultitasking:
@@ -17,7 +22,7 @@ class LoadDataMultitasking:
 
     @staticmethod
     def from_molecule_pairs_to_dataset(
-        molecule_pairs_input,
+        molecule_pairs_input: MoleculePairsOpt,
         max_num_peaks,
         training=False,  # shuffle the spectrum 0 and 1 for data augmentation
         N_classes=6,
@@ -29,51 +34,50 @@ class LoadDataMultitasking:
         """
         # copy spectrums to avoid overwriting
         molecule_pairs = MoleculePairsOpt(
-            spectrums_original=[
-                copy.copy(s) for s in molecule_pairs_input.spectrums_original
+            original_spectra=[
+                copy.copy(s) for s in molecule_pairs_input.original_spectra
             ],
-            spectrums_unique=molecule_pairs_input.spectrums,
+            unique_spectra=molecule_pairs_input.spectra,
             df_smiles=molecule_pairs_input.df_smiles,
-            indexes_tani_unique=molecule_pairs_input.indexes_tani,
-            tanimotos=molecule_pairs_input.tanimotos,
+            pair_distances=molecule_pairs_input.pair_distances,
+            extra_distances=molecule_pairs_input.extra_distances,
         )
 
-        ## Preprocess the data
+        # Preprocess the spectra
         pp = Preprocessor()
-        print("Preprocessing all the data ...")
-        molecule_pairs.spectrums_original = pp.preprocess_all_spectrums(
-            molecule_pairs.spectrums_original,
+        logger.info("Preprocessing all spectra ...")
+        molecule_pairs.original_spectra = pp.preprocess_all_spectra(
+            molecule_pairs.original_spectra,
             max_num_peaks=max_num_peaks,
             training=training,
         )
+        logger.info("Finished preprocessing ")
 
-        print("Finished preprocessing ")
-
-        ## Get the mz, intensity values and precursor data
+        # Get the mz, intensity values and precursor data
         mz = np.zeros(
-            (len(molecule_pairs.spectrums_original), max_num_peaks), dtype=np.float32
+            (len(molecule_pairs.original_spectra), max_num_peaks),
+            dtype=np.float32,
         )
         intensity = np.zeros(
-            (len(molecule_pairs.spectrums_original), max_num_peaks), dtype=np.float32
+            (len(molecule_pairs.original_spectra), max_num_peaks),
+            dtype=np.float32,
         )
         precursor_mass = np.zeros(
-            (len(molecule_pairs.spectrums_original), 1), dtype=np.float32
+            (len(molecule_pairs.original_spectra), 1), dtype=np.float32
         )
         precursor_charge = np.zeros(
-            (len(molecule_pairs.spectrums_original), 1), dtype=np.int32
+            (len(molecule_pairs.original_spectra), 1), dtype=np.int32
         )
         if use_extra_metadata:
             ionization_mode_precursor = np.zeros(
-                (len(molecule_pairs.spectrums_original), 1), dtype=np.float32
+                (len(molecule_pairs.original_spectra), 1), dtype=np.float32
             )
             adduct_mass_precursor = np.zeros(
-                (len(molecule_pairs.spectrums_original), 1), dtype=np.float32
+                (len(molecule_pairs.original_spectra), 1), dtype=np.float32
             )
-            
 
-
-        print("loading data")
-        for i, l in enumerate(molecule_pairs.spectrums_original):
+        logger.info("Loading mz, intensity and precursor data ...")
+        for i, l in enumerate(molecule_pairs.original_spectra):
             # check for maximum length
             length = len(l.mz) if len(l.mz) <= max_num_peaks else max_num_peaks
 
@@ -85,38 +89,45 @@ class LoadDataMultitasking:
             precursor_charge[i] = l.precursor_charge
 
             if use_extra_metadata:
-                ionization_mode_precursor[i]= 1.00 if l.params['ion_mode'].lower == 'positive' else -1
-                adduct_mass_precursor[i]= float(l.params['adduct_mass'])
+                ionization_mode_precursor[i] = (
+                    1.00 if l.params["ion_mode"].lower == "positive" else -1
+                )
+                adduct_mass_precursor[i] = float(l.params["adduct_mass"])
 
-        print("Normalizing intensities")
+        # logger.info("Normalizing intensities")
         # Normalize the intensity array
         # intensity = intensity / np.sqrt(np.sum(intensity**2, axis=1, keepdims=True))
 
-        ## Adjust similarity towards a N classification problem
-        similarity = OrdinalClassification.from_float_to_class(
-            molecule_pairs_input.indexes_tani[:, 2].reshape(-1, 1), N_classes=N_classes
+        # Adjust ED towards a N classification problem
+        ed = OrdinalClassification.from_float_to_class(
+            molecule_pairs_input.pair_distances[:, 2].reshape(-1, 1),
+            N_classes=N_classes,
         )
-        # similarity= molecule_pairs_input.indexes_tani[:, 2].reshape(-1,1)
+        # ed = molecule_pairs_input.indexes_tani[:, 2].reshape(-1,1)
 
-        similarity2 = molecule_pairs.tanimotos.reshape(-1, 1)
+        mces = molecule_pairs.extra_distances.reshape(-1, 1)
 
         if use_fingerprints:
             print("Computing molecular fingerprints")
             fingerprint_0 = np.array(
                 [
                     np.array(Tanimoto.compute_fingerprint(s.params["smiles"]))
-                    for s in molecule_pairs_input.spectrums
+                    for s in molecule_pairs_input.spectra
                 ]
             )
         else:
-            fingerprint_0 = np.array([0 for m in molecule_pairs_input.spectrums])
+            fingerprint_0 = np.array([0 for m in molecule_pairs_input.spectra])
 
         print("Creating dictionaries")
         dictionary_data = {
-            "index_unique_0": molecule_pairs_input.indexes_tani[:, 0].reshape(-1, 1),
-            "index_unique_1": molecule_pairs_input.indexes_tani[:, 1].reshape(-1, 1),
-            "similarity": similarity,
-            "similarity2": similarity2,
+            "index_unique_0": molecule_pairs_input.pair_distances[
+                :, 0
+            ].reshape(-1, 1),
+            "index_unique_1": molecule_pairs_input.pair_distances[
+                :, 1
+            ].reshape(-1, 1),
+            "ed": ed,
+            "mces": mces,
             # "fingerprint_0": fingerprint_0,
         }
 

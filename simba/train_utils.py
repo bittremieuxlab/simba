@@ -29,24 +29,24 @@ class TrainUtils:
     @staticmethod
     def compute_unique_combinations(molecule_pairs, high_sim=1):
 
-        lenght_total = len(molecule_pairs.spectrums)
+        lenght_total = len(molecule_pairs.spectra)
         indexes_np = np.zeros((lenght_total, 3))
         print(f"number of pairs: {lenght_total}")
-        for index, l in enumerate(molecule_pairs.spectrums):
+        for index, l in enumerate(molecule_pairs.spectra):
             indexes_np[index, 0] = index
             indexes_np[index, 1] = index
             indexes_np[index, 2] = high_sim
 
         new_indexes_np = np.concatenate(
-            (molecule_pairs.indexes_tani, indexes_np), axis=0
+            (molecule_pairs.pair_distances, indexes_np), axis=0
         )
 
         new_indexes_np = np.unique(new_indexes_np, axis=0)
         # add info to
         new_molecule_pairs = MoleculePairsOpt(
-            spectrums_unique=molecule_pairs.spectrums,
-            indexes_tani_unique=new_indexes_np,
-            spectrums_original=molecule_pairs.spectrums_original,
+            unique_spectra=molecule_pairs.spectra,
+            pair_distances=new_indexes_np,
+            original_spectra=molecule_pairs.original_spectra,
             df_smiles=molecule_pairs.df_smiles,
         )
 
@@ -344,10 +344,10 @@ class TrainUtils:
             high_tanimoto_range=high_tanimoto_range,
         )
         return MoleculePairsOpt(
-            spectrums_original=spectra_original,
-            spectrums_unique=spectrums_unique,
+            original_spectra=spectra_original,
+            unique_spectra=spectrums_unique,
             df_smiles=df_smiles,
-            indexes_tani_unique=molecule_pairs_unique.pair_distances,
+            pair_distances=molecule_pairs_unique.pair_distances,
         )
 
     @staticmethod
@@ -556,8 +556,32 @@ class TrainUtils:
 
     @staticmethod
     def count_ranges(
-        list_elements, number_bins=5, bin_sim_1=False, max_value=1
-    ):
+        list_elements: np.ndarray,
+        number_bins: int = 5,
+        bin_sim_1: bool = False,
+        max_value: float = 1,
+    ) -> Tuple[List[int], List[float]]:
+        """
+        count the number of elements in the different bins
+
+        Parameters
+        ----------
+        list_elements : list or np.array
+            List of numerical values to be binned.
+        number_bins : int
+            Number of bins to divide the data into.
+        bin_sim_1 : bool
+            If True, treat the maximum value (e.g., 1) as a separate bin.
+        max_value : float
+            Maximum value for normalization (default is 1).
+
+        Returns
+        -------
+        Tuple[List[int], List[float]]
+            A tuple containing two lists:
+            - counts: Number of elements in each bin.
+            - bins: The lower bound of each bin.
+        """
         # count the instances in the  bins from 0 to 1
         # Group the values into the corresponding bins, adding one for sim=1
         counts = []
@@ -621,26 +645,26 @@ class TrainUtils:
 
             # temp_molecule_pairs = [m for m in molecule_pairs if ((m.similarity>=low) and (m.similarity<high))]
             # check the similarity
-            # temp_indexes_tani = np.array([ row for row in molecule_pairs.indexes_tani if ((row[2]>=low) and (row[2]<high)) ])
-            temp_indexes_tani = molecule_pairs.indexes_tani[
-                (molecule_pairs.indexes_tani[:, 2] >= low)
-                & (molecule_pairs.indexes_tani[:, 2] < high)
+            # temp_indexes_tani = np.array([ row for row in molecule_pairs.pair_distances if ((row[2]>=low) and (row[2]<high)) ])
+            pair_distances_temp = molecule_pairs.pair_distances[
+                (molecule_pairs.pair_distances[:, 2] >= low)
+                & (molecule_pairs.pair_distances[:, 2] < high)
             ]
 
-            if molecule_pairs.tanimotos is not None:
-                tanimotos_temp = molecule_pairs.tanimotos[
-                    (molecule_pairs.indexes_tani[:, 2] >= low)
-                    & (molecule_pairs.indexes_tani[:, 2] < high)
+            if molecule_pairs.extra_distances is not None:
+                extra_distances_temp = molecule_pairs.extra_distances[
+                    (molecule_pairs.pair_distances[:, 2] >= low)
+                    & (molecule_pairs.pair_distances[:, 2] < high)
                 ]
             else:
-                tanimotos_temp = None
+                extra_distances_temp = None
 
             temp_molecule_pairs = MoleculePairsOpt(
-                spectrums_unique=molecule_pairs.spectrums,
-                indexes_tani_unique=temp_indexes_tani,
+                unique_spectra=molecule_pairs.spectra,
+                pair_distances=pair_distances_temp,
                 df_smiles=molecule_pairs.df_smiles,
-                spectrums_original=molecule_pairs.spectrums_original,
-                tanimotos=tanimotos_temp,
+                original_spectra=molecule_pairs.original_spectra,
+                extra_distances=extra_distances_temp,
             )
             binned_molecule_pairs.append(temp_molecule_pairs)
 
@@ -650,12 +674,13 @@ class TrainUtils:
 
     @staticmethod
     def divide_data_into_bins_categories(
-        molecule_pairs,
+        molecule_pairs: MoleculePairsOpt,
         number_bins,
         bin_sim_1=False,  # if you want to try sim=1 as a different bin
     ):
         """
-        divide data into bins using ordinal classification approach"""
+        divide data into bins using ordinal classification approach
+        """
         # Initialize lists to store values for each bin
         binned_molecule_pairs = []
 
@@ -667,9 +692,9 @@ class TrainUtils:
 
         # convert it to an integer
         bin_size = 1 / number_bins
-        # target = np.ceil(molecule_pairs.indexes_tani[:, 2]/bin_size)
+        # target = np.ceil(molecule_pairs.pair_distances[:, 2]/bin_size)
         target = OrdinalClassification.custom_random(
-            molecule_pairs.indexes_tani[:, 2] / bin_size
+            molecule_pairs.pair_distances[:, 2] / bin_size
         )
         for p in range(int(number_bins_effective)):
 
@@ -685,19 +710,21 @@ class TrainUtils:
 
             # temp_molecule_pairs = [m for m in molecule_pairs if ((m.similarity>=low) and (m.similarity<high))]
             # check the similarity
-            # temp_indexes_tani = np.array([ row for row in molecule_pairs.indexes_tani if ((row[2]>=low) and (row[2]<high)) ])
-            temp_indexes_tani = molecule_pairs.indexes_tani[(target == p)]
+            # temp_indexes_tani = np.array([ row for row in molecule_pairs.pair_distances if ((row[2]>=low) and (row[2]<high)) ])
+            pair_dists_temp = molecule_pairs.pair_distances[(target == p)]
 
-            if molecule_pairs.tanimotos is not None:
-                tanimotos_temp = molecule_pairs.tanimotos[(target == p)]
+            if molecule_pairs.extra_distances is not None:
+                extra_dists_temp = molecule_pairs.extra_distances[
+                    (target == p)
+                ]
             else:
-                tanimotos_temp = None
+                extra_dists_temp = None
             temp_molecule_pairs = MoleculePairsOpt(
-                spectrums_unique=molecule_pairs.spectrums,
-                indexes_tani_unique=temp_indexes_tani,
+                unique_spectra=molecule_pairs.spectra,
+                pair_distances=pair_dists_temp,
                 df_smiles=molecule_pairs.df_smiles,
-                spectrums_original=molecule_pairs.spectrums_original,
-                tanimotos=tanimotos_temp,
+                original_spectra=molecule_pairs.original_spectra,
+                extra_distances=extra_dists_temp,
             )
             binned_molecule_pairs.append(temp_molecule_pairs)
 
@@ -719,8 +746,8 @@ class TrainUtils:
         """
 
         # get spectrums and indexes
-        spectrums = molecule_pairs.spectrums
-        indexes_tani = molecule_pairs.indexes_tani
+        spectra = molecule_pairs.spectra
+        pair_distances = molecule_pairs.pair_distances
 
         # initialize random seed
         random.seed(seed)
@@ -743,26 +770,26 @@ class TrainUtils:
         for target_molecule_pairs in binned_molecule_pairs:
 
             sampled_rows = np.random.choice(
-                target_molecule_pairs.indexes_tani.shape[0],
+                target_molecule_pairs.pair_distances.shape[0],
                 size=min_bin,
                 replace=False,
             )
-            sampled_indexes_tani = target_molecule_pairs.indexes_tani[
+            sampled_indexes_tani = target_molecule_pairs.pair_distances[
                 sampled_rows
             ]
 
             ## check if there are tanimotos as second similarity metric appended
-            if target_molecule_pairs.tanimotos is not None:
-                tanimotos = target_molecule_pairs.tanimotos[sampled_rows]
+            if target_molecule_pairs.extra_distances is not None:
+                tanimotos = target_molecule_pairs.extra_distances[sampled_rows]
             else:
                 tanimotos = None
 
             sampled_molecule_pairs = MoleculePairsOpt(
-                spectrums_unique=target_molecule_pairs.spectrums,
-                spectrums_original=target_molecule_pairs.spectrums_original,
-                indexes_tani_unique=sampled_indexes_tani,
+                unique_spectra=target_molecule_pairs.spectra,
+                original_spectra=target_molecule_pairs.original_spectra,
+                pair_distances=sampled_indexes_tani,
                 df_smiles=target_molecule_pairs.df_smiles,
-                tanimotos=tanimotos,
+                extra_distances=tanimotos,
             )
             # add to the final list
 

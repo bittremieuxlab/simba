@@ -38,13 +38,15 @@ class CustomDatasetMultitasking(Dataset):
         self.precursor_charge = precursor_charge
         self.df_smiles = df_smiles  ### df with rows smiles, indexes
         self.use_fingerprints = use_fingerprints
+        self.use_extra_metadata = use_extra_metadata
+
         if self.use_fingerprints:
             self.fingerprint_0 = fingerprint_0
         self.max_num_peaks = max_num_peaks
 
         if self.use_extra_metadata:
             self.ionization_mode_precursor = ionization_mode_precursor
-            self.adduct_mass_precursor= adduct_mass_precursor 
+            self.adduct_mass_precursor = adduct_mass_precursor
 
     def __len__(self):
         return len(self.data[self.keys[0]])
@@ -58,31 +60,53 @@ class CustomDatasetMultitasking(Dataset):
         ## Get the mz, intensity values and precursor data
 
         dictionary = {}
-        dictionary["mz_0"] = np.zeros((len_data, max_num_peaks), dtype=np.float32)
+        dictionary["mz_0"] = np.zeros(
+            (len_data, max_num_peaks), dtype=np.float32
+        )
         dictionary["intensity_0"] = np.zeros(
             (len_data, max_num_peaks), dtype=np.float32
         )
-        dictionary["mz_1"] = np.zeros((len_data, max_num_peaks), dtype=np.float32)
+        dictionary["mz_1"] = np.zeros(
+            (len_data, max_num_peaks), dtype=np.float32
+        )
         dictionary["intensity_1"] = np.zeros(
             (len_data, max_num_peaks), dtype=np.float32
         )
-        dictionary["similarity"] = np.zeros((len_data, 1), dtype=np.float32)
-        dictionary["similarity2"] = np.zeros((len_data, 1), dtype=np.float32)
-        dictionary["precursor_mass_0"] = np.zeros((len_data, 1), dtype=np.float32)
-        dictionary["precursor_charge_0"] = np.zeros((len_data, 1), dtype=np.int32)
-        dictionary["precursor_mass_1"] = np.zeros((len_data, 1), dtype=np.float32)
-        dictionary["precursor_charge_1"] = np.zeros((len_data, 1), dtype=np.int32)
+        dictionary["ed"] = np.zeros((len_data, 1), dtype=np.float32)
+        dictionary["mces"] = np.zeros((len_data, 1), dtype=np.float32)
+        dictionary["precursor_mass_0"] = np.zeros(
+            (len_data, 1), dtype=np.float32
+        )
+        dictionary["precursor_charge_0"] = np.zeros(
+            (len_data, 1), dtype=np.int32
+        )
+        dictionary["precursor_mass_1"] = np.zeros(
+            (len_data, 1), dtype=np.float32
+        )
+        dictionary["precursor_charge_1"] = np.zeros(
+            (len_data, 1), dtype=np.int32
+        )
 
         ### add extra metadata in case it is necessary
         if self.use_extra_metadata:
-            dictionary['ionization_mode_precursor_0'] = np.zeros((len_data, 1), dtype=np.float32)
-            dictionary['ionization_mode_precursor_1'] = np.zeros((len_data, 1), dtype=np.float32)
-            dictionary['adduct_mass_precursor_0']=  np.zeros((len_data, 1), dtype=np.float32)
-            dictionary['adduct_mass_precursor_1']= np.zeros((len_data, 1), dtype=np.float32) 
+            dictionary["ionization_mode_precursor_0"] = np.zeros(
+                (len_data, 1), dtype=np.float32
+            )
+            dictionary["ionization_mode_precursor_1"] = np.zeros(
+                (len_data, 1), dtype=np.float32
+            )
+            dictionary["adduct_mass_precursor_0"] = np.zeros(
+                (len_data, 1), dtype=np.float32
+            )
+            dictionary["adduct_mass_precursor_1"] = np.zeros(
+                (len_data, 1), dtype=np.float32
+            )
 
         if self.use_fingerprints:
             print("Defining fingerprints ...")
-            dictionary["fingerprint_0"] = np.zeros((len_data, 2048), dtype=np.int32)
+            dictionary["fingerprint_0"] = np.zeros(
+                (len_data, 2048), dtype=np.int32
+            )
 
         for idx in tqdm((range(0, len_data))):
             sample_unique = {k: self.data[k][idx] for k in self.keys}
@@ -91,19 +115,27 @@ class CustomDatasetMultitasking(Dataset):
             indexes_unique_1 = sample_unique["index_unique_1"]
 
             print(f"value of indexes_unique_0 {indexes_unique_0} ")
-            indexes_original_0 = self.df_smiles.loc[int(indexes_unique_0), "indexes"][0]
+            indexes_original_0 = self.df_smiles.loc[
+                int(indexes_unique_0), "indexes"
+            ][0]
 
-            indexes_original_1 = self.df_smiles.loc[int(indexes_unique_1), "indexes"][0]
+            indexes_original_1 = self.df_smiles.loc[
+                int(indexes_unique_1), "indexes"
+            ][0]
 
-            dictionary["mz_0"][idx] = self.mz[indexes_original_0].astype(np.float32)
-            dictionary["intensity_0"][idx] = self.intensity[indexes_original_0].astype(
+            dictionary["mz_0"][idx] = self.mz[indexes_original_0].astype(
                 np.float32
             )
+            dictionary["intensity_0"][idx] = self.intensity[
+                indexes_original_0
+            ].astype(np.float32)
 
-            dictionary["mz_1"][idx] = self.mz[indexes_original_1].astype(np.float32)
-            dictionary["intensity_1"][idx] = self.intensity[indexes_original_1].astype(
+            dictionary["mz_1"][idx] = self.mz[indexes_original_1].astype(
                 np.float32
             )
+            dictionary["intensity_1"][idx] = self.intensity[
+                indexes_original_1
+            ].astype(np.float32)
             dictionary["precursor_mass_0"][idx] = self.precursor_mass[
                 indexes_original_0
             ].astype(np.float32)
@@ -116,26 +148,30 @@ class CustomDatasetMultitasking(Dataset):
             dictionary["precursor_charge_1"][idx] = self.precursor_charge[
                 indexes_original_1
             ].astype(np.float32)
-            dictionary["similarity"][idx] = sample_unique["similarity"].astype(
-                np.float32
-            )
-            dictionary["similarity2"][idx] = sample_unique["similarity2"].astype(
-                np.float32
-            )
+            dictionary["ed"][idx] = sample_unique["ed"].astype(np.float32)
+            dictionary["mces"][idx] = sample_unique["mces"].astype(np.float32)
             if self.use_extra_metadata:
-                dictionary["ionization_mode_precursor_0"][idx] = self.ionization_mode_precursor[
-                indexes_original_0
-                ].astype(np.float32)
-                dictionary["ionization_mode_precursor_1"][idx] = self.ionization_mode_precursor[
-                indexes_original_1
-                ].astype(np.float32)
+                dictionary["ionization_mode_precursor_0"][idx] = (
+                    self.ionization_mode_precursor[indexes_original_0].astype(
+                        np.float32
+                    )
+                )
+                dictionary["ionization_mode_precursor_1"][idx] = (
+                    self.ionization_mode_precursor[indexes_original_1].astype(
+                        np.float32
+                    )
+                )
 
-                dictionary["adduct_mass_precursor_0"][idx] = self.adduct_mass_precursor[
-                indexes_original_0
-                ].astype(np.float32)
-                dictionary["adduct_mass_precursor_1"][idx] = self.adduct_mass_precursor[
-                indexes_original_1
-                ].astype(np.float32)
+                dictionary["adduct_mass_precursor_0"][idx] = (
+                    self.adduct_mass_precursor[indexes_original_0].astype(
+                        np.float32
+                    )
+                )
+                dictionary["adduct_mass_precursor_1"][idx] = (
+                    self.adduct_mass_precursor[indexes_original_1].astype(
+                        np.float32
+                    )
+                )
 
             if self.use_fingerprints:
                 dictionary["fingerprint_0"][idx] = self.fingeprint_0[
@@ -182,24 +218,28 @@ class CustomDatasetMultitasking(Dataset):
         sample = {}
 
         sample["mz_0"] = self.mz[indexes_original_0].astype(np.float32)
-        sample["intensity_0"] = self.intensity[indexes_original_0].astype(np.float32)
+        sample["intensity_0"] = self.intensity[indexes_original_0].astype(
+            np.float32
+        )
 
         sample["mz_1"] = self.mz[indexes_original_1].astype(np.float32)
-        sample["intensity_1"] = self.intensity[indexes_original_1].astype(np.float32)
-        sample["precursor_mass_0"] = self.precursor_mass[indexes_original_0].astype(
+        sample["intensity_1"] = self.intensity[indexes_original_1].astype(
             np.float32
         )
-        sample["precursor_mass_1"] = self.precursor_mass[indexes_original_1].astype(
-            np.float32
-        )
-        sample["precursor_charge_0"] = self.precursor_charge[indexes_original_0].astype(
-            np.float32
-        )
-        sample["precursor_charge_1"] = self.precursor_charge[indexes_original_1].astype(
-            np.float32
-        )
-        sample["similarity"] = sample_unique["similarity"].astype(np.float32)
-        sample["similarity2"] = sample_unique["similarity2"].astype(np.float32)
+        sample["precursor_mass_0"] = self.precursor_mass[
+            indexes_original_0
+        ].astype(np.float32)
+        sample["precursor_mass_1"] = self.precursor_mass[
+            indexes_original_1
+        ].astype(np.float32)
+        sample["precursor_charge_0"] = self.precursor_charge[
+            indexes_original_0
+        ].astype(np.float32)
+        sample["precursor_charge_1"] = self.precursor_charge[
+            indexes_original_1
+        ].astype(np.float32)
+        sample["ed"] = sample_unique["ed"].astype(np.float32)
+        sample["mces"] = sample_unique["mces"].astype(np.float32)
 
         if self.use_fingerprints:
 
@@ -207,14 +247,18 @@ class CustomDatasetMultitasking(Dataset):
 
             if self.training:
                 if (ind % 2) == 0:
-                    sample["fingerprint_0"] = self.fingerprint_0[ind].astype(np.float32)
-                else:
-                    # return 0s
-                    sample["fingerprint_0"] = 0 * self.fingerprint_0[ind].astype(
+                    sample["fingerprint_0"] = self.fingerprint_0[ind].astype(
                         np.float32
                     )
+                else:
+                    # return 0s
+                    sample["fingerprint_0"] = 0 * self.fingerprint_0[
+                        ind
+                    ].astype(np.float32)
             else:
-                sample["fingerprint_0"] = self.fingerprint_0[ind].astype(np.float32)
+                sample["fingerprint_0"] = self.fingerprint_0[ind].astype(
+                    np.float32
+                )
 
         # print(sample["mz_0"]).shape
         # print(sample["intensity_0"].shape)
@@ -227,7 +271,9 @@ class CustomDatasetMultitasking(Dataset):
         if self.training:
             if random.random() < self.prob_aug:
                 # augmentation
-                sample = Augmentation.augment(sample, max_num_peaks=self.max_num_peaks)
+                sample = Augmentation.augment(
+                    sample, max_num_peaks=self.max_num_peaks
+                )
 
         # normalize
         sample = Augmentation.normalize_intensities(sample)

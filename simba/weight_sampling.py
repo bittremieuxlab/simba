@@ -2,7 +2,9 @@ import math
 
 import numpy as np
 
-from simba.ordinal_classification.ordinal_classification import OrdinalClassification
+from simba.ordinal_classification.ordinal_classification import (
+    OrdinalClassification,
+)
 
 
 class WeightSampling:
@@ -62,7 +64,7 @@ class WeightSampling:
     # def compute_sample_weights(molecule_pairs, weights):
 
     # get similarities
-    #    sim = molecule_pairs.indexes_tani[:, 2]
+    #    sim = molecule_pairs.pair_distances[:, 2]
     #    # sim = [m.similarity for m in molecule_pairs]
     #    #index = [math.floor(s * (len(weights) - 1)) for s in sim]
     #    index = [math.floor(s * (len(weights))) if s != 1 else (len(weights)-1) for s in sim  ]
@@ -81,7 +83,7 @@ class WeightSampling:
     ):
         # get similarities
         if use_molecule_pair_object:
-            sim = molecule_pairs.indexes_tani[:, 2]
+            sim = molecule_pairs.pair_distances[:, 2]
         else:
             sim = targets
 
@@ -116,13 +118,13 @@ class WeightSampling:
     @staticmethod
     def compute_sample_weights_categories(molecule_pairs, weights):
         # get similarities
-        sim = molecule_pairs.indexes_tani[:, 2]
+        sim = molecule_pairs.pair_distances[:, 2]
 
         # Calculate the index using vectorized operations
         # indices = np.ceil(sim * (len(weights)-1)).astype(int)
-        indices = OrdinalClassification.custom_random(sim * (len(weights) - 1)).astype(
-            int
-        )
+        indices = OrdinalClassification.custom_random(
+            sim * (len(weights) - 1)
+        ).astype(int)
         indices[indices == len(weights)] = len(weights) - 1
 
         # Map the indices to weights and normalize

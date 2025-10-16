@@ -201,9 +201,9 @@ print(f"Current time: {datetime.now()}")
 
 
 # save np files
-np.save(arr=molecule_pairs_train.indexes_tani, file=output_np_indexes_train)
-np.save(arr=molecule_pairs_val.indexes_tani, file=output_np_indexes_val)
-np.save(arr=molecule_pairs_test.indexes_tani, file=output_np_indexes_test)
+np.save(arr=molecule_pairs_train.pair_distances, file=output_np_indexes_train)
+np.save(arr=molecule_pairs_val.pair_distances, file=output_np_indexes_val)
+np.save(arr=molecule_pairs_test.pair_distances, file=output_np_indexes_test)
 
 # create uniform test data
 uniformed_molecule_pairs_test, _ = TrainUtils.uniformise(

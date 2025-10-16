@@ -153,7 +153,7 @@ binned_molecule_pairs[4].indexes_tani.shape
 # In[ ]:
 
 
-uniformed_molecule_pairs_test.indexes_tani
+uniformed_molecule_pairs_test.pair_distances
 
 
 # In[ ]:

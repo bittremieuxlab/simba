@@ -20,7 +20,7 @@ class Preprocessor:
         self.max_mz = max_mz
         self.num_bins = int((max_mz - min_mz) / bin_width) + 1
 
-    def preprocess_all_spectrums(
+    def preprocess_all_spectra(
         self,
         spectrums,
         fragment_tol_mass=10,
@@ -56,7 +56,7 @@ class Preprocessor:
         # all_spectrums= self.process_all_spectrum_vectors(spectrums)
         return spectrums
 
-    def preprocess_all_spectrums_variable_max_peaks(
+    def preprocess_all_spectra_variable_max_peaks(
         self,
         spectrums,
         fragment_tol_mass=10,
@@ -201,7 +201,7 @@ class Preprocessor:
         return valid spectra based on the minimum number of peaks
         """
         input_spectra = [copy.deepcopy(s) for s in spectra_original]
-        preprocessed_spectra = self.preprocess_all_spectrums(input_spectra)
+        preprocessed_spectra = self.preprocess_all_spectra(input_spectra)
         valid_indexes = [
             i
             for i, s in enumerate(preprocessed_spectra)

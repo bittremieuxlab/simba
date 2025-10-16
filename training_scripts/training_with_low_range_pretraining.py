@@ -22,7 +22,6 @@ from simba.transformers.embedder import Embedder
 from simba.transformers.load_data_unique import LoadDataUnique
 from simba.weight_sampling import WeightSampling
 
-
 config = Config()
 parser = Parser()
 config = parser.update_config(config)
@@ -47,7 +46,9 @@ if torch.cuda.is_available():
     print(f"Number of GPUs available: {gpu_count}")
 
     # Get the name of the current GPU
-    current_gpu = torch.cuda.get_device_name(0)  # assuming you have at least one GPU
+    current_gpu = torch.cuda.get_device_name(
+        0
+    )  # assuming you have at least one GPU
     print(f"Current GPU: {current_gpu}")
 
     # Check if PyTorch is currently using GPU
@@ -92,7 +93,9 @@ uniformed_molecule_pairs_test = dataset["uniformed_molecule_pairs_test"]
 print(f"Number of pairs for train: {len(molecule_pairs_train)}")
 print(f"Number of pairs for val: {len(molecule_pairs_val)}")
 print(f"Number of pairs for test: {len(molecule_pairs_test)}")
-print(f"Number of pairs for uniform test: {len(uniformed_molecule_pairs_test)}")
+print(
+    f"Number of pairs for uniform test: {len(uniformed_molecule_pairs_test)}"
+)
 
 
 sanity_check_ids = SanityChecks.sanity_checks_ids(
@@ -122,20 +125,20 @@ print(f"Sanity check bms. Passed? {sanity_check_bms}")
 
 ## Get a low range pretraining set
 molecule_pairs_train_low_range = MoleculePairsOpt(
-    spectrums_original=molecule_pairs_train.spectrums_original,
-    spectrums_unique=molecule_pairs_train.spectrums,
+    original_spectra=molecule_pairs_train.original_spectra,
+    unique_spectra=molecule_pairs_train.spectra,
     df_smiles=molecule_pairs_train.df_smiles,
-    indexes_tani_unique=molecule_pairs_train.indexes_tani[
-        molecule_pairs_train.indexes_tani[:, 2] < 0.5
+    pair_distances=molecule_pairs_train.pair_distances[
+        molecule_pairs_train.pair_distances[:, 2] < 0.5
     ],  # sim <0.5
 )
 
 molecule_pairs_val_low_range = MoleculePairsOpt(
-    spectrums_original=molecule_pairs_val.spectrums_original,
-    spectrums_unique=molecule_pairs_val.spectrums,
+    original_spectra=molecule_pairs_val.original_spectra,
+    unique_spectra=molecule_pairs_val.spectra,
     df_smiles=molecule_pairs_val.df_smiles,
-    indexes_tani_unique=molecule_pairs_val.indexes_tani[
-        molecule_pairs_val.indexes_tani[:, 2] < 0.5
+    pair_distances=molecule_pairs_val.pair_distances[
+        molecule_pairs_val.pair_distances[:, 2] < 0.5
     ],  # sim <0.5
 )
 
@@ -151,8 +154,12 @@ print(weights)
 print(range_weights)
 
 
-weights_tr = WeightSampling.compute_sample_weights(molecule_pairs_train, weights)
-weights_val = WeightSampling.compute_sample_weights(molecule_pairs_val, weights)
+weights_tr = WeightSampling.compute_sample_weights(
+    molecule_pairs_train, weights
+)
+weights_val = WeightSampling.compute_sample_weights(
+    molecule_pairs_val, weights
+)
 
 print("Similarity of the first 20 molecule pairs")
 print([molecule_pairs_train[i].similarity for i in range(0, 20)])
@@ -163,10 +170,14 @@ print("loading datasets")
 if use_uniform_data:
     print("Uniformize the data")
     uniformed_molecule_pairs_train, train_binned_list = TrainUtils.uniformise(
-        molecule_pairs_train, number_bins=bins_uniformise, return_binned_list=True
+        molecule_pairs_train,
+        number_bins=bins_uniformise,
+        return_binned_list=True,
     )
     uniformed_molecule_pairs_val, _ = TrainUtils.uniformise(
-        molecule_pairs_val, number_bins=bins_uniformise, return_binned_list=True
+        molecule_pairs_val,
+        number_bins=bins_uniformise,
+        return_binned_list=True,
     )
     # uniformed_molecule_pairs_test,_ =TrainUtils.uniformise(molecule_pairs_test, number_bins=bins_uniformise, return_binned_list=True)
     m_train = uniformed_molecule_pairs_train
@@ -180,7 +191,9 @@ else:
 print(f"number of train molecule pairs: {len(m_train)}")
 
 
-dataset_train = LoadDataUnique.from_molecule_pairs_to_dataset(m_train, training=True)
+dataset_train = LoadDataUnique.from_molecule_pairs_to_dataset(
+    m_train, training=True
+)
 dataset_train_low_range = LoadDataUnique.from_molecule_pairs_to_dataset(
     molecule_pairs_train_low_range, training=True
 )
@@ -232,7 +245,10 @@ val_sampler = CustomWeightedRandomSampler(
 
 print("Creating train data loader")
 dataloader_train = DataLoader(
-    dataset_train, batch_size=config.BATCH_SIZE, sampler=train_sampler, num_workers=10
+    dataset_train,
+    batch_size=config.BATCH_SIZE,
+    sampler=train_sampler,
+    num_workers=10,
 )
 dataloader_train_low_range = DataLoader(
     dataset_train_low_range, batch_size=config.BATCH_SIZE, num_workers=10
