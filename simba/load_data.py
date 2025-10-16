@@ -89,10 +89,23 @@ class LoadData:
             #    pass
 
     @staticmethod
+    def get_precursor_mz(spectrum):
+        if "pepmass" in spectrum["params"]:
+                if len(spectrum["params"]["pepmass"])>0:
+                    precursor_mz = float(spectrum["params"]["pepmass"][0])
+                else:
+                    precursor_mz = float(spectrum["params"]["pepmass"])
+        elif "precursor_mz" in spectrum["params"]:
+            precursor_mz = float(spectrum["params"]["precursor_mz"])
+        else:
+            precursor_mz = 0 
+        return precursor_mz 
+
+    @staticmethod
     def default_filters(spectrum: SpectrumExt, config):
         cond_library = True  # all the library is good
         cond_charge = True
-        cond_pepmass = True
+        cond_pepmass = True if LoadData.get_precursor_mz(spectrum) > 0 else False
         cond_mz_array = len(spectrum["m/z array"]) >= config.MIN_N_PEAKS
         cond_ion_mode = True
         cond_name= True
@@ -310,15 +323,7 @@ class LoadData:
             classe = None
             subclass = None
 
-        if "pepmass" in spectrum_dict["params"]:
-            try:
-                precursor_mz = float(spectrum_dict["params"]["pepmass"][0])
-            except:
-                precursor_mz = float(spectrum_dict["params"]["pepmass"])
-        elif "precursor_mz" in spectrum_dict["params"]:
-            precursor_mz = float(spectrum_dict["params"]["precursor_mz"])
-        
-        print(spectrum_dict["params"])
+        precursor_mz = LoadData.get_precursor_mz(spectrum)
         try:
             charge = max(int(spectrum_dict["params"]["charge"][0]), 1)
         except:
