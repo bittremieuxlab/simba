@@ -150,7 +150,7 @@ if __name__ == "__main__":
     # In[10]:
 
     all_spectrums = PreprocessingSimba.load_spectra(
-        spectra_path, config, use_gnps_format=False
+        spectra_path, config, use_gnps_format=False, use_only_protonized_adducts=config.USE_ONLY_PROTONIZED_ADDUCTS,
     )
 
     # ## Division, training, validation, test
