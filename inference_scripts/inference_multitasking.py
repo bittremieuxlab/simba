@@ -185,10 +185,10 @@ else:
     uniformed_molecule_pairs_test_mces=molecule_pairs_test_mces
 
 # dataset_train = LoadData.from_molecule_pairs_to_dataset(m_train)
-dataset_test_ed = LoadDataMultitasking.from_molecule_pairs_to_dataset(uniformed_molecule_pairs_test_ed, max_num_peaks=int(config.TRANSFORMER_CONTEXT))
+dataset_test_ed = LoadDataMultitasking.from_molecule_pairs_to_dataset(uniformed_molecule_pairs_test_ed, max_num_peaks=int(config.TRANSFORMER_CONTEXT), use_extra_metadata=config.USE_EXTRA_METADATA_MODEL)
 dataloader_test_ed = DataLoader(dataset_test_ed, batch_size=config.BATCH_SIZE, shuffle=False)
 
-dataset_test_mces = LoadDataMultitasking.from_molecule_pairs_to_dataset(uniformed_molecule_pairs_test_mces, max_num_peaks=int(config.TRANSFORMER_CONTEXT))
+dataset_test_mces = LoadDataMultitasking.from_molecule_pairs_to_dataset(uniformed_molecule_pairs_test_mces, max_num_peaks=int(config.TRANSFORMER_CONTEXT),use_extra_metadata=config.USE_EXTRA_METADATA_MODEL)
 dataloader_test_mces = DataLoader(dataset_test_mces, batch_size=config.BATCH_SIZE, shuffle=False)
 
 # In[ ]:
@@ -196,17 +196,32 @@ dataloader_test_mces = DataLoader(dataset_test_mces, batch_size=config.BATCH_SIZ
 
 # Testinbest_model = Embedder.load_from_checkpoint(checkpoint_callback.best_model_path, d_model=64, n_layers=2)
 trainer = pl.Trainer(max_epochs=2, enable_progress_bar=enable_progress_bar)
-best_model = EmbedderMultitask.load_from_checkpoint(
-    best_model_path,
-    d_model=int(config.D_MODEL),
-    n_layers=int(config.N_LAYERS),
-    n_classes=config.EDIT_DISTANCE_N_CLASSES,
-    use_gumbel=config.EDIT_DISTANCE_USE_GUMBEL,
-    use_element_wise=True,
-    use_cosine_distance=config.use_cosine_distance,
-    use_edit_distance_regresion=config.USE_EDIT_DISTANCE_REGRESSION,
-    strict=False,
-)
+
+if config.USE_EXTRA_METADATA_MODEL:
+    best_model = EmbedderMultitask.load_from_checkpoint(
+        best_model_path,
+        d_model=int(config.D_MODEL),
+        n_layers=int(config.N_LAYERS),
+        n_classes=config.EDIT_DISTANCE_N_CLASSES,
+        use_gumbel=config.EDIT_DISTANCE_USE_GUMBEL,
+        use_element_wise=True,
+        use_cosine_distance=config.use_cosine_distance,
+        use_edit_distance_regresion=config.USE_EDIT_DISTANCE_REGRESSION,
+        strict=False,
+        use_extra_metadata=config.USE_EXTRA_METADATA_MODEL,
+    )
+else:
+    best_model = EmbedderMultitask.load_from_checkpoint(
+        best_model_path,
+        d_model=int(config.D_MODEL),
+        n_layers=int(config.N_LAYERS),
+        n_classes=config.EDIT_DISTANCE_N_CLASSES,
+        use_gumbel=config.EDIT_DISTANCE_USE_GUMBEL,
+        use_element_wise=True,
+        use_cosine_distance=config.use_cosine_distance,
+        use_edit_distance_regresion=config.USE_EDIT_DISTANCE_REGRESSION,
+        strict=False,
+    )
 
 best_model.eval()
 
