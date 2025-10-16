@@ -11,6 +11,7 @@ class Config:
         self.COLUMN_MCES20 = 3
 
         # PREPROCESSING
+        self.USE_ONLY_PROTONIZED_ADDUCTS=True
         self.PREPROCESSING_BATCH_SIZE = 1000
         self.PREPROCESSING_NUM_WORKERS = 60
         self.PREPROCESSING_NUM_NODES = 10
