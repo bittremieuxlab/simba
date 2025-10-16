@@ -40,6 +40,7 @@ class CustomDatasetMultitasking(Dataset):
             self.fingerprint_0 = fingerprint_0
         self.max_num_peaks = max_num_peaks
 
+        self.use_extra_metadata=use_extra_metadata
         if self.use_extra_metadata:
             self.ionization_mode_precursor = ionization_mode_precursor
             self.adduct_mass_precursor= adduct_mass_precursor 
