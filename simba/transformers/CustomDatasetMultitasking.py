@@ -229,17 +229,17 @@ class CustomDatasetMultitasking(Dataset):
 
 
         if self.use_extra_metadata:
-            sample["ionization_mode_precursor_0"] = self.ionization_mode_precursor[indexes_original_0].astype(
+            sample["ionmode_0"] = self.ionization_mode_precursor[indexes_original_0].astype(
             np.float32
             )
-            sample["ionization_mode_precursor_1"] = self.ionization_mode_precursor[indexes_original_1].astype(
+            sample["ionmode_1"] = self.ionization_mode_precursor[indexes_original_1].astype(
             np.float32
             )
 
-            sample["adduct_mass_precursor_0"] = self.adduct_mass_precursor[indexes_original_0].astype(
+            sample["adduct_mass_0"] = self.adduct_mass_precursor[indexes_original_0].astype(
             np.float32
             )
-            sample["adduct_mass_precursor_1"] = self.adduct_mass_precursor[indexes_original_1].astype(
+            sample["adduct_mass_1"] = self.adduct_mass_precursor[indexes_original_1].astype(
             np.float32
             )
 

@@ -142,7 +142,6 @@ class EmbedderMultitask(Embedder):
             #self.log_sigma2 = nn.Parameter(torch.tensor(initial_log_sigma2))
             self.log_sigma1 = torch.tensor(float(initial_log_sigma1), dtype=torch.float32)
             self.log_sigma2 = torch.tensor(float(initial_log_sigma2), dtype=torch.float32)
-
         self.use_extra_metadata= use_extra_metadata
 
     def forward(self, batch, return_spectrum_output=False):
