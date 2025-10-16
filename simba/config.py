@@ -12,6 +12,7 @@ class Config:
 
         # PREPROCESSING
         self.USE_ONLY_PROTONIZED_ADDUCTS=True
+        self.USE_EXTRA_METADATA_MODEL = False
         self.PREPROCESSING_BATCH_SIZE = 1000
         self.PREPROCESSING_NUM_WORKERS = 60
         self.PREPROCESSING_NUM_NODES = 10
