@@ -27,7 +27,6 @@ class SpectrumTransformerEncoderCustom(SpectrumTransformerEncoder):
     ):
         if self.use_extra_metadata:
             ####do something
-            print('Using extra metadata')
             mass_precursor = torch.tensor(kwargs["precursor_mass"].float())
             charge_precursor = torch.tensor(kwargs["precursor_charge"].float())
             ionization_mode_precursor= torch.tensor(kwargs["ionmode"].float())
