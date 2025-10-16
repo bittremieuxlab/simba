@@ -323,7 +323,7 @@ class LoadData:
             classe = None
             subclass = None
 
-        precursor_mz = LoadData.get_precursor_mz(spectrum)
+        precursor_mz = LoadData.get_precursor_mz(spectrum_dict)
         try:
             charge = max(int(spectrum_dict["params"]["charge"][0]), 1)
         except:
