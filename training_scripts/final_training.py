@@ -268,11 +268,11 @@ plt.yscale("log")
 
 
 dataset_train = LoadDataMultitasking.from_molecule_pairs_to_dataset(
-    molecule_pairs_train, max_num_peaks=int(config.TRANSFORMER_CONTEXT), training=True, use_extra_metadata=Config.USE_EXTRA_METADATA_MODEL,
+    molecule_pairs_train, max_num_peaks=int(config.TRANSFORMER_CONTEXT), training=True, use_extra_metadata=config.USE_EXTRA_METADATA_MODEL,
 )
 # dataset_test = LoadData.from_molecule_pairs_to_dataset(m_test)
 dataset_val = LoadDataMultitasking.from_molecule_pairs_to_dataset(
-    molecule_pairs_val, max_num_peaks=int(config.TRANSFORMER_CONTEXT), use_extra_metadata=Config.USE_EXTRA_METADATA_MODEL,
+    molecule_pairs_val, max_num_peaks=int(config.TRANSFORMER_CONTEXT), use_extra_metadata=config.USE_EXTRA_METADATA_MODEL,
 )
 
 
@@ -464,7 +464,7 @@ model = EmbedderMultitask(
     use_precursor_mz_for_model=config.USE_PRECURSOR_MZ_FOR_MODEL,
     tau_gumbel_softmax=config.TAU_GUMBEL_SOFTMAX,
     gumbel_reg_weight=config.GUMBEL_REG_WEIGHT,
-    use_extra_metadata=Config.USE_EXTRA_METADATA_MODEL,
+    use_extra_metadata=config.USE_EXTRA_METADATA_MODEL,
 )
 
 # Create a model:
@@ -487,7 +487,7 @@ if config.load_pretrained:
             use_precursor_mz_for_model=config.USE_PRECURSOR_MZ_FOR_MODEL,
             tau_gumbel_softmax=config.TAU_GUMBEL_SOFTMAX,
             gumbel_reg_weight=config.GUMBEL_REG_WEIGHT,
-            use_extra_metadata=Config.USE_EXTRA_METADATA_MODEL,
+            use_extra_metadata=config.USE_EXTRA_METADATA_MODEL,
         )
         print("loaded full model!!")
     except:
@@ -501,7 +501,7 @@ if config.load_pretrained:
             use_gumbel=config.EDIT_DISTANCE_USE_GUMBEL,
             weights_sim2=weights_sim2,
             strict=False,
-            use_extra_metadata=Config.USE_EXTRA_METADATA_MODEL,
+            use_extra_metadata=config.USE_EXTRA_METADATA_MODEL,
         )
 
         model.spectrum_encoder = model_pretrained.spectrum_encoder
