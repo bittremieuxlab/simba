@@ -310,11 +310,14 @@ class LoadData:
             classe = None
             subclass = None
 
-        try:
-            precursor_mz = float(spectrum_dict["params"]["pepmass"][0])
-        except:
+        if "pepmass" in spectrum_dict["params"]:
+            try:
+                precursor_mz = float(spectrum_dict["params"]["pepmass"][0])
+            except:
+                precursor_mz = float(spectrum_dict["params"]["pepmass"])
+        elif "precursor_mz" in spectrum_dict["params"]:
             precursor_mz = float(spectrum_dict["params"]["precursor_mz"])
-
+        
         try:
             charge = max(int(spectrum_dict["params"]["charge"][0]), 1)
         except:
