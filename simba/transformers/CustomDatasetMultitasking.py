@@ -74,10 +74,10 @@ class CustomDatasetMultitasking(Dataset):
 
         ### add extra metadata in case it is necessary
         if self.use_extra_metadata:
-            dictionary['ionization_mode_precursor_0'] = np.zeros((len_data, 1), dtype=np.float32)
-            dictionary['ionization_mode_precursor_1'] = np.zeros((len_data, 1), dtype=np.float32)
-            dictionary['adduct_mass_precursor_0']=  np.zeros((len_data, 1), dtype=np.float32)
-            dictionary['adduct_mass_precursor_1']= np.zeros((len_data, 1), dtype=np.float32) 
+            dictionary['ionmode_0'] = np.zeros((len_data, 1), dtype=np.float32)
+            dictionary['ionmode_1'] = np.zeros((len_data, 1), dtype=np.float32)
+            dictionary['adduct_mass_0']=  np.zeros((len_data, 1), dtype=np.float32)
+            dictionary['adduct_mass_1']= np.zeros((len_data, 1), dtype=np.float32) 
 
         if self.use_fingerprints:
             print("Defining fingerprints ...")
@@ -226,6 +226,22 @@ class CustomDatasetMultitasking(Dataset):
 
         # Convert your sample to PyTorch tensors if needed
         # e.g., use torch.tensor(sample) if sample is a numpy array
+
+
+        if self.use_extra_metadata:
+            sample["ionization_mode_precursor_0"] = self.ionization_mode_precursor[indexes_original_0].astype(
+            np.float32
+            )
+            sample["ionization_mode_precursor_1"] = self.ionization_mode_precursor[indexes_original_1].astype(
+            np.float32
+            )
+
+            sample["adduct_mass_precursor_0"] = self.adduct_mass_precursor[indexes_original_0].astype(
+            np.float32
+            )
+            sample["adduct_mass_precursor_1"] = self.adduct_mass_precursor[indexes_original_1].astype(
+            np.float32
+            )
 
         if self.training:
             if random.random() < self.prob_aug:

@@ -117,17 +117,34 @@ class LoadDataMultitasking:
             "similarity2": similarity2,
             # "fingerprint_0": fingerprint_0,
         }
-
-        return CustomDatasetMultitasking(
-            dictionary_data,
-            training=training,
-            mz=mz,
-            intensity=intensity,
-            precursor_mass=precursor_mass,
-            precursor_charge=precursor_charge,
-            df_smiles=molecule_pairs_input.df_smiles,
-            use_fingerprints=use_fingerprints,
-            fingerprint_0=fingerprint_0,
-            max_num_peaks=max_num_peaks,
-            use_extra_metadata=use_extra_metadata,
-        )
+        if self.use_extra_metadata:
+            return CustomDatasetMultitasking(
+                dictionary_data,
+                training=training,
+                mz=mz,
+                intensity=intensity,
+                precursor_mass=precursor_mass,
+                precursor_charge=precursor_charge,
+                df_smiles=molecule_pairs_input.df_smiles,
+                use_fingerprints=use_fingerprints,
+                fingerprint_0=fingerprint_0,
+                max_num_peaks=max_num_peaks,
+                use_extra_metadata=use_extra_metadata,
+                ionization_mode_precursor=ionization_mode_precursor,
+                adduct_mass_precursor=adduct_mass_precursor,
+            )
+        else:
+            return CustomDatasetMultitasking(
+                dictionary_data,
+                training=training,
+                mz=mz,
+                intensity=intensity,
+                precursor_mass=precursor_mass,
+                precursor_charge=precursor_charge,
+                df_smiles=molecule_pairs_input.df_smiles,
+                use_fingerprints=use_fingerprints,
+                fingerprint_0=fingerprint_0,
+                max_num_peaks=max_num_peaks,
+                use_extra_metadata=use_extra_metadata,
+                
+            )

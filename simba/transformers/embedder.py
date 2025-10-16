@@ -69,7 +69,7 @@ class Embedder(pl.LightningModule):
         self.fixed_linear_regression = FixedLinearRegression(d_model)
 
         self.relu = nn.ReLU()
-
+        self.use_extra_metadata = use_extra_metadata
         self.spectrum_encoder = SpectrumTransformerEncoderCustom(
             d_model=d_model,
             n_layers=n_layers,
@@ -105,15 +105,21 @@ class Embedder(pl.LightningModule):
     def forward(self, batch):
         """The inference pass"""
 
-        # extra data
         kwargs_0 = {
-            "precursor_mass": batch["precursor_mass_0"].float(),
-            "precursor_charge": batch["precursor_charge_0"].float(),
-        }
+                "precursor_mass": batch["precursor_mass_0"].float(),
+                "precursor_charge": batch["precursor_charge_0"].float(),
+            }
         kwargs_1 = {
             "precursor_mass": batch["precursor_mass_1"].float(),
             "precursor_charge": batch["precursor_charge_1"].float(),
         }
+        # extra data
+        if self.use_extra_metadata:
+
+            kwargs_0["ionmode"] = batch["ionmode_0"].float()
+            kwargs_1["ionmode"] = batch["ionmode_1"].float()
+            kwargs_0["adduct_mass"] = batch["adduct_mass_0"].float()
+            kwargs_1["adduct_mass"] = batch["adduct_mass_1"].float()
 
         emb0, _ = self.spectrum_encoder(
             mz_array=batch["mz_0"].float(),
