@@ -318,6 +318,7 @@ class LoadData:
         elif "precursor_mz" in spectrum_dict["params"]:
             precursor_mz = float(spectrum_dict["params"]["precursor_mz"])
         
+        print(spectrum_dict["params"])
         try:
             charge = max(int(spectrum_dict["params"]["charge"][0]), 1)
         except:
