@@ -143,6 +143,8 @@ class EmbedderMultitask(Embedder):
             self.log_sigma1 = torch.tensor(float(initial_log_sigma1), dtype=torch.float32)
             self.log_sigma2 = torch.tensor(float(initial_log_sigma2), dtype=torch.float32)
 
+        self.use_extra_metadata= use_extra_metadata
+
     def forward(self, batch, return_spectrum_output=False):
         # … compute raw emb0, emb1, apply relu, fingerprints, etc. …
         """The inference pass"""
@@ -152,8 +154,17 @@ class EmbedderMultitask(Embedder):
         else:
             mz_0 = torch.zeros_like(batch["precursor_mass_0"].float())
             mz_1 = torch.zeros_like(batch["precursor_mass_1"].float())
+
+        
         kwargs_0 = {"precursor_mass": mz_0, "precursor_charge": batch["precursor_charge_0"].float()}
         kwargs_1 = {"precursor_mass": mz_1, "precursor_charge": batch["precursor_charge_1"].float()}
+
+        if self.use_extra_metadata:
+            kwargs_0["ionmode"] = batch["ionmode_0"].float()
+            kwargs_1["ionmode"] = batch["ionmode_1"].float()
+            kwargs_0["adduct_mass"] = batch["adduct_mass_0"].float()
+            kwargs_1["adduct_mass"] = batch["adduct_mass_1"].float()
+
 
         emb0, _ = self.spectrum_encoder(
             mz_array=batch["mz_0"].float(),
@@ -172,15 +183,6 @@ class EmbedderMultitask(Embedder):
         emb1 = self.relu(emb1)
 
         if self.use_fingerprints:
-            #fing_0 = batch["fingerprint_0"].float()
-            #fing_0 = self.linear_fingerprint_0(fing_0)
-            #fing_0 = self.relu(fing_0)
-            #fing_0 = self.dropout(fing_0)
-            #fing_0 = self.linear_fingerprint_1(fing_0)
-            #fing_0 = self.relu(fing_0)
-            #fing_0 = self.dropout(fing_0)
-            #emb0 = emb0 + fing_0
-            #emb0 = self.relu(emb0)
 
             fp0        = batch["fingerprint_0"].float()           # (B, 2048)
             fp_proj    = self.dropout(self.relu(self.linear_fp0(fp0)))  # (B, d_model//2)
@@ -193,101 +195,6 @@ class EmbedderMultitask(Embedder):
             return emb, emb_sim_2, emb0, emb1
         else:
             return self.compute_from_embeddings(emb0, emb1)
-    '''
-    def forward(self, batch, return_spectrum_output=False):
-        """The inference pass"""
-        if self.use_precursor_mz_for_model:
-            mz_0 = batch["precursor_mass_0"].float()
-            mz_1 = batch["precursor_mass_1"].float()
-        else:
-            mz_0 = torch.zeros_like(batch["precursor_mass_0"].float())
-            mz_1 = torch.zeros_like(batch["precursor_mass_1"].float())
-        kwargs_0 = {"precursor_mass": mz_0, "precursor_charge": batch["precursor_charge_0"].float()}
-        kwargs_1 = {"precursor_mass": mz_1, "precursor_charge": batch["precursor_charge_1"].float()}
-
-        emb0, _ = self.spectrum_encoder(
-            mz_array=batch["mz_0"].float(),
-            intensity_array=batch["intensity_0"].float(),
-            **kwargs_0,
-        )
-        emb1, _ = self.spectrum_encoder(
-            mz_array=batch["mz_1"].float(),
-            intensity_array=batch["intensity_1"].float(),
-            **kwargs_1,
-        )
-
-        emb0 = emb0[:, 0, :]
-        emb1 = emb1[:, 0, :]
-        emb0 = self.relu(emb0)
-        emb1 = self.relu(emb1)
-
-        if self.use_fingerprints:
-            fing_0 = batch["fingerprint_0"].float()
-            fing_0 = self.linear_fingerprint_0(fing_0)
-            fing_0 = self.relu(fing_0)
-            fing_0 = self.dropout(fing_0)
-            fing_0 = self.linear_fingerprint_1(fing_0)
-            fing_0 = self.relu(fing_0)
-            fing_0 = self.dropout(fing_0)
-            emb0 = emb0 + fing_0
-            emb0 = self.relu(emb0)
-
-        if self.use_cosine_distance:
-            emb0_transformed = self.linear2(emb0)
-            emb0_transformed = self.dropout(emb0_transformed)
-            emb0_transformed = self.relu(emb0_transformed)
-            emb0_transformed = self.linear2_cossim(emb0_transformed)
-            emb0_transformed = self.relu(emb0_transformed)
-
-            emb1_transformed = self.linear2(emb1)
-            emb1_transformed = self.dropout(emb1_transformed)
-            emb1_transformed = self.relu(emb1_transformed)
-            emb1_transformed = self.linear2_cossim(emb1_transformed)
-            emb1_transformed = self.relu(emb1_transformed)
-
-            emb_sim_2 = self.cosine_similarity(emb0_transformed, emb1_transformed)
-        else:
-            emb_sim_2 = emb0 + emb1
-            emb_sim_2 = self.linear2(emb_sim_2)
-            emb_sim_2 = self.dropout(emb_sim_2)
-            emb_sim_2 = self.relu(emb_sim_2)
-            emb_sim_2 = self.linear_regression(emb_sim_2)
-            x = self.relu(emb_sim_2 - 1)
-            emb_sim_2 = emb_sim_2 - x
-
-        if self.use_edit_distance_regresion:
-            emb0_transformed_1 = self.linear1(emb0)
-            emb0_transformed_1 = self.dropout(emb0_transformed_1)
-            emb0_transformed_1 = self.relu(emb0_transformed_1)
-            emb0_transformed_1 = self.linear1_cossim(emb0_transformed_1)
-            emb0_transformed_1 = self.relu(emb0_transformed_1)
-
-            emb1_transformed_1 = self.linear1(emb1)
-            emb1_transformed_1 = self.dropout(emb1_transformed_1)
-            emb1_transformed_1 = self.relu(emb1_transformed_1)
-            emb1_transformed_1 = self.linear1_cossim(emb1_transformed_1)
-            emb1_transformed_1 = self.relu(emb1_transformed_1)
-
-            emb = self.cosine_similarity(emb0_transformed_1, emb1_transformed_1)
-            emb = emb * 5
-            emb = emb + emb.round().detach() - emb.detach()  # trick to make rounding differentiable
-            emb = emb / 5
-        else:
-            emb_0_ = self.linear1(emb0)
-            emb_0_ = self.relu(emb_0_)
-            emb_0_ = self.linear1_2(emb_0_)
-            emb_1_ = self.linear1(emb1)
-            emb_1_ = self.relu(emb_1_)
-            emb_1_ = self.linear1_2(emb_1_)
-            emb = emb_0_ + emb_1_
-            emb = self.relu(emb)
-            emb = self.classifier(emb)
-
-        if return_spectrum_output:
-            return emb, emb_sim_2, emb0, emb1
-        else:
-            return emb, emb_sim_2
-    '''
 
     def calculate_weight_loss2(self):
         if self.use_edit_distance_regresion:
