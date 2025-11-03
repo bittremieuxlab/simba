@@ -45,7 +45,7 @@ def setup_config():
 
 def setup_paths(config):
     if not os.path.exists(config.CHECKPOINT_DIR):
-        os.makedirs(config.CHECKPOINT_DIR)
+        os.makedirs(config.CHECKPOINT_DIR, exist_ok=True)
 
     mapping_path = (
         config.PREPROCESSING_DIR_TRAIN + config.PREPROCESSING_PICKLE_FILE
