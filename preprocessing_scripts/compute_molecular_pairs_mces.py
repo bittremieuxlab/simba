@@ -130,7 +130,7 @@ else:
         with open(output_neurips_file, "rb") as file:
             all_spectrums_neurips = dill.load(file)["spectrums"]
     else:
-        all_spectrums_neurips = loader_saver.get_all_spectrums(
+        all_spectrums_neurips = loader_saver.get_all_spectra(
             neurips_path,
             max_number_spectra_neurips,
             use_tqdm=use_tqdm,
@@ -146,7 +146,7 @@ else:
         with open(output_nist_file, "rb") as file:
             all_spectrums_nist = dill.load(file)["spectrums"]
     else:
-        all_spectrums_nist = loader_saver.get_all_spectrums(
+        all_spectrums_nist = loader_saver.get_all_spectra(
             nist_path,
             max_number_spectra_nist,
             use_tqdm=use_tqdm,

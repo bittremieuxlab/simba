@@ -29,7 +29,7 @@ class LoaderSaver:
         )
         self.block_size = block_size  # number of spectra to be saved per block
 
-    def get_all_spectrums(
+    def get_all_spectra(
         self,
         file: Union[str, IO],
         num_samples: int = 10,
@@ -41,17 +41,17 @@ class LoaderSaver:
         use_only_protonized_adducts: bool = True,
     ) -> List[SpectrumExt]:
         """
-        Get all spectrums from a file.
-        If a pickle path is provided, it will save the loaded spectrums to that path.
+        Get all spectra from a file.
+        If a pickle path is provided, it will save the loaded spectra to that path.
 
         Parameters
         ----------
         file : Union[str, IO]
-            The file path or file object to load spectrums from.
+            The file path or file object to load spectra from.
         num_samples : int, optional
             The number of samples to load, by default 10.
         compute_classes : bool, optional
-            Whether to compute classes for the spectrums, by default False.
+            Whether to compute classes for the spectra, by default False.
         use_tqdm : bool, optional
             Whether to use tqdm for progress indication, by default True.
         use_nist : bool, optional
@@ -70,7 +70,7 @@ class LoaderSaver:
         """
 
         if use_janssen:
-            spectrums = LoadData.get_all_spectrums_mgf(
+            spectra = LoadData.get_all_spectra_mgf(
                 file=file,
                 num_samples=num_samples,
                 compute_classes=compute_classes,
@@ -80,10 +80,9 @@ class LoaderSaver:
                 use_only_protonized_adducts=use_only_protonized_adducts,
             )  # Janssen data does not use the GNPS format
             if self.pickle_janssen_path is not None:
-                self.save_pickle(self.pickle_janssen_path, spectrums)
+                self.save_pickle(self.pickle_janssen_path, spectra)
         elif use_nist:
-
-            spectrums = self.load_and_save_nist(
+            spectra = self.load_and_save_nist(
                 file=file,
                 num_samples=num_samples,
                 compute_classes=compute_classes,
@@ -91,7 +90,7 @@ class LoaderSaver:
                 config=config,
             )
         else:
-            spectrums = LoadData.get_all_spectrums_mgf(
+            spectra = LoadData.get_all_spectra_mgf(
                 file=file,
                 num_samples=num_samples,
                 compute_classes=compute_classes,
@@ -100,9 +99,9 @@ class LoaderSaver:
                 use_only_protonized_adducts=use_only_protonized_adducts,
             )
             if self.pickle_gnps_path is not None:
-                self.save_pickle(self.pickle_gnps_path, spectrums)
+                self.save_pickle(self.pickle_gnps_path, spectra)
 
-        return spectrums
+        return spectra
 
     def load_and_save_nist(
         self,
@@ -122,14 +121,14 @@ class LoaderSaver:
         # number of blocks
         number_of_blocks = math.ceil(num_samples / self.block_size)
         current_line_number = self.nist_line_number
-        all_spectrums = []
+        all_spectra = []
 
         for m in range(0, number_of_blocks):
             print(
-                f"Starting loading spectrums with block size {self.block_size} in the following spectrum index {len(all_spectrums)} and line number {current_line_number}"
+                f"Starting loading spectra with block size {self.block_size} in the following spectrum index {len(all_spectra)} and line number {current_line_number}"
             )
 
-            spectrums, current_line_number = LoadData.get_all_spectrums_nist(
+            spectra, current_line_number = LoadData.get_all_spectra_nist(
                 file=file,
                 num_samples=self.block_size,  # get N spectra per time
                 compute_classes=compute_classes,
@@ -138,29 +137,28 @@ class LoaderSaver:
                 initial_line_number=current_line_number,
             )
 
-            print(f"lenght of spectrums retrievied:{len(spectrums)}")
-            all_spectrums = all_spectrums + spectrums
+            print(f"length of spectra retrieved:{len(spectra)}")
+            all_spectra = all_spectra + spectra
 
             print(
-                f"Saving spectrums with block size {self.block_size} in the following spectrum index {len(all_spectrums)} and updated line number {current_line_number}"
+                f"Saving spectra with block size {self.block_size} in the following spectrum index {len(all_spectra)} and updated line number {current_line_number}"
             )
-            self.save_pickle(self.pickle_nist_path, all_spectrums)
+            self.save_pickle(self.pickle_nist_path, all_spectra)
 
             # break out of the loop if the line number is equal or exceeds the max number of lines
             if line_count - 1 <= current_line_number:
                 print("We got to the end of the NIST file")
                 break
 
-        return all_spectrums
+        return all_spectra
 
-    # def load_pickle():
     def save_pickle(
         self,
         file_path,
-        spectrums=None,
+        spectra=None,
     ):
         dataset = {
-            "spectrums": spectrums,
+            "spectrums": spectra,
         }
         with open(file_path, "wb") as file:
             dill.dump(dataset, file)

@@ -24,8 +24,8 @@ class CustomDatasetMultitasking(Dataset):
         fingerprint_0=None,
         max_num_peaks=None,
         use_extra_metadata=False,
-        ionization_mode_precursor=False,
-        adduct_mass_precursor=False,
+        ionization_mode_precursor=None,
+        adduct_mass_precursor=None,
     ):
         self.data = your_dict
         self.keys = list(your_dict.keys())
@@ -241,10 +241,16 @@ class CustomDatasetMultitasking(Dataset):
         sample["ed"] = sample_unique["ed"].astype(np.float32)
         sample["mces"] = sample_unique["mces"].astype(np.float32)
 
+        if self.use_extra_metadata:
+            sample["adduct_mass_precursor_0"] = self.adduct_mass_precursor[
+                indexes_original_0
+            ]
+            sample["adduct_mass_precursor_1"] = self.adduct_mass_precursor[
+                indexes_original_1
+            ]
+
         if self.use_fingerprints:
-
             ind = int(indexes_unique_0[0])
-
             if self.training:
                 if (ind % 2) == 0:
                     sample["fingerprint_0"] = self.fingerprint_0[ind].astype(

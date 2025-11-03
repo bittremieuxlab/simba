@@ -3,15 +3,16 @@
 # os.chdir('/Users/sebas/projects/metabolomics')
 # os.environ["PYTORCH_ENABLE_MPS_FALLBACK"] = "1"
 
-# %%
-# from simba.transformers.sklearn_model import SklearnModel
-import gensim
 import itertools
 import pickle
 import sys
 from datetime import datetime
 
 import dill
+
+# %%
+# from simba.transformers.sklearn_model import SklearnModel
+import gensim
 import matplotlib.pyplot as plt
 import numpy as np
 import tensorflow as tf
@@ -43,7 +44,6 @@ from simba.transformers.CustomDatasetEncoder import CustomDatasetEncoder
 from simba.transformers.embedder import Embedder
 from simba.transformers.encoder import Encoder
 from simba.transformers.load_data_encoder import LoadDataEncoder
-
 
 # %% [markdown]
 # ## params
@@ -91,7 +91,7 @@ loader_saver = LoaderSaver(
 )
 
 # %%
-all_spectrums_janssen_su = loader_saver.get_all_spectrums(
+all_spectrums_janssen_su = loader_saver.get_all_spectra(
     janssen_path,
     100000000,
     use_tqdm=True,

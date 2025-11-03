@@ -170,7 +170,9 @@ def setup_paths(config: Config):
     )
 
 
-def compute_distances(config: Config, pairs_filename: str):
+def compute_distances(
+    config: Config, pairs_filename: str, protonized_only: bool = True
+):
     """
     Compute distances between spectra using MCES and optionally edit distance.
 
@@ -180,10 +182,15 @@ def compute_distances(config: Config, pairs_filename: str):
         Configuration object containing paths and settings.
     pairs_filename : str
         Filename to save the computed pairs.
+    protonized_only : bool
+        Use only protonized spectra if True, all iontypes otherwise.
     """
     # Load and preprocess spectra
     all_spectra = PreprocessingSimba.load_spectra(
-        config.SPECTRA_PATH, config, use_gnps_format=False
+        config.SPECTRA_PATH,
+        config,
+        use_gnps_format=False,
+        use_only_protonized_adducts=protonized_only,
     )
     logger.info(f"Read {len(all_spectra)} spectra from {config.SPECTRA_PATH}")
 
@@ -238,7 +245,6 @@ def compute_distances(config: Config, pairs_filename: str):
         molecule_pairs_test=molecule_pairs["_test"],
         uniformed_molecule_pairs_test=None,
     )
-    pass
 
 
 def write_data(
@@ -417,7 +423,7 @@ if __name__ == "__main__":
 
     use_tqdm = config.enable_progress_bar
 
-    compute_distances(config, output_paths[0])
+    compute_distances(config, output_paths[0], False)
     combine_distances(config)
 
     logger.info("All done!")

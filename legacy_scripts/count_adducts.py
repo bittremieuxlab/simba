@@ -28,7 +28,7 @@ val_molecules = 10**6
 test_molecules = 10**6
 use_tqdm = True
 
-all_spectrums_original = LoadData.get_all_spectrums(
+all_spectrums_original = LoadData.get_all_spectra(
     mgf_path, max_number_spectra, use_tqdm=use_tqdm
 )
 # sys.exit()

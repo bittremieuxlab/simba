@@ -1,16 +1,13 @@
 import itertools
 import multiprocessing
 import os
-import random
 import subprocess
-from concurrent.futures import ProcessPoolExecutor, as_completed
 from datetime import datetime
-from functools import partial
 from typing import List, Optional
 
 import numpy as np
 import pandas as pd
-from rdkit import Chem, Geometry
+from rdkit import Chem
 from rdkit.Chem import AllChem
 from tqdm import tqdm
 
@@ -27,14 +24,14 @@ from simba.train_utils import TrainUtils
 class MCES:
     @staticmethod
     def compute_all_mces_results_unique(
-        spectra_original: List[SpectrumExt],
+        original_spectra: List[SpectrumExt],
         max_combinations: int = 1000000,
         num_workers: int = 15,
         random_sampling: bool = True,
         config: Config = None,
         identifier: str = "",
         use_edit_distance: bool = False,
-        loaded_molecule_pairs=None,  # TODO: type hint
+        loaded_molecule_pairs: Optional[MolecularPairsSet] = None,
     ) -> MoleculePairsOpt:
         """
         Compute MCES or edit distance for all pairs of spectra using multiprocessing.
@@ -55,7 +52,7 @@ class MCES:
             Identifier for the computation run, by default "".
         use_edit_distance : bool, optional
             If True, compute edit distance instead of MCES, by default False.
-        loaded_molecular_pairs : Optional[MolecularPairsSet], optional
+        loaded_molecular_pairs : Optional[MolecularPairsSet]
             Precomputed molecular pairs to use instead of computing new ones, by default None.
 
         Returns
@@ -69,7 +66,7 @@ class MCES:
         if loaded_molecule_pairs is None:
             # get dummy spectra for unique smiles and associated metadata
             spectra_unique, df_smiles = TrainUtils.get_unique_spectra(
-                spectra_original
+                original_spectra
             )
 
             molecular_pairs = MCES.compute_all_mces_results_exhaustive(
@@ -85,10 +82,10 @@ class MCES:
             molecular_pairs = loaded_molecule_pairs
             df_smiles = molecular_pairs.df_smiles
             spectra_unique = molecular_pairs.spectra
-            spectra_original = molecular_pairs.original_spectra
+            original_spectra = molecular_pairs.original_spectra
 
         return MoleculePairsOpt(
-            original_spectra=spectra_original,
+            original_spectra=original_spectra,
             unique_spectra=spectra_unique,
             df_smiles=df_smiles,
             pair_distances=molecular_pairs.pair_distances,

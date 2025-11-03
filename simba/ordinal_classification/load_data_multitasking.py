@@ -77,22 +77,26 @@ class LoadDataMultitasking:
             )
 
         logger.info("Loading mz, intensity and precursor data ...")
-        for i, l in enumerate(molecule_pairs.original_spectra):
+        for i, spec in enumerate(molecule_pairs.original_spectra):
             # check for maximum length
-            length = len(l.mz) if len(l.mz) <= max_num_peaks else max_num_peaks
+            length = (
+                len(spec.mz)
+                if len(spec.mz) <= max_num_peaks
+                else max_num_peaks
+            )
 
             # assign the values to the array
-            mz[i, 0:length] = np.array(l.mz[0:length])
-            intensity[i, 0:length] = np.array(l.intensity[0:length])
+            mz[i, 0:length] = np.array(spec.mz[0:length])
+            intensity[i, 0:length] = np.array(spec.intensity[0:length])
 
-            precursor_mass[i] = l.precursor_mz
-            precursor_charge[i] = l.precursor_charge
+            precursor_mass[i] = spec.precursor_mz
+            precursor_charge[i] = spec.precursor_charge
 
             if use_extra_metadata:
                 ionization_mode_precursor[i] = (
-                    1.00 if l.params["ion_mode"].lower == "positive" else -1
+                    1.00 if spec.params["ion_mode"].lower == "positive" else -1
                 )
-                adduct_mass_precursor[i] = float(l.params["adduct_mass"])
+                adduct_mass_precursor[i] = float(spec.params["adduct_mass"])
 
         # logger.info("Normalizing intensities")
         # Normalize the intensity array
@@ -118,7 +122,6 @@ class LoadDataMultitasking:
         else:
             fingerprint_0 = np.array([0 for m in molecule_pairs_input.spectra])
 
-        print("Creating dictionaries")
         dictionary_data = {
             "index_unique_0": molecule_pairs_input.pair_distances[
                 :, 0
@@ -143,4 +146,10 @@ class LoadDataMultitasking:
             fingerprint_0=fingerprint_0,
             max_num_peaks=max_num_peaks,
             use_extra_metadata=use_extra_metadata,
+            ionization_mode_precursor=(
+                ionization_mode_precursor if use_extra_metadata else None
+            ),
+            adduct_mass_precursor=(
+                adduct_mass_precursor if use_extra_metadata else None
+            ),
         )

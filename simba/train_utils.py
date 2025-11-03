@@ -204,6 +204,7 @@ class TrainUtils:
         all_library = [s.library for s in all_spectra]
         all_inchi = [s.inchi for s in all_spectra]
         all_ionmode = [s.ionmode for s in all_spectra]
+        all_adduct_mass = [s.adduct_mass for s in all_spectra]
         all_bms = [s.murcko_scaffold for s in all_spectra]
         all_superclass = [s.superclass for s in all_spectra]
         all_classe = [s.classe for s in all_spectra]
@@ -234,6 +235,9 @@ class TrainUtils:
         df_smiles["library"] = [all_library[u_s] for u_s in indexes_original]
         df_smiles["inchi"] = [all_inchi[u_s] for u_s in indexes_original]
         df_smiles["ionmode"] = [all_ionmode[u_s] for u_s in indexes_original]
+        df_smiles["adduct_mass"] = [
+            all_adduct_mass[u_s] for u_s in indexes_original
+        ]
         df_smiles["bms"] = [all_bms[u_s] for u_s in indexes_original]
         df_smiles["superclass"] = [
             all_superclass[u_s] for u_s in indexes_original
@@ -290,6 +294,7 @@ class TrainUtils:
                 inchi=row.inchi,
                 smiles=row.canon_smiles,
                 ionmode=row.ionmode,
+                adduct_mass=0.0,
                 bms=row.bms,
                 superclass=row.superclass,
                 classe=row.classe,

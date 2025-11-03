@@ -25,7 +25,7 @@ use_tqdm = config.enable_progress_bar
 max_number_spectra_gnps = 100000
 max_combinations = 100
 # load spectra
-all_spectrums_janssen = LoadData.get_all_spectrums(
+all_spectrums_janssen = LoadData.get_all_spectra(
     janssen_path,
     max_number_spectra_gnps,
     use_tqdm=use_tqdm,

@@ -47,7 +47,7 @@ class PreprocessingSimba:
                 pickle_gnps_path=None,
                 pickle_janssen_path=None,
             )
-            all_spectrums = loader_saver.get_all_spectrums(
+            all_spectra = loader_saver.get_all_spectra(
                 file_name,
                 n_samples,
                 use_tqdm=True,
@@ -57,18 +57,18 @@ class PreprocessingSimba:
                 use_only_protonized_adducts=use_only_protonized_adducts,
             )
         elif file_name.endswith(".pkl"):
-            all_spectrums = LoadData.get_all_spectrums_casmi(
+            all_spectra = LoadData.get_all_spectra_casmi(
                 file_name,
                 config=config,
             )
         else:
             logger.error("Error: unrecognized file extension")
         # preprocess
-        all_spectrums_processed = [copy.deepcopy(s) for s in all_spectrums]
+        all_spectra_processed = [copy.deepcopy(s) for s in all_spectra]
 
         pp = Preprocessor()
         ### remove extra peaks in janssen
-        all_spectrums_processed = [
+        all_spectra_processed = [
             pp.preprocess_spectrum(
                 s,
                 fragment_tol_mass=10,
@@ -77,14 +77,14 @@ class PreprocessingSimba:
                 max_num_peaks=1000,
                 scale_intensity=None,
             )
-            for s in all_spectrums_processed
+            for s in all_spectra_processed
         ]
 
         # remove spectra that does not have at least min peaks
         filtered_spectra = [
             s_original
             for s_original, s_processed in zip(
-                all_spectrums, all_spectrums_processed
+                all_spectra, all_spectra_processed
             )
             if len(s_processed.mz) >= min_peaks
         ]

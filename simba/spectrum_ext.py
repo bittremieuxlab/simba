@@ -29,6 +29,7 @@ class SpectrumExt(MsmsSpectrum):
         inchi,
         smiles,
         ionmode,
+        adduct_mass: float,
         bms,
         superclass,
         classe,
@@ -38,7 +39,12 @@ class SpectrumExt(MsmsSpectrum):
     ):
 
         super().__init__(
-            identifier, precursor_mz, precursor_charge, mz, intensity, retention_time
+            identifier,
+            precursor_mz,
+            precursor_charge,
+            mz,
+            intensity,
+            retention_time,
         )
 
         # extra variables
@@ -51,6 +57,7 @@ class SpectrumExt(MsmsSpectrum):
         self.library = library
         self.inchi = inchi
         self.ionmode = ionmode
+        self.adduct_mass = adduct_mass
         self.retention_time = retention_time
         # classes
         self.superclass = superclass
@@ -84,6 +91,7 @@ class SpectrumExt(MsmsSpectrum):
                 "library": self.library,
                 "inchi": self.inchi,
                 "ionmode": self.ionmode,
+                "adduct_mass": self.adduct_mass,
                 "retention_time": self.retention_time,
                 "superclass": self.superclass,
                 "classe": self.classe,
@@ -109,6 +117,7 @@ class SpectrumExt(MsmsSpectrum):
         self.library = state["library"]
         self.inchi = state["inchi"]
         self.ionmode = state["ionmode"]
+        self.adduct_mass = state["adduct_mass"]
         self.retention_time = state["retention_time"]
         self.superclass = state["superclass"]
         self.classe = state["classe"]
