@@ -94,51 +94,25 @@ class LoadData:
             #    pass
 
     @staticmethod
-    def default_filters(spectrum: SpectrumExt, config):
-        cond_library = True  # all the library is good
-        cond_charge = True
-        cond_pepmass = True
-        cond_mz_array = len(spectrum["m/z array"]) >= config.MIN_N_PEAKS
-        cond_ion_mode = True
-        cond_name = True
-        cond_inchi_smiles = True
-        cond_centroid = PreprocessingUtils.is_centroid(
-            spectrum["intensity array"]
-        )
-
-        ##cond_name=True
-        ##cond_name=True
-        dict_results = {
-            "cond_library": cond_library,
-            "cond_charge": cond_charge,
-            "cond_pepmass": cond_pepmass,
-            "cond_mz_array": cond_mz_array,
-            "cond_ion_mode": cond_ion_mode,
-            "cond_name": cond_name,
-            "cond_centroid": cond_centroid,
-            "cond_inchi_smiles": cond_inchi_smiles,
-        }
-
-        # return cond_ion_mode and cond_mz_array
-
-        total_condition = (
-            cond_library
-            and cond_charge
-            and cond_pepmass
-            and cond_mz_array
-            and cond_ion_mode
-            and cond_name
-            and cond_centroid
-            and cond_inchi_smiles
-        )
-
-        return total_condition, dict_results
+    def get_precursor_mz(spectrum):
+        if "pepmass" in spectrum["params"]:
+            if len(spectrum["params"]["pepmass"]) > 0:
+                precursor_mz = float(spectrum["params"]["pepmass"][0])
+            else:
+                precursor_mz = float(spectrum["params"]["pepmass"])
+        elif "precursor_mz" in spectrum["params"]:
+            precursor_mz = float(spectrum["params"]["precursor_mz"])
+        else:
+            precursor_mz = None
+        return precursor_mz
 
     @staticmethod
     def default_filters(spectrum: SpectrumExt, config: Config):
         cond_library = True  # all the library is good
         cond_charge = True
-        cond_pepmass = True
+        cond_pepmass = (
+            True if LoadData.get_precursor_mz(spectrum) > 0 else False
+        )
         cond_mz_array = len(spectrum["m/z array"]) >= config.MIN_N_PEAKS
         cond_ion_mode = True
         cond_name = True
@@ -395,13 +369,9 @@ class LoadData:
             classe = None
             subclass = None
 
-        try:
-            precursor_mz = float(spectrum_dict["params"]["pepmass"][0])
-        except:
-            try:
-                precursor_mz = float(spectrum_dict["params"]["precursor_mz"])
-            except:
-                return None
+        precursor_mz = LoadData.get_precursor_mz(spectrum_dict)
+        if precursor_mz is None:
+            return None
 
         try:
             charge = max(int(spectrum_dict["params"]["charge"][0]), 1)

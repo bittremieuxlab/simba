@@ -387,6 +387,7 @@ def setup_model(config, weights_mces):
         use_precursor_mz_for_model=config.USE_PRECURSOR_MZ_FOR_MODEL,
         tau_gumbel_softmax=config.TAU_GUMBEL_SOFTMAX,
         gumbel_reg_weight=config.GUMBEL_REG_WEIGHT,
+        use_extra_metadata=config.USE_EXTRA_METADATA_MODEL,
     )
 
     # Create a model:
@@ -408,6 +409,7 @@ def setup_model(config, weights_mces):
                 use_precursor_mz_for_model=config.USE_PRECURSOR_MZ_FOR_MODEL,
                 tau_gumbel_softmax=config.TAU_GUMBEL_SOFTMAX,
                 gumbel_reg_weight=config.GUMBEL_REG_WEIGHT,
+                use_extra_metadata=config.USE_EXTRA_METADATA_MODEL,
             )
             logger.info("Loaded full model from checkpoint")
         except:
@@ -421,6 +423,7 @@ def setup_model(config, weights_mces):
                 use_gumbel=config.EDIT_DISTANCE_USE_GUMBEL,
                 weights_sim2=weights_mces,
                 strict=False,
+                use_extra_metadata=config.USE_EXTRA_METADATA_MODEL,
             )
 
             model.spectrum_encoder = model_pretrained.spectrum_encoder

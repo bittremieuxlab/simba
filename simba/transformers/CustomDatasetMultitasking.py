@@ -44,6 +44,7 @@ class CustomDatasetMultitasking(Dataset):
             self.fingerprint_0 = fingerprint_0
         self.max_num_peaks = max_num_peaks
 
+        self.use_extra_metadata = use_extra_metadata
         if self.use_extra_metadata:
             self.ionization_mode_precursor = ionization_mode_precursor
             self.adduct_mass_precursor = adduct_mass_precursor
@@ -89,16 +90,12 @@ class CustomDatasetMultitasking(Dataset):
 
         ### add extra metadata in case it is necessary
         if self.use_extra_metadata:
-            dictionary["ionization_mode_precursor_0"] = np.zeros(
+            dictionary["ionmode_0"] = np.zeros((len_data, 1), dtype=np.float32)
+            dictionary["ionmode_1"] = np.zeros((len_data, 1), dtype=np.float32)
+            dictionary["adduct_mass_0"] = np.zeros(
                 (len_data, 1), dtype=np.float32
             )
-            dictionary["ionization_mode_precursor_1"] = np.zeros(
-                (len_data, 1), dtype=np.float32
-            )
-            dictionary["adduct_mass_precursor_0"] = np.zeros(
-                (len_data, 1), dtype=np.float32
-            )
-            dictionary["adduct_mass_precursor_1"] = np.zeros(
+            dictionary["adduct_mass_1"] = np.zeros(
                 (len_data, 1), dtype=np.float32
             )
 
@@ -181,106 +178,97 @@ class CustomDatasetMultitasking(Dataset):
         return dictionary
 
     def __getitem__(self, idx):
-        # key = self.keys[idx]
-        # sample = self.data[key]
-        # print(idx)
-        sample_unique = {k: self.data[k][idx] for k in self.keys}
+        sample = {k: self.data[k][idx] for k in self.keys}
 
-        # indexes_unique_0 = list(sample_unique['index_unique_0'])
-        # indexes_unique_1 = list(sample_unique['index_unique_1'])
-
-        indexes_unique_0 = sample_unique["index_unique_0"]
-        indexes_unique_1 = sample_unique["index_unique_1"]
-
-        # for each unique value 0 sample from the distribution
-        # indexes_original_0 = [random.choice(self.df_smiles.loc[int(index),'indexes']) for index in indexes_unique_0]
-        # indexes_original_1 = [random.choice(self.df_smiles.loc[int(index),'indexes']) for index in indexes_unique_1]
+        idx_0 = sample["index_unique_0"]
+        idx_1 = sample["index_unique_1"]
 
         if self.training:
             # select random samples
-            indexes_original_0 = random.choice(
-                self.df_smiles.loc[int(indexes_unique_0[0]), "indexes"]
+            idx_0_original = random.choice(
+                self.df_smiles.loc[int(idx_0[0]), "indexes"]
             )
-            indexes_original_1 = random.choice(
-                self.df_smiles.loc[int(indexes_unique_1[0]), "indexes"]
+            idx_1_original = random.choice(
+                self.df_smiles.loc[int(idx_1[0]), "indexes"]
             )
         else:
             # select the first index
-            indexes_original_0 = self.df_smiles.loc[
-                int(indexes_unique_0[0]), "indexes"
-            ][0]
+            idx_0_original = self.df_smiles.loc[int(idx_0[0]), "indexes"][0]
             # select the last index
-            indexes_original_1 = self.df_smiles.loc[
-                int(indexes_unique_1[0]), "indexes"
-            ][-1]
+            idx_1_original = self.df_smiles.loc[int(idx_1[0]), "indexes"][-1]
 
-        ## now get an original spectra based on indexes
-        sample = {}
-
-        sample["mz_0"] = self.mz[indexes_original_0].astype(np.float32)
-        sample["intensity_0"] = self.intensity[indexes_original_0].astype(
+        # Get the original spectrum based on indexes
+        spectrum_sample = {}
+        spectrum_sample["mz_0"] = self.mz[idx_0_original].astype(np.float32)
+        spectrum_sample["intensity_0"] = self.intensity[idx_0_original].astype(
             np.float32
         )
-
-        sample["mz_1"] = self.mz[indexes_original_1].astype(np.float32)
-        sample["intensity_1"] = self.intensity[indexes_original_1].astype(
+        spectrum_sample["mz_1"] = self.mz[idx_1_original].astype(np.float32)
+        spectrum_sample["intensity_1"] = self.intensity[idx_1_original].astype(
             np.float32
         )
-        sample["precursor_mass_0"] = self.precursor_mass[
-            indexes_original_0
+        spectrum_sample["precursor_mass_0"] = self.precursor_mass[
+            idx_0_original
         ].astype(np.float32)
-        sample["precursor_mass_1"] = self.precursor_mass[
-            indexes_original_1
+        spectrum_sample["precursor_mass_1"] = self.precursor_mass[
+            idx_1_original
         ].astype(np.float32)
-        sample["precursor_charge_0"] = self.precursor_charge[
-            indexes_original_0
+        spectrum_sample["precursor_charge_0"] = self.precursor_charge[
+            idx_0_original
         ].astype(np.float32)
-        sample["precursor_charge_1"] = self.precursor_charge[
-            indexes_original_1
+        spectrum_sample["precursor_charge_1"] = self.precursor_charge[
+            idx_1_original
         ].astype(np.float32)
-        sample["ed"] = sample_unique["ed"].astype(np.float32)
-        sample["mces"] = sample_unique["mces"].astype(np.float32)
+        spectrum_sample["ed"] = sample["ed"].astype(np.float32)
+        spectrum_sample["mces"] = sample["mces"].astype(np.float32)
 
         if self.use_extra_metadata:
-            sample["adduct_mass_precursor_0"] = self.adduct_mass_precursor[
-                indexes_original_0
-            ]
-            sample["adduct_mass_precursor_1"] = self.adduct_mass_precursor[
-                indexes_original_1
-            ]
+            spectrum_sample["adduct_mass_precursor_0"] = (
+                self.adduct_mass_precursor[idx_0_original]
+            )
+            spectrum_sample["adduct_mass_precursor_1"] = (
+                self.adduct_mass_precursor[idx_1_original]
+            )
 
         if self.use_fingerprints:
-            ind = int(indexes_unique_0[0])
+            ind = int(idx_0[0])
             if self.training:
                 if (ind % 2) == 0:
-                    sample["fingerprint_0"] = self.fingerprint_0[ind].astype(
-                        np.float32
-                    )
+                    spectrum_sample["fingerprint_0"] = self.fingerprint_0[
+                        ind
+                    ].astype(np.float32)
                 else:
                     # return 0s
-                    sample["fingerprint_0"] = 0 * self.fingerprint_0[
+                    spectrum_sample["fingerprint_0"] = 0 * self.fingerprint_0[
                         ind
                     ].astype(np.float32)
             else:
-                sample["fingerprint_0"] = self.fingerprint_0[ind].astype(
-                    np.float32
-                )
+                spectrum_sample["fingerprint_0"] = self.fingerprint_0[
+                    ind
+                ].astype(np.float32)
 
-        # print(sample["mz_0"]).shape
-        # print(sample["intensity_0"].shape)
-        # print(sample["precursor_charge_0"].shape)
-        # print(sample["precursor_mass_0"].shape)
+        if self.use_extra_metadata:
+            spectrum_sample["ionmode_0"] = self.ionization_mode_precursor[
+                idx_0_original
+            ].astype(np.float32)
+            spectrum_sample["ionmode_1"] = self.ionization_mode_precursor[
+                idx_1_original
+            ].astype(np.float32)
 
-        # Convert your sample to PyTorch tensors if needed
-        # e.g., use torch.tensor(sample) if sample is a numpy array
+            spectrum_sample["adduct_mass_0"] = self.adduct_mass_precursor[
+                idx_0_original
+            ].astype(np.float32)
+            spectrum_sample["adduct_mass_1"] = self.adduct_mass_precursor[
+                idx_1_original
+            ].astype(np.float32)
 
         if self.training:
             if random.random() < self.prob_aug:
                 # augmentation
-                sample = Augmentation.augment(
-                    sample, max_num_peaks=self.max_num_peaks
+                spectrum_sample = Augmentation.augment(
+                    spectrum_sample, max_num_peaks=self.max_num_peaks
                 )
 
         # normalize
-        sample = Augmentation.normalize_intensities(sample)
-        return sample
+        spectrum_sample = Augmentation.normalize_intensities(spectrum_sample)
+        return spectrum_sample

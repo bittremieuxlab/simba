@@ -45,13 +45,12 @@ class LoadDataMultitasking:
 
         # Preprocess the spectra
         pp = Preprocessor()
-        logger.info("Preprocessing all spectra ...")
+        logger.info("Preprocess all spectra ...")
         molecule_pairs.original_spectra = pp.preprocess_all_spectra(
             molecule_pairs.original_spectra,
             max_num_peaks=max_num_peaks,
             training=training,
         )
-        logger.info("Finished preprocessing ")
 
         # Get the mz, intensity values and precursor data
         mz = np.zeros(
@@ -69,10 +68,10 @@ class LoadDataMultitasking:
             (len(molecule_pairs.original_spectra), 1), dtype=np.int32
         )
         if use_extra_metadata:
-            ionization_mode_precursor = np.zeros(
+            ionmode = np.zeros(
                 (len(molecule_pairs.original_spectra), 1), dtype=np.float32
             )
-            adduct_mass_precursor = np.zeros(
+            adduct_mass = np.zeros(
                 (len(molecule_pairs.original_spectra), 1), dtype=np.float32
             )
 
@@ -93,10 +92,10 @@ class LoadDataMultitasking:
             precursor_charge[i] = spec.precursor_charge
 
             if use_extra_metadata:
-                ionization_mode_precursor[i] = (
-                    1.00 if spec.params["ion_mode"].lower == "positive" else -1
+                ionmode[i] = (
+                    1.00 if spec.params["ionmode"].lower == "positive" else -1
                 )
-                adduct_mass_precursor[i] = float(spec.params["adduct_mass"])
+                adduct_mass[i] = float(spec.params["adduct_mass"])
 
         # logger.info("Normalizing intensities")
         # Normalize the intensity array
@@ -107,12 +106,11 @@ class LoadDataMultitasking:
             molecule_pairs_input.pair_distances[:, 2].reshape(-1, 1),
             N_classes=N_classes,
         )
-        # ed = molecule_pairs_input.indexes_tani[:, 2].reshape(-1,1)
 
         mces = molecule_pairs.extra_distances.reshape(-1, 1)
 
         if use_fingerprints:
-            print("Computing molecular fingerprints")
+            logger.info("Computing molecular fingerprints...")
             fingerprint_0 = np.array(
                 [
                     np.array(Tanimoto.compute_fingerprint(s.params["smiles"]))
@@ -147,9 +145,9 @@ class LoadDataMultitasking:
             max_num_peaks=max_num_peaks,
             use_extra_metadata=use_extra_metadata,
             ionization_mode_precursor=(
-                ionization_mode_precursor if use_extra_metadata else None
+                ionmode if use_extra_metadata else None
             ),
             adduct_mass_precursor=(
-                adduct_mass_precursor if use_extra_metadata else None
+                adduct_mass if use_extra_metadata else None
             ),
         )

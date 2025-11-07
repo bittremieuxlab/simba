@@ -1,3 +1,5 @@
+from typing import List, Tuple
+
 import torch.nn.functional as F
 
 
@@ -28,7 +30,9 @@ class Postprocessing:
         return similarities
 
     @staticmethod
-    def get_similarities_multitasking(dataloader):
+    def get_similarities_multitasking(
+        dataloader,
+    ) -> Tuple[List[float], List[float]]:
         # calculate similarity
         # similarities1 = []
         # similarities2 = []
@@ -40,14 +44,9 @@ class Postprocessing:
 
         #    sim_temp2 = [float(b) for b in batch["similarity2"]]
         #    similarities2 = similarities2 + sim_temp2
+        ed = [[float(b) for b in batch["ed"]] for batch in dataloader]
+        mces = [[float(b) for b in batch["mces"]] for batch in dataloader]
 
-        similarities1 = [
-            [float(b) for b in batch["similarity"]] for batch in dataloader
-        ]
-        similarities2 = [
-            [float(b) for b in batch["similarity2"]] for batch in dataloader
-        ]
-
-        similarities1 = [item for sublist in similarities1 for item in sublist]
-        similarities2 = [item for sublist in similarities2 for item in sublist]
-        return similarities1, similarities2
+        ed = [item for sublist in ed for item in sublist]
+        mces = [item for sublist in mces for item in sublist]
+        return ed, mces
