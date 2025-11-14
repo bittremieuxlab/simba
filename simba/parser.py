@@ -43,6 +43,7 @@ class Parser:
                 "pretrained_path",
                 "PREPROCESSING_DIR_VAL_TEST",
                 "PREPROCESSING_PICKLE_FILE",
+                "ADDUCT_INFO_CSV",
             ]
             if is_integer_attribute:
                 self.parser.add_argument(f"--{at}", type=int, help=at, default=None)
