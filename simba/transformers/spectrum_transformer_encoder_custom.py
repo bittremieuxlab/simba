@@ -44,6 +44,7 @@ class SpectrumTransformerEncoderCustom(SpectrumTransformerEncoder):
 
             if self.use_categorical_adducts:
                 ## USING categorical variables
+                print(kwargs["ionmode"].float())
                 ion_mode_string = 'positive' if kwargs["ionmode"].float() == 1 else 'negative'
                 adduct_obj = AdductHandling(self.adduct_info_csv)
                 adduct_elements_list = adduct_obj.get_categorical_adduct(
