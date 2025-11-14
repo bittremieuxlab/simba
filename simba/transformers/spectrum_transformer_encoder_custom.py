@@ -42,7 +42,7 @@ class SpectrumTransformerEncoderCustom(SpectrumTransformerEncoder):
 
             placeholder = torch.zeros((mz_array.shape[0], self.d_model)).type_as(mz_array)
 
-            if use_categorical_adducts:
+            if self.use_categorical_adducts:
                 ## USING categorical variables
                 ion_mode_string = 'positive' if ionization_mode_precursor == 1 else 'negative'
                 adduct_obj = AdductHandling(self.adduct_info_csv)
