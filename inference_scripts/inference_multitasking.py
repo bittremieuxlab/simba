@@ -209,6 +209,8 @@ if config.USE_EXTRA_METADATA_MODEL:
         use_edit_distance_regresion=config.USE_EDIT_DISTANCE_REGRESSION,
         strict=False,
         use_extra_metadata=config.USE_EXTRA_METADATA_MODEL,
+        use_categorical_adducts=config.USE_CATEGORICAL_ADDUCTS,
+        adduct_info_csv= config.ADDUCT_INFO_CSV,
     )
 else:
     best_model = EmbedderMultitask.load_from_checkpoint(

@@ -465,6 +465,8 @@ model = EmbedderMultitask(
     tau_gumbel_softmax=config.TAU_GUMBEL_SOFTMAX,
     gumbel_reg_weight=config.GUMBEL_REG_WEIGHT,
     use_extra_metadata=config.USE_EXTRA_METADATA_MODEL,
+    use_categorical_adducts=config.USE_CATEGORICAL_ADDUCTS,
+    adduct_info_csv= config.ADDUCT_INFO_CSV,
 )
 
 # Create a model:
@@ -488,6 +490,8 @@ if config.load_pretrained:
             tau_gumbel_softmax=config.TAU_GUMBEL_SOFTMAX,
             gumbel_reg_weight=config.GUMBEL_REG_WEIGHT,
             use_extra_metadata=config.USE_EXTRA_METADATA_MODEL,
+            use_categorical_adducts=config.USE_CATEGORICAL_ADDUCTS,
+            adduct_info_csv= config.ADDUCT_INFO_CSV,
         )
         print("loaded full model!!")
     except:
@@ -502,6 +506,8 @@ if config.load_pretrained:
             weights_sim2=weights_sim2,
             strict=False,
             use_extra_metadata=config.USE_EXTRA_METADATA_MODEL,
+            use_categorical_adducts=config.USE_CATEGORICAL_ADDUCTS,
+            adduct_info_csv= config.ADDUCT_INFO_CSV,
         )
 
         model.spectrum_encoder = model_pretrained.spectrum_encoder

@@ -7,8 +7,7 @@
 *.ckpt
 
 *.npy
-
-*.csv 
+ 
 
 logs/
 
