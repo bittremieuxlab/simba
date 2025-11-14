@@ -29,66 +29,62 @@ class SpectrumTransformerEncoderCustom(SpectrumTransformerEncoder):
         intensity_array: torch.Tensor,
         **kwargs: dict,
     ):
+    # scalar / per-batch metadata
         if self.use_extra_metadata:
-            ####do something
-            mass_precursor = torch.tensor(kwargs["precursor_mass"].float())
-            charge_precursor = torch.tensor(kwargs["precursor_charge"].float())
-            ionization_mode_precursor= torch.tensor(kwargs["ionmode"].float())
-            adduct_mass_precursor= torch.tensor(kwargs["adduct_mass"].float())
+            device = mz_array.device
+            dtype  = mz_array.dtype
+            B = mz_array.shape[0]   # batch size
 
+            # scalar metadata as tensors
+            mass_precursor = kwargs["precursor_mass"].float().to(device)
+            charge_precursor = kwargs["precursor_charge"].float().to(device)
+            ionization_mode_precursor = kwargs["ionmode"].float().to(device)
+            adduct_mass_precursor = kwargs["adduct_mass"].float().to(device)
 
             # placeholder
+            placeholder = torch.zeros((B, self.d_model), dtype=dtype, device=device)
 
+            # ---- FIRST 4 FIXED FEATURES ----
+            base_meta = torch.cat(
+                (
+                    mass_precursor.view(B, 1),
+                    charge_precursor.view(B, 1),
+                    ionization_mode_precursor.view(B, 1),
+                    adduct_mass_precursor.view(B, 1),
+                ),
+                dim=-1,
+            )
+            placeholder[:, 0:4] = base_meta
 
-            placeholder = torch.zeros((mz_array.shape[0], self.d_model)).type_as(mz_array)
+            # ======================================================
+            #       FIX: CONVERT ionization_mode_precursor → STRINGS
+            # ======================================================
+            # ionization_mode_precursor is numeric (e.g., +1 / -1)
+            ion_mode_str_list = [
+                "positive" if ionization_mode_precursor[i].item() > 0 else "negative"
+                for i in range(B)
+            ]
+            # Now we have: ["positive", "negative", ...] for the batch
 
+            # ===============================================
+            #          USE CATEGORICAL ADDUCTS
+            # ===============================================
             if self.use_categorical_adducts:
-                ## USING categorical variables
-                print(kwargs["ionmode"].float())
-                ion_mode_string = 'positive' if kwargs["ionmode"].float() == 1 else 'negative'
-                adduct_obj = AdductHandling(self.adduct_info_csv)
-                adduct_elements_list = adduct_obj.get_categorical_adduct(
-                    adduct_mass_precursor, ion_mode_string
-                )
 
-                # ---- default 4 metadata features in the first positions ----
-                placeholder[:, 0:4] = torch.cat(
-                    (
-                        mass_precursor.view(-1, 1),
-                        charge_precursor.view(-1, 1),
-                        ionization_mode_precursor.view(-1, 1),
-                        adduct_mass_precursor.view(-1, 1),
-                    ),
-                    dim=-1,
-                )
+                # For each spectrum in the batch compute adduct vector
+                adduct_vectors = []
+                for i in range(B):
+                    adduct_list = self.get_categorical_adduct(
+                        adduct_mass=float(adduct_mass_precursor[i].item()),
+                        ion_mode=ion_mode_str_list[i],
+                    )
+                    adduct_vectors.append(adduct_list)
 
-                # ---- append adduct element features after the 4 defaults ----
-                # adduct_elements_list is e.g. [adduct_M, adduct_H, adduct_Na, ...]
-                adduct_elements_tensor = torch.tensor(
-                    adduct_elements_list,
-                    dtype=mz_array.dtype,
-                    device=mz_array.device,
-                ).view(1, -1)  # shape (1, n_adduct_features)
+                # Convert list[list] → tensor B × F
+                adduct_tensor = torch.tensor(adduct_vectors, dtype=dtype, device=device)
 
-                # broadcast to batch size
-                adduct_elements_tensor = adduct_elements_tensor.repeat(
-                    mz_array.shape[0], 1
-                )  # (batch_size, n_adduct_features)
-
-                # put them after the 4 scalar metadata features
-                start_idx = 4
-                end_idx = 4 + adduct_elements_tensor.shape[1]
-                placeholder[:, start_idx:end_idx] = adduct_elements_tensor
-            else:
-                placeholder[:, 0:4] = torch.cat(
-                    (mass_precursor.view(-1, 1), 
-                    charge_precursor.view(-1, 1),
-                    ionization_mode_precursor.view(-1,1),
-                    adduct_mass_precursor.view(-1,1),
-                    ), 
-                    dim=-1
-                )
-
+                # Write categorical adducts after the first 4 positions
+                placeholder[:, 4:4 + adduct_tensor.shape[1]] = adduct_tensor
         else:
             mass_precursor = torch.tensor(kwargs["precursor_mass"].float())
             charge_precursor = torch.tensor(kwargs["precursor_charge"].float())
