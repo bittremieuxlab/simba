@@ -70,11 +70,11 @@ class SpectrumTransformerEncoderCustom(SpectrumTransformerEncoder):
             #          USE CATEGORICAL ADDUCTS
             # ===============================================
             if self.use_categorical_adducts:
-
+                adduct_obj = AdductHandling(self.adduct_info_csv)
                 # For each spectrum in the batch compute adduct vector
                 adduct_vectors = []
                 for i in range(B):
-                    adduct_list = self.get_categorical_adduct(
+                    adduct_list = adduct_obj.get_categorical_adduct(
                         adduct_mass=float(adduct_mass_precursor[i].item()),
                         ion_mode=ion_mode_str_list[i],
                     )
