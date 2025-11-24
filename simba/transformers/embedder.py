@@ -56,6 +56,8 @@ class Embedder(pl.LightningModule):
         use_element_wise=True,
         use_cosine_distance=True,  # element wise instead of concat for mixing info between embeddings
         use_extra_metadata=False,
+        use_categorical_adducts=False,
+        adduct_info_csv= "",
     ):
         """Initialize the CCSPredictor"""
         super().__init__()
@@ -74,6 +76,8 @@ class Embedder(pl.LightningModule):
             n_layers=n_layers,
             dropout=dropout,
             use_extra_metadata=use_extra_metadata,
+            use_categorical_adducts=use_categorical_adducts,
+            adduct_info_csv =adduct_info_csv,
         )
 
         self.regression_loss = nn.MSELoss()

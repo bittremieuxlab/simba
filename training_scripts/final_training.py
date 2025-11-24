@@ -388,6 +388,8 @@ def setup_model(config, weights_mces):
         tau_gumbel_softmax=config.TAU_GUMBEL_SOFTMAX,
         gumbel_reg_weight=config.GUMBEL_REG_WEIGHT,
         use_extra_metadata=config.USE_EXTRA_METADATA_MODEL,
+        use_categorical_adducts=config.USE_CATEGORICAL_ADDUCTS,
+        adduct_info_csv=config.ADDUCT_INFO_CSV,
     )
 
     # Create a model:
@@ -410,6 +412,8 @@ def setup_model(config, weights_mces):
                 tau_gumbel_softmax=config.TAU_GUMBEL_SOFTMAX,
                 gumbel_reg_weight=config.GUMBEL_REG_WEIGHT,
                 use_extra_metadata=config.USE_EXTRA_METADATA_MODEL,
+                use_categorical_adducts=config.USE_CATEGORICAL_ADDUCTS,
+                adduct_info_csv=config.ADDUCT_INFO_CSV,
             )
             logger.info("Loaded full model from checkpoint")
         except:
@@ -424,6 +428,8 @@ def setup_model(config, weights_mces):
                 weights_sim2=weights_mces,
                 strict=False,
                 use_extra_metadata=config.USE_EXTRA_METADATA_MODEL,
+                use_categorical_adducts=config.USE_CATEGORICAL_ADDUCTS,
+                adduct_info_csv=config.ADDUCT_INFO_CSV,
             )
 
             model.spectrum_encoder = model_pretrained.spectrum_encoder

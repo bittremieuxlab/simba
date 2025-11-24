@@ -94,6 +94,8 @@ class EmbedderMultitask(Embedder):
         gumbel_reg_weight=0.1,
         USE_LEARNABLE_MULTITASK=True,
         use_extra_metadata=False,
+        use_categorical_adducts=False,
+        adduct_info_csv= "",
     ):
         """Initialize the CCSPredictor"""
         super().__init__(
@@ -105,6 +107,8 @@ class EmbedderMultitask(Embedder):
             use_element_wise=use_element_wise,
             use_cosine_distance=use_cosine_distance,
             use_extra_metadata=use_extra_metadata,
+            use_categorical_adducts=use_categorical_adducts,
+            adduct_info_csv =adduct_info_csv,
         )
         self.weights = weights
 
