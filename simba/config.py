@@ -10,6 +10,8 @@ class Config:
         self.COLUMN_MCES20 = 3
 
         # PREPROCESSING
+        self.USE_ONLY_PROTONIZED_ADDUCTS = False
+        self.USE_EXTRA_METADATA_MODEL = False
         self.PREPROCESSING_BATCH_SIZE = 1000
         self.PREPROCESSING_NUM_WORKERS = 60
         self.PREPROCESSING_NUM_NODES = 10
@@ -98,8 +100,8 @@ class Config:
         )
         self.CHECKPOINT_DIR = None
         self.pretrained_path = None
-        self.BEST_MODEL_NAME = f"best_model.ckpt"
-        self.PRETRAINED_MODEL_NAME = f"pretrained_model.ckpt"
+        self.BEST_MODEL_NAME = "best_model.ckpt"
+        self.PRETRAINED_MODEL_NAME = "pretrained_model.ckpt"
         self.derived_variables()
 
         ## TESTING
