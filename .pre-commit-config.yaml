@@ -1,0 +1,42 @@
+# Pre-commit hooks for code quality
+# Install: pip install pre-commit && pre-commit install
+# Run manually: pre-commit run --all-files
+
+repos:
+  # Ruff - Fast Python linter and formatter
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.6.9
+    hooks:
+      - id: ruff
+        args: [--fix, --exit-non-zero-on-fix]
+      - id: ruff-format
+
+  # Basic file checks
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      - id: trailing-whitespace
+        exclude: ^(notebooks/|data/)
+      - id: end-of-file-fixer
+        exclude: ^(notebooks/|data/)
+      - id: check-yaml
+      - id: check-added-large-files
+        args: [--maxkb=1000]
+      - id: check-case-conflict
+      - id: check-merge-conflict
+      - id: check-toml
+      - id: debug-statements
+      - id: mixed-line-ending
+        args: [--fix=lf]
+
+default_language_version:
+  python: python3.11
+
+exclude: |
+  (?x)^(
+      legacy_scripts/.*|
+      slurm_scripts/.*|
+      .*\.egg-info/.*|
+      build/.*|
+      dist/.*
+  )$

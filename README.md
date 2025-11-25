@@ -17,18 +17,59 @@ SIMBA predicts two interpretable metrics:
 
 ### Requirements
 - Python 3.11.7
-- [Conda](https://docs.conda.io/en/latest/)
+- [UV](https://docs.astral.sh/uv/) (recommended) or [Conda](https://docs.conda.io/en/latest/)
 
-### Installation (10–20 minutes)
+### Installation
 
-Create and activate the environment:
+#### Option 1: UV (Recommended - Fastest ⚡)
+
+**Install UV:**
 ```bash
-conda env create -f environment.yml
-conda activate simba
+# macOS/Linux
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Windows
+powershell -c "irm https://astral.sh/uv/install.ps1 | iex"
 ```
 
-Install the module:
+**Setup SIMBA (~2-5 minutes):**
 ```bash
+# Clone the repository
+git clone https://github.com/bittremieux-lab/simba.git
+cd simba
+
+# Create virtual environment and install dependencies
+uv sync
+
+# Activate the environment
+source .venv/bin/activate  # macOS/Linux
+# or
+.venv\Scripts\activate     # Windows
+```
+
+**For Jupyter notebooks:**
+```bash
+# Install notebook dependencies
+uv sync --extra notebooks
+
+# Register the kernel
+python -m ipykernel install --user --name=simba --display-name="SIMBA (UV)"
+```
+
+**To use notebooks in VS Code:**
+1. Open any `.ipynb` file in the `notebooks/` folder
+2. Click "Select Kernel" in the top-right corner
+3. Choose "SIMBA (UV)" or "Python 3.11 (.venv: venv)"
+4. If the kernel doesn't appear, reload VS Code window (Cmd+Shift+P → "Developer: Reload Window")
+
+#### Option 2: Conda (Alternative)
+
+```bash
+# Create and activate environment
+conda env create -f environment.yml
+conda activate simba
+
+# Install the module
 pip install -e .
 ```
 
@@ -78,7 +119,7 @@ The notebook shows how to:
 
 * Extract top analogs for a given query.
 
-* Compare predictions against ground truth and visualize the best match. 
+* Compare predictions against ground truth and visualize the best match.
 
 ## 📚 Training Your Custom SIMBA Model
 
@@ -117,7 +158,7 @@ with open('/path/to/output_dir/mapping_unique_smiles.pkl', 'rb') as f:
     data = pickle.load(f)
 
 mol_train = data['molecule_pairs_train']
-print(mol_train.df_smiles) 
+print(mol_train.df_smiles)
 ```
 The dataframe df_smiles contains the mapping from indexes of unique compounds to the original spectra loaded.
 
@@ -134,16 +175,16 @@ python training_scripts/final_training.py  \
   --TRAINING_NUM_WORKERS=0  \
   --ACCELERATOR=cpu  \
   --epochs=10 \
-  --VAL_CHECK_INTERVAL=10000 
+  --VAL_CHECK_INTERVAL=10000
 ```
 * CHECKPOINT_DIR: Place where the trained model will be saved.
 * PREPROCESSING_DIR_TRAIN: Folder where the preprocessing files are saved.
 * PREPROCESSING_PICKLE_FILE: File name with the mapping.
 * ACCELERATOR: cpu or gpu.
 * epochs: Number of epochs to be trained.
-* VAL_CHECK_INTERVAL: Used to check validation performance every N steps. 
+* VAL_CHECK_INTERVAL: Used to check validation performance every N steps.
 
-The code uses the mapping file produced in the last step and the preprocessing dir folder `PREPROCESSING_DIR_TRAIN` must be the same where the preprocessing files are generated. The best-performing model (lowest validation loss) is saved in `CHECKPOINT_DIR`. 
+The code uses the mapping file produced in the last step and the preprocessing dir folder `PREPROCESSING_DIR_TRAIN` must be the same where the preprocessing files are generated. The best-performing model (lowest validation loss) is saved in `CHECKPOINT_DIR`.
 
 ---
 
@@ -176,4 +217,3 @@ To test the SIMBA model use the following command:
 - Training and testing datasets available at: [https://zenodo.org/records/15275257].
 
 ---
-
