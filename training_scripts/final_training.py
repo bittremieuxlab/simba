@@ -158,13 +158,13 @@ def prepare_data(
         molecule_pairs_train,
         max_num_peaks=int(config.TRANSFORMER_CONTEXT),
         training=True,
-        use_extra_metadata=config.USE_EXTRA_METADATA_MODEL,
+        use_adduct=config.USE_ADDUCT,
     )
     # dataset_test = LoadData.from_molecule_pairs_to_dataset(m_test)
     dataset_val = LoadDataMultitasking.from_molecule_pairs_to_dataset(
         molecule_pairs_val,
         max_num_peaks=int(config.TRANSFORMER_CONTEXT),
-        use_extra_metadata=config.USE_EXTRA_METADATA_MODEL,
+        use_adduct=config.USE_ADDUCT,
     )
 
     train_sampler = CustomWeightedRandomSampler(
@@ -390,9 +390,9 @@ def setup_model(config, weights_mces):
         use_precursor_mz_for_model=config.USE_PRECURSOR_MZ_FOR_MODEL,
         tau_gumbel_softmax=config.TAU_GUMBEL_SOFTMAX,
         gumbel_reg_weight=config.GUMBEL_REG_WEIGHT,
-        use_extra_metadata=config.USE_EXTRA_METADATA_MODEL,
-        use_categorical_adducts=config.USE_CATEGORICAL_ADDUCTS,
-        adduct_info_csv=config.ADDUCT_INFO_CSV,
+        use_adduct=config.USE_ADDUCT,
+        categorical_adducts=config.CATEGORICAL_ADDUCTS,
+        adduct_mass_map=config.ADDUCT_MASS_MAP_CSV,
     )
 
     # Create a model:
@@ -414,9 +414,9 @@ def setup_model(config, weights_mces):
                 use_precursor_mz_for_model=config.USE_PRECURSOR_MZ_FOR_MODEL,
                 tau_gumbel_softmax=config.TAU_GUMBEL_SOFTMAX,
                 gumbel_reg_weight=config.GUMBEL_REG_WEIGHT,
-                use_extra_metadata=config.USE_EXTRA_METADATA_MODEL,
-                use_categorical_adducts=config.USE_CATEGORICAL_ADDUCTS,
-                adduct_info_csv=config.ADDUCT_INFO_CSV,
+                use_adduct=config.USE_ADDUCT,
+                categorical_adducts=config.CATEGORICAL_ADDUCTS,
+                adduct_mass_map=config.ADDUCT_MASS_MAP_CSV,
             )
             logger.info("Loaded full model from checkpoint")
         except:
@@ -430,9 +430,9 @@ def setup_model(config, weights_mces):
                 use_gumbel=config.EDIT_DISTANCE_USE_GUMBEL,
                 weights_sim2=weights_mces,
                 strict=False,
-                use_extra_metadata=config.USE_EXTRA_METADATA_MODEL,
-                use_categorical_adducts=config.USE_CATEGORICAL_ADDUCTS,
-                adduct_info_csv=config.ADDUCT_INFO_CSV,
+                use_adduct=config.USE_ADDUCT,
+                categorical_adducts=config.CATEGORICAL_ADDUCTS,
+                adduct_mass_map=config.ADDUCT_MASS_MAP_CSV,
             )
 
             model.spectrum_encoder = model_pretrained.spectrum_encoder

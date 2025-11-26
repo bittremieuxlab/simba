@@ -27,7 +27,7 @@ class LoadDataMultitasking:
         training=False,  # shuffle the spectrum 0 and 1 for data augmentation
         N_classes=6,
         use_fingerprints=False,
-        use_extra_metadata=False,
+        use_adduct=False,
     ):
         """
         preprocess the spectra and convert it for being used in Pytorch
@@ -67,7 +67,7 @@ class LoadDataMultitasking:
         precursor_charge = np.zeros(
             (len(molecule_pairs.original_spectra), 1), dtype=np.int32
         )
-        if use_extra_metadata:
+        if use_adduct:
             ionmode = np.zeros(
                 (len(molecule_pairs.original_spectra), 1), dtype=np.float32
             )
@@ -91,7 +91,7 @@ class LoadDataMultitasking:
             precursor_mass[i] = spec.precursor_mz
             precursor_charge[i] = spec.precursor_charge
 
-            if use_extra_metadata:
+            if use_adduct:
                 if spec.ionmode == "none":
                     ionmode[i] = None
                 else:
@@ -144,11 +144,7 @@ class LoadDataMultitasking:
             use_fingerprints=use_fingerprints,
             fingerprint_0=fingerprint_0,
             max_num_peaks=max_num_peaks,
-            use_extra_metadata=use_extra_metadata,
-            ionization_mode_precursor=(
-                ionmode if use_extra_metadata else None
-            ),
-            adduct_mass_precursor=(
-                adduct_mass if use_extra_metadata else None
-            ),
+            use_extra_metadata=use_adduct,
+            ionization_mode_precursor=(ionmode if use_adduct else None),
+            adduct_mass_precursor=(adduct_mass if use_adduct else None),
         )

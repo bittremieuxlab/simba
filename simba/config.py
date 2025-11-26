@@ -10,8 +10,6 @@ class Config:
         self.COLUMN_MCES20 = 3
 
         # PREPROCESSING
-        self.USE_ONLY_PROTONIZED_ADDUCTS = False
-        self.USE_EXTRA_METADATA_MODEL = False
         self.PREPROCESSING_BATCH_SIZE = 1000
         self.PREPROCESSING_NUM_WORKERS = 60
         self.PREPROCESSING_NUM_NODES = 10
@@ -44,6 +42,13 @@ class Config:
         self.MAX_MASS_DIFF = 200  # Da
         self.THRESHOLD_MCES = 20
         self.USE_PRECURSOR_MZ_FOR_MODEL = True
+
+        # Metadata
+        self.USE_ONLY_PROTONIZED_ADDUCTS = False
+        self.USE_ADDUCT = False
+        # Input adduct info as categorical variables
+        self.CATEGORICAL_ADDUCTS = False
+        self.ADDUCT_MASS_MAP_CSV = "/Users/sebas/projects/metabolomics/data/ion_modes_with_adducts_with_M.csv"
 
         ## FOR COMPUTING EDIT DISTANCE LOCALLY
         self.USE_FINGERPRINT = False
@@ -106,12 +111,6 @@ class Config:
 
         ## TESTING
         self.UNIFORMIZE_DURING_TESTING = True
-
-        ## ADDUCT HANDLING
-        self.USE_CATEGORICAL_ADDUCTS = (
-            False  ## input adduct info as categorical variables
-        )
-        self.ADDUCT_INFO_CSV = "/Users/sebas/projects/metabolomics/data/ion_modes_with_adducts_with_M.csv"
 
     def derived_variables(self):
         self.MODEL_CODE = f"{self.D_MODEL}_units_{self.N_LAYERS}_layers_{self.epochs}_epochs_{self.LR}_lr_{self.BATCH_SIZE}_bs{self.extra_info}"

@@ -93,9 +93,9 @@ class EmbedderMultitask(Embedder):
         tau_gumbel_softmax=10,
         gumbel_reg_weight=0.1,
         USE_LEARNABLE_MULTITASK=True,
-        use_extra_metadata=False,
-        use_categorical_adducts=False,
-        adduct_info_csv="",
+        use_adduct=False,
+        categorical_adducts=False,
+        adduct_mass_map="",
     ):
         """Initialize the CCSPredictor"""
         super().__init__(
@@ -106,9 +106,9 @@ class EmbedderMultitask(Embedder):
             lr=lr,
             use_element_wise=use_element_wise,
             use_cosine_distance=use_cosine_distance,
-            use_extra_metadata=use_extra_metadata,
-            use_categorical_adducts=use_categorical_adducts,
-            adduct_info_csv=adduct_info_csv,
+            use_extra_metadata=use_adduct,
+            use_categorical_adducts=categorical_adducts,
+            adduct_info_csv=adduct_mass_map,
         )
         self.weights = weights
 
@@ -167,7 +167,7 @@ class EmbedderMultitask(Embedder):
             self.log_sigma2 = torch.tensor(
                 float(initial_log_sigma2), dtype=torch.float32
             )
-            self.use_extra_metadata = use_extra_metadata
+            self.use_extra_metadata = use_adduct
 
     def forward(self, batch, return_spectrum_output=False):
         # … compute raw emb0, emb1, apply relu, fingerprints, etc. …

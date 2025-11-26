@@ -139,7 +139,7 @@ def create_dataloaders(
     dataset_ed = LoadDataMultitasking.from_molecule_pairs_to_dataset(
         molecule_pairs_ed_uniform,
         max_num_peaks=int(config.TRANSFORMER_CONTEXT),
-        use_extra_metadata=config.USE_EXTRA_METADATA_MODEL,
+        use_adduct=config.USE_ADDUCT,
     )
     dataloader_ed = DataLoader(
         dataset_ed, batch_size=config.BATCH_SIZE, shuffle=False
@@ -148,7 +148,7 @@ def create_dataloaders(
     dataset_mces = LoadDataMultitasking.from_molecule_pairs_to_dataset(
         molecule_pairs_mces_uniform,
         max_num_peaks=int(config.TRANSFORMER_CONTEXT),
-        use_extra_metadata=config.USE_EXTRA_METADATA_MODEL,
+        use_adduct=config.USE_ADDUCT,
     )
     dataloader_mces = DataLoader(
         dataset_mces, batch_size=config.BATCH_SIZE, shuffle=False
@@ -164,7 +164,7 @@ def setup_model(config: Config):
     else:
         best_model_path = config.CHECKPOINT_DIR + f"last.ckpt"
 
-    if config.USE_EXTRA_METADATA_MODEL:
+    if config.USE_ADDUCT:
         best_model = EmbedderMultitask.load_from_checkpoint(
             best_model_path,
             d_model=int(config.D_MODEL),
@@ -175,7 +175,9 @@ def setup_model(config: Config):
             use_cosine_distance=config.use_cosine_distance,
             use_edit_distance_regresion=config.USE_EDIT_DISTANCE_REGRESSION,
             strict=False,
-            use_extra_metadata=config.USE_EXTRA_METADATA_MODEL,
+            use_adduct=config.USE_ADDUCT,
+            categorical_adducts=config.USE_CATEGORICAL_ADDUCTS,
+            adduct_mass_map=config.ADDUCT_MASS_MAP_CSV,
         )
     else:
         best_model = EmbedderMultitask.load_from_checkpoint(
