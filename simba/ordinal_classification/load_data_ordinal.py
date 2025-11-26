@@ -83,13 +83,13 @@ class LoadDataOrdinal:
         # similarity= molecule_pairs_input.indexes_tani[:, 2].reshape(-1,1)
 
         dictionary_data = {
-            "index_unique_0": molecule_pairs_input.pair_distance[:, 0].reshape(
-                -1, 1
-            ),
-            "index_unique_1": molecule_pairs_input.pair_distance[:, 1].reshape(
-                -1, 1
-            ),
-            "ed": similarity,
+            "index_unique_0": molecule_pairs_input.pair_distances[
+                :, 0
+            ].reshape(-1, 1),
+            "index_unique_1": molecule_pairs_input.pair_distances[
+                :, 1
+            ].reshape(-1, 1),
+            "similarity": similarity,
             # "fingerprint": fingerprints,
         }
 

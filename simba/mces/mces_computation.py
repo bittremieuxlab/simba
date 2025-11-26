@@ -12,7 +12,7 @@ from rdkit.Chem import AllChem
 from tqdm import tqdm
 
 from simba.config import Config
-from simba.edit_distance.edit_distance import EditDistance
+from simba.edit_distance import edit_distance
 from simba.load_mces.load_mces import LoadMCES
 from simba.logger_setup import logger
 from simba.molecular_pairs_set import MolecularPairsSet
@@ -352,6 +352,10 @@ class MCES:
 
                     pool = multiprocessing.Pool(processes=num_workers)
 
+                    mols = [Chem.MolFromSmiles(s) for s in all_smiles]
+                    fpgen = AllChem.GetRDKitFPGenerator(maxPath=3, fpSize=512)
+                    fps = [fpgen.GetFingerprint(m) for m in mols]
+
                     if config.COMPUTE_SPECIFIC_PAIRS:
                         logger.info(
                             "Computing specific pairs from loaded indexes ..."
@@ -364,7 +368,7 @@ class MCES:
 
                         results = [
                             pool.apply_async(
-                                EditDistance.compute_ed_or_mces,  # TODO: fix this
+                                edit_distance.compute_ed_or_mces,  # TODO: fix this
                                 args=(
                                     all_smiles,
                                     None,
@@ -373,8 +377,9 @@ class MCES:
                                     + sub_index,
                                     None,
                                     config,
-                                    identifier,
-                                    sampled_array,
+                                    fps,
+                                    mols,
+                                    use_edit_distance,
                                 ),
                             )
                             for sub_index, sampled_array in enumerate(
@@ -382,15 +387,9 @@ class MCES:
                             )
                         ]
                     else:
-                        mols = [Chem.MolFromSmiles(s) for s in all_smiles]
-                        fpgen = AllChem.GetRDKitFPGenerator(
-                            maxPath=3, fpSize=512
-                        )
-                        fps = [fpgen.GetFingerprint(m) for m in mols]
-
                         results = [
                             pool.apply_async(
-                                EditDistance.compute_ed_or_mces,
+                                edit_distance.compute_ed_or_mces,
                                 args=(
                                     all_smiles,
                                     sampled_index,

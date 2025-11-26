@@ -58,8 +58,8 @@ class ADMultitask:
         )
 
         pair_temp = MoleculePairsOpt(
-            original_spectra=[spectrum_query] + spectrums_candidates,
-            unique_spectra=[spectrum_query] + spectrums_candidates,
+            original_spectra=[spectrum_query, *spectrums_candidates],
+            unique_spectra=[spectrum_query, *spectrums_candidates],
             df_smiles=df_smiles,
             pair_distances=indexes_tani,
             extra_distances=np.zeros(len(spectrums_candidates)),
@@ -75,7 +75,8 @@ class ADMultitask:
             spectrum_query, spectrums_candidates
         )
         dataset_test = LoadDataMultitasking.from_molecule_pairs_to_dataset(
-            pair_temp
+            pair_temp,
+            max_num_peaks=int(self.config.TRANSFORMER_CONTEXT),
         )
         return DataLoader(
             dataset_test, batch_size=self.config.BATCH_SIZE, shuffle=False

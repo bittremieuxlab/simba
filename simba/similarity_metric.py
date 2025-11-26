@@ -1,3 +1,8 @@
+from matchms import calculate_scores
+from matchms.similarity import FingerprintSimilarity
+from tqdm import tqdm
+
+
 class SimilarityMetric:
 
     def compute_scores_tanimoto(

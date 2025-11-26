@@ -37,8 +37,7 @@ from simba.molecule_pairs_opt import MoleculePairsOpt
 from simba.parser import Parser
 from simba.plotting import Plotting
 from simba.preprocessor import Preprocessor
-
-# from simba.spec2vec_comparison import Spec2VecComparison
+from simba.spec2vec_comparison import Spec2VecComparison
 from simba.train_utils import TrainUtils
 from simba.transformers.CustomDatasetEncoder import CustomDatasetEncoder
 from simba.transformers.embedder import Embedder

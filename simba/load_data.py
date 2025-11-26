@@ -373,7 +373,10 @@ class LoadData:
         if precursor_mz is None:
             return None
 
-        charge = int(spectrum_dict["params"]["charge"][0])
+        if "charge" in spectrum_dict["params"]:
+            charge = int(spectrum_dict["params"]["charge"][0])
+        else:
+            charge = None
 
         spec = SpectrumExt(
             identifier=identifier,
@@ -652,7 +655,7 @@ class LoadData:
                 use_gnps_format=False,
             )  # use format from Janssen
         elif use_nist:
-            spectra = LoadData.get_all_spectra_nist(
+            spectra, _ = LoadData.get_all_spectra_nist(
                 file=file,
                 num_samples=num_samples,
                 compute_classes=compute_classes,
