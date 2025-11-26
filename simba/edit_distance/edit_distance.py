@@ -1,5 +1,6 @@
 import argparse
 import os
+from functools import lru_cache
 from typing import List
 
 import numpy as np
@@ -15,6 +16,9 @@ from tqdm import tqdm
 import simba.edit_distance.mol_utils as mu
 from simba.config import Config
 from simba.logger_setup import logger
+
+# Sentinel value indicating very dissimilar molecules (Tanimoto < 0.2)
+VERY_HIGH_DISTANCE = 666
 
 
 def create_input_df(smiles, indexes_0, indexes_1):
@@ -81,6 +85,10 @@ def compute_ed_or_mces(
             0, len(smiles), int(batch_size)
         )
     else:
+        if batch_size > len(smiles):
+            raise ValueError(
+                f"batch_size ({batch_size}) cannot exceed the number of molecules ({len(smiles)})"
+            )
         pair_distances[:, 0] = sampled_index
         pair_distances[:, 1] = np.arange(0, batch_size)
 
@@ -146,9 +154,7 @@ def simba_get_edit_distance(mol1, mol2, return_nans=True):
     Output:
         edit_distance: edit distance between mol1 and mol2
     """
-    # if mol1.GetNumAtoms() > 60 or mol2.GetNumAtoms() > 60:
-    #    print("The molecules are too large.")
-    #    return np.nan
+
     mcs1 = rdFMCS.FindMCS([mol1, mol2])
     mcs_mol = Chem.MolFromSmarts(mcs1.smartsString)
     if return_nans:
@@ -156,29 +162,15 @@ def simba_get_edit_distance(mol1, mol2, return_nans=True):
             mcs_mol.GetNumAtoms() < mol1.GetNumAtoms() // 2
             and mcs_mol.GetNumAtoms() < mol2.GetNumAtoms() // 2
         ):
-            # print("The molecules are too small.")
             return np.nan
         if mcs_mol.GetNumAtoms() < 2:
 
-            # print("The molecules are too small.")
             return np.nan
 
-    # dist1 = EditDistance.get_number_of_modification_edges(mol1, mcs_mol)
-    # dist2 =  EditDistance.get_number_of_modification_edges(mol2, mcs_mol)
-
-    # if (dist1 is not None) and (dist2 is not None):
-    #    return len(dist1) + len(dist2)
-    # else:
-    #    return np.nan
-    # print("going to calculate edit distance")
     dist1, dist2 = mu.get_edit_distance_detailed(mol1, mol2, mcs_mol)
-
     distance = dist1 + dist2
 
     return distance
-
-
-from functools import lru_cache
 
 
 @lru_cache(
@@ -194,16 +186,9 @@ def simba_solve_pair_edit_distance(s0, s1, fp0, fp1, mol0, mol1):
     tanimoto = DataStructs.TanimotoSimilarity(fp0, fp1)
 
     if tanimoto < 0.2:
-        # print("The Tanimoto similarity is too low.")
-        # distance = np.nan
-        distance = (
-            666  # very high number to remark that they are very different
-        )
+        distance = VERY_HIGH_DISTANCE
     else:
-        # mol0 = EditDistance.return_mol(s0)
-        # mol1 = EditDistance.return_mol(s1)
         if (mol0.GetNumAtoms() > 60) or (mol1.GetNumAtoms() > 60):
-            # raise ValueError("The molecules are too large.")
             return np.nan, tanimoto
         else:
             distance = simba_get_edit_distance(mol0, mol1)
@@ -225,17 +210,9 @@ def simba_solve_pair_mces(
     tanimoto = DataStructs.TanimotoSimilarity(fp0, fp1)
 
     if tanimoto < 0.2:
-        # print("The Tanimoto similarity is too low.")
-        # distance = np.nan
-        distance = (
-            666  # very high number to remark that they are very different
-        )
+        distance = VERY_HIGH_DISTANCE
     else:
-        # mol0 = EditDistance.return_mol(s0)
-        # mol1 = EditDistance.return_mol(s1)
-        # distance = MCES(s0, s1, threshold=threshold)
         if (mol0.GetNumAtoms() > 60) or (mol1.GetNumAtoms() > 60):
-            # raise ValuseError("The molecules are too large.")
             return np.nan, tanimoto
         else:
             result = MCES2(

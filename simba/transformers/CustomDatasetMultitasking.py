@@ -215,12 +215,12 @@ class CustomDatasetMultitasking(Dataset):
         spectrum_sample["mces"] = sample["mces"].astype(np.float32)
 
         if self.use_extra_metadata:
-            spectrum_sample["adduct_mass_precursor_0"] = (
-                self.adduct_mass_precursor[idx_0_original]
-            )
-            spectrum_sample["adduct_mass_precursor_1"] = (
-                self.adduct_mass_precursor[idx_1_original]
-            )
+            spectrum_sample["adduct_mass_0"] = self.adduct_mass_precursor[
+                idx_0_original
+            ]
+            spectrum_sample["adduct_mass_1"] = self.adduct_mass_precursor[
+                idx_1_original
+            ]
 
         if self.use_fingerprints:
             ind = int(idx_0[0])

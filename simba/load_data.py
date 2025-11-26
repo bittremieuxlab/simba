@@ -85,11 +85,13 @@ class LoadData:
                 total_results.append(res)
                 if condition:
                     # yield spectrum['params']['name']
-                    yield LoadData._parse_spectrum(
+                    spec = LoadData._parse_spectrum(
                         spectrum,
                         compute_classes=compute_classes,
                         use_gnps_format=use_gnps_format,
                     )
+                    if spec is not None:
+                        yield spec
             # except ValueError as e:
             #    pass
 
@@ -110,9 +112,8 @@ class LoadData:
     def default_filters(spectrum: SpectrumExt, config: Config):
         cond_library = True  # all the library is good
         cond_charge = True
-        cond_pepmass = (
-            True if LoadData.get_precursor_mz(spectrum) > 0 else False
-        )
+        precursor_mz = LoadData.get_precursor_mz(spectrum)
+        cond_pepmass = precursor_mz is not None and precursor_mz > 0
         cond_mz_array = len(spectrum["m/z array"]) >= config.MIN_N_PEAKS
         cond_ion_mode = True
         cond_name = True

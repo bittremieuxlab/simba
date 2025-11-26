@@ -158,7 +158,7 @@ def create_dataloaders(
 
 def setup_model(config: Config):
     if not (config.INFERENCE_USE_LAST_MODEL) and (
-        os.path.exists(config.CHECKPOINT_DIR + f"best_model.ckpt")
+        os.path.exists(config.CHECKPOINT_DIR + config.BEST_MODEL_NAME)
     ):
         best_model_path = config.CHECKPOINT_DIR + config.BEST_MODEL_NAME
     else:
@@ -194,7 +194,7 @@ def setup_model(config: Config):
     return best_model
 
 
-def inference(dataloader_ed, dataloader_mces, model):
+def inference(dataloader_ed, dataloader_mces, model, config: Config):
     model.eval()
 
     trainer = pl.Trainer(
@@ -217,7 +217,9 @@ def inference(dataloader_ed, dataloader_mces, model):
     return pred_ed, pred_mces
 
 
-def evaluate_predictions(dataloader_ed, dataloader_mces, pred_ed, pred_mces):
+def evaluate_predictions(
+    dataloader_ed, dataloader_mces, pred_ed, pred_mces, config: Config
+):
     ed_true, mces_true = Postprocessing.get_similarities_multitasking(
         dataloader_ed
     )
@@ -306,7 +308,7 @@ def evaluate_predictions(dataloader_ed, dataloader_mces, pred_ed, pred_mces):
         )
         # pred_ed_mces_flat = config.MCES20_MAX_VALUE * (1 - pred_ed_mces_flat)
 
-    plot_performance(mces_true, pred_mces_mces_flat)
+    plot_performance(mces_true, pred_mces_mces_flat, config)
 
 
 def softmax(x):
@@ -397,7 +399,6 @@ def plot_cm(true, preds, config, file_name="cm.png", reverse_labels=True):
     plt.savefig(os.path.join(config.CHECKPOINT_DIR, file_name))
 
 
-@staticmethod
 def divide_predictions_in_bins(
     list_elements1,
     list_elements2,
@@ -454,7 +455,7 @@ def divide_predictions_in_bins(
     return output_elements1, output_elements2
 
 
-def plot_performance(mces_true, mces_pred):
+def plot_performance(mces_true, mces_pred, config: Config):
     corr_mces, _ = spearmanr(mces_true, mces_pred)
     sns.set_theme(style="ticks")
     # hex plot
@@ -495,5 +496,9 @@ if __name__ == "__main__":
         molecule_pairs_ed_uniform, molecule_pairs_mces_uniform, config
     )
     model = setup_model(config)
-    pred_ed, pred_mces = inference(dataloader_ed, dataloader_mces, model)
-    evaluate_predictions(dataloader_ed, dataloader_mces, pred_ed, pred_mces)
+    pred_ed, pred_mces = inference(
+        dataloader_ed, dataloader_mces, model, config
+    )
+    evaluate_predictions(
+        dataloader_ed, dataloader_mces, pred_ed, pred_mces, config
+    )

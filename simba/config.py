@@ -48,7 +48,7 @@ class Config:
         self.USE_ADDUCT = False
         # Input adduct info as categorical variables
         self.CATEGORICAL_ADDUCTS = False
-        self.ADDUCT_MASS_MAP_CSV = "/Users/sebas/projects/metabolomics/data/ion_modes_with_adducts_with_M.csv"
+        self.ADDUCT_MASS_MAP_CSV = None
 
         ## FOR COMPUTING EDIT DISTANCE LOCALLY
         self.USE_FINGERPRINT = False
@@ -86,9 +86,9 @@ class Config:
         self.threshold_class = 0.7  # threshold classification binary
         self.load_maldi_embedder = False
         self.INFERENCE_USE_LAST_MODEL = False
-        self.maldi_embedder_path = "/scratch/antwerpen/209/vsc20939/data/maldi_embedder/best_model.ckpt"
+        self.maldi_embedder_path = None  # Set via --maldi_embedder_path
         self.load_pretrained = False  # a whole SIMBA model
-        self.dataset_path = "/scratch/antwerpen/209/vsc20939/data/merged_gnps_nist_20240319_unique_smiles_100_million_v2_no_identity.pkl"
+        self.dataset_path = None  # Set via --dataset_path
         self.use_uniform_data_TRAINING = False
         self.bins_uniformise_TRAINING = 10
         self.use_uniform_data_INFERENCE = True

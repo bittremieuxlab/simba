@@ -93,9 +93,9 @@ class LoadDataMultitasking:
 
             if use_adduct:
                 if spec.ionmode == "none":
-                    ionmode[i] = None
+                    ionmode[i] = np.nan
                 else:
-                    ionmode[i] = 1.00 if spec.ionmode == "positive" else -1
+                    ionmode[i] = 1.0 if spec.ionmode == "positive" else -1.0
                 adduct_mass[i] = spec.adduct_mass
 
         # logger.info("Normalizing intensities")
@@ -108,6 +108,10 @@ class LoadDataMultitasking:
             N_classes=N_classes,
         )
 
+        if molecule_pairs.extra_distances is None:
+            raise ValueError(
+                "extra_distances must be provided for multitask training."
+            )
         mces = molecule_pairs.extra_distances.reshape(-1, 1)
 
         if use_fingerprints:

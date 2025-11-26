@@ -5,6 +5,7 @@ from tqdm import tqdm
 
 class SimilarityMetric:
 
+    @staticmethod
     def compute_scores_tanimoto(
         molecule_pairs,
         preprocessed_spectrums,
@@ -20,14 +21,24 @@ class SimilarityMetric:
 
             # get right spectra
             spectrum_found_0_ms = next(
-                s
-                for s, t in zip(preprocessed_spectrums, target_hashes_subset)
-                if t == hash_0
+                (
+                    s
+                    for s, t in zip(
+                        preprocessed_spectrums, target_hashes_subset
+                    )
+                    if t == hash_0
+                ),
+                None,
             )
             spectrum_found_1_ms = next(
-                s
-                for s, t in zip(preprocessed_spectrums, target_hashes_subset)
-                if t == hash_1
+                (
+                    s
+                    for s, t in zip(
+                        preprocessed_spectrums, target_hashes_subset
+                    )
+                    if t == hash_1
+                ),
+                None,
             )
 
             # calculate scores

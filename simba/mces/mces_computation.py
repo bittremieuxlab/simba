@@ -357,6 +357,14 @@ class MCES:
                     fps = [fpgen.GetFingerprint(m) for m in mols]
 
                     if config.COMPUTE_SPECIFIC_PAIRS:
+                        if num_chunks == 0:
+                            logger.info(
+                                "No pairs to process; returning empty MolecularPairsSet."
+                            )
+                            return MolecularPairsSet(
+                                spectra=all_spectra,
+                                pair_distances=np.empty((0, 3)),
+                            )
                         logger.info(
                             "Computing specific pairs from loaded indexes ..."
                         )
@@ -415,6 +423,7 @@ class MCES:
                     )
                     # create parent directory if it does not exist
                     os.makedirs(os.path.dirname(filename), exist_ok=True)
+                    # save distances per chunk
                     np.save(arr=computed_pair_distances, file=filename)
 
         logger.info(

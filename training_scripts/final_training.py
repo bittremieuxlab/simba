@@ -419,7 +419,10 @@ def setup_model(config, weights_mces):
                 adduct_mass_map=config.ADDUCT_MASS_MAP_CSV,
             )
             logger.info("Loaded full model from checkpoint")
-        except:
+        except Exception as e:
+            logger.warning(
+                f"Could not load full model: {e}. Attempting to load encoder only."
+            )
             model_pretrained = Embedder.load_from_checkpoint(
                 config.pretrained_path,
                 d_model=int(config.D_MODEL),
