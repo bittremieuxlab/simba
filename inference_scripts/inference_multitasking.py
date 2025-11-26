@@ -140,8 +140,6 @@ def create_dataloaders(
         molecule_pairs_ed_uniform,
         max_num_peaks=int(config.TRANSFORMER_CONTEXT),
         use_extra_metadata=config.USE_EXTRA_METADATA_MODEL,
-        use_categorical_adducts=config.USE_CATEGORICAL_ADDUCTS,
-        adduct_info_csv= config.ADDUCT_INFO_CSV,
     )
     dataloader_ed = DataLoader(
         dataset_ed, batch_size=config.BATCH_SIZE, shuffle=False

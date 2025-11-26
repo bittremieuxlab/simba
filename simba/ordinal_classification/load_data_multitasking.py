@@ -92,10 +92,11 @@ class LoadDataMultitasking:
             precursor_charge[i] = spec.precursor_charge
 
             if use_extra_metadata:
-                ionmode[i] = (
-                    1.00 if spec.params["ionmode"].lower == "positive" else -1
-                )
-                adduct_mass[i] = float(spec.params["adduct_mass"])
+                if spec.ionmode == "none":
+                    ionmode[i] = None
+                else:
+                    ionmode[i] = 1.00 if spec.ionmode == "positive" else -1
+                adduct_mass[i] = spec.adduct_mass
 
         # logger.info("Normalizing intensities")
         # Normalize the intensity array

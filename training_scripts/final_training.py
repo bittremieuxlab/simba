@@ -158,10 +158,13 @@ def prepare_data(
         molecule_pairs_train,
         max_num_peaks=int(config.TRANSFORMER_CONTEXT),
         training=True,
+        use_extra_metadata=config.USE_EXTRA_METADATA_MODEL,
     )
     # dataset_test = LoadData.from_molecule_pairs_to_dataset(m_test)
     dataset_val = LoadDataMultitasking.from_molecule_pairs_to_dataset(
-        molecule_pairs_val, max_num_peaks=int(config.TRANSFORMER_CONTEXT)
+        molecule_pairs_val,
+        max_num_peaks=int(config.TRANSFORMER_CONTEXT),
+        use_extra_metadata=config.USE_EXTRA_METADATA_MODEL,
     )
 
     train_sampler = CustomWeightedRandomSampler(

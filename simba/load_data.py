@@ -335,7 +335,7 @@ class LoadData:
         )
 
         if "ionmode" in spectrum_dict["params"]:
-            ionmode = spectrum_dict["params"]["ionmode"]
+            ionmode = spectrum_dict["params"]["ionmode"].lower()
         else:
             ionmode = "none"
 
@@ -373,10 +373,8 @@ class LoadData:
         if precursor_mz is None:
             return None
 
-        try:
-            charge = max(int(spectrum_dict["params"]["charge"][0]), 1)
-        except:
-            charge = 1
+        charge = int(spectrum_dict["params"]["charge"][0])
+
         spec = SpectrumExt(
             identifier=identifier,
             precursor_mz=precursor_mz,
