@@ -312,7 +312,7 @@ def evaluate_predictions(
 
 
 def softmax(x):
-    e_x = np.exp(x)  # Subtract max(x) for numerical stability
+    e_x = np.exp(x)
     return e_x / e_x.sum()
 
 
