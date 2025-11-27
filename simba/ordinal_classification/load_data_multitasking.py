@@ -148,7 +148,7 @@ class LoadDataMultitasking:
             use_fingerprints=use_fingerprints,
             fingerprint_0=fingerprint_0,
             max_num_peaks=max_num_peaks,
-            use_extra_metadata=use_adduct,
+            use_adduct=use_adduct,
             ionization_mode_precursor=(ionmode if use_adduct else None),
             adduct_mass_precursor=(adduct_mass if use_adduct else None),
         )

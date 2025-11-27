@@ -47,6 +47,13 @@ def setup_paths(config):
     if not os.path.exists(config.CHECKPOINT_DIR):
         os.makedirs(config.CHECKPOINT_DIR, exist_ok=True)
 
+    if (
+        config.PREPROCESSING_DIR_TRAIN is None
+        or config.PREPROCESSING_PICKLE_FILE is None
+    ):
+        raise ValueError(
+            "PREPROCESSING_DIR_TRAIN and PREPROCESSING_PICKLE_FILE must be set"
+        )
     mapping_path = (
         config.PREPROCESSING_DIR_TRAIN + config.PREPROCESSING_PICKLE_FILE
     )
@@ -335,12 +342,14 @@ def plot_similarity_distribution(
     plt.ylabel("freq")
     plt.hist(ed_sampled)
     plt.savefig(config.CHECKPOINT_DIR + "similarity_distribution_ed.png")
+    plt.close()
 
     plt.figure()
     plt.hist(mces_sampled)
     plt.xlabel("MCES")
     plt.ylabel("freq")
     plt.savefig(config.CHECKPOINT_DIR + "similarity_distribution_mces.png")
+    plt.close()
 
 
 def setup_callbacks(config):

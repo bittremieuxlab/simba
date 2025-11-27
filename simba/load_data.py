@@ -175,15 +175,14 @@ class LoadData:
             cond_ion_mode = True
 
         if "adduct" in spectrum["params"]:
-
             cond_name = spectrum["params"]["adduct"] in [
                 "M+",
                 "[M+H]+",
                 "M+H",
-            ]  # adduct
+            ]
         else:
-            print(
-                "WARNING: Adduct information not found in spectrum. Please make sure the spectra corresponds to protonozied adducts [M+H]"
+            logger.warning(
+                "Adduct information not found in spectrum. Please make sure the spectra corresponds to protonized adducts [M+H]"
             )
             cond_name = True
 
@@ -194,7 +193,7 @@ class LoadData:
                 != "N/A"
             )
         else:
-            print("WARNING: Smiles not found on spectra.")
+            logger.warning("Smiles not found in spectrum.")
             cond_inchi_smiles = True
 
         cond_centroid = PreprocessingUtils.is_centroid(
@@ -246,7 +245,7 @@ class LoadData:
         try:
             cond_pepmass = float(spectrum["params"]["pepmass"][0]) > 0
         except:
-            cond_pepmass = 0.0
+            cond_pepmass = False
 
         cond_mz_array = len(spectrum["m/z array"]) >= config.MIN_N_PEAKS
 
@@ -531,7 +530,8 @@ class LoadData:
                     spectrum, compute_classes=compute_classes
                 )
                 # spec = pp.preprocess_spectrum(spec)
-                all_spectra.append(spec)
+                if spec is not None:
+                    all_spectra.append(spec)
 
         return all_spectra, current_line_number
 
@@ -603,7 +603,8 @@ class LoadData:
                     spectrum, compute_classes=compute_classes
                 )
                 # spec = pp.preprocess_spectrum(spec)
-                all_spectra.append(spec)
+                if spec is not None:
+                    all_spectra.append(spec)
 
         return all_spectra
 

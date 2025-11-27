@@ -38,7 +38,7 @@ class MCES:
 
         Parameters
         ----------
-        spectra_original : List[SpectrumExt]
+        original_spectra : List[SpectrumExt]
             List of all spectrum objects.
         max_combinations : int, optional
             Maximum number of combinations to compute, by default 1000000.
@@ -52,8 +52,8 @@ class MCES:
             Identifier for the computation run, by default "".
         use_edit_distance : bool, optional
             If True, compute edit distance instead of MCES, by default False.
-        loaded_molecular_pairs : Optional[MolecularPairsSet]
-            Precomputed molecular pairs to use instead of computing new ones, by default None.
+        loaded_molecule_pairs : Optional[MolecularPairsSet]
+            Precomputed molecule pairs to use instead of computing new ones, by default None.
 
         Returns
         -------
@@ -322,6 +322,15 @@ class MCES:
             num_chunks = int(np.ceil(len(sample_idx) / chunk_size))
             chunks = np.array_split(sample_idx, num_chunks)
 
+        if num_chunks == 0:
+            logger.info(
+                "No pairs to process; returning empty MolecularPairsSet."
+            )
+            return MolecularPairsSet(
+                spectra=all_spectra,
+                pair_distances=np.empty((0, 3)),
+            )
+
         logger.info(f"Number of chunks: {num_chunks}")
         logger.info(f"Size of each chunk: {chunks[0].shape[0]}")
         logger.info(
@@ -357,14 +366,6 @@ class MCES:
                     fps = [fpgen.GetFingerprint(m) for m in mols]
 
                     if config.COMPUTE_SPECIFIC_PAIRS:
-                        if num_chunks == 0:
-                            logger.info(
-                                "No pairs to process; returning empty MolecularPairsSet."
-                            )
-                            return MolecularPairsSet(
-                                spectra=all_spectra,
-                                pair_distances=np.empty((0, 3)),
-                            )
                         logger.info(
                             "Computing specific pairs from loaded indexes ..."
                         )

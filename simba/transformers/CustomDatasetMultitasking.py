@@ -23,7 +23,7 @@ class CustomDatasetMultitasking(Dataset):
         use_fingerprints=False,
         fingerprint_0=None,
         max_num_peaks=None,
-        use_extra_metadata=False,
+        use_adduct=False,
         ionization_mode_precursor=None,
         adduct_mass_precursor=None,
     ):
@@ -38,14 +38,13 @@ class CustomDatasetMultitasking(Dataset):
         self.precursor_charge = precursor_charge
         self.df_smiles = df_smiles  ### df with rows smiles, indexes
         self.use_fingerprints = use_fingerprints
-        self.use_extra_metadata = use_extra_metadata
+        self.use_adduct = use_adduct
 
         if self.use_fingerprints:
             self.fingerprint_0 = fingerprint_0
         self.max_num_peaks = max_num_peaks
 
-        self.use_extra_metadata = use_extra_metadata
-        if self.use_extra_metadata:
+        if self.use_adduct:
             self.ionization_mode_precursor = ionization_mode_precursor
             self.adduct_mass_precursor = adduct_mass_precursor
 
@@ -89,7 +88,7 @@ class CustomDatasetMultitasking(Dataset):
         )
 
         ### add extra metadata in case it is necessary
-        if self.use_extra_metadata:
+        if self.use_adduct:
             dictionary["ionmode_0"] = np.zeros((len_data, 1), dtype=np.float32)
             dictionary["ionmode_1"] = np.zeros((len_data, 1), dtype=np.float32)
             dictionary["adduct_mass_0"] = np.zeros(
@@ -147,7 +146,7 @@ class CustomDatasetMultitasking(Dataset):
             ].astype(np.float32)
             dictionary["ed"][idx] = sample_unique["ed"].astype(np.float32)
             dictionary["mces"][idx] = sample_unique["mces"].astype(np.float32)
-            if self.use_extra_metadata:
+            if self.use_adduct:
                 dictionary["ionmode_0"][idx] = self.ionization_mode_precursor[
                     indexes_original_0
                 ].astype(np.float32)
@@ -163,7 +162,7 @@ class CustomDatasetMultitasking(Dataset):
                 ].astype(np.float32)
 
             if self.use_fingerprints:
-                dictionary["fingerprint_0"][idx] = self.fingeprint_0[
+                dictionary["fingerprint_0"][idx] = self.fingerprint_0[
                     indexes_original_0
                 ].astype(np.float32)
 
@@ -214,14 +213,6 @@ class CustomDatasetMultitasking(Dataset):
         spectrum_sample["ed"] = sample["ed"].astype(np.float32)
         spectrum_sample["mces"] = sample["mces"].astype(np.float32)
 
-        if self.use_extra_metadata:
-            spectrum_sample["adduct_mass_0"] = self.adduct_mass_precursor[
-                idx_0_original
-            ]
-            spectrum_sample["adduct_mass_1"] = self.adduct_mass_precursor[
-                idx_1_original
-            ]
-
         if self.use_fingerprints:
             ind = int(idx_0[0])
             if self.training:
@@ -239,7 +230,7 @@ class CustomDatasetMultitasking(Dataset):
                     ind
                 ].astype(np.float32)
 
-        if self.use_extra_metadata:
+        if self.use_adduct:
             spectrum_sample["ionmode_0"] = self.ionization_mode_precursor[
                 idx_0_original
             ].astype(np.float32)

@@ -97,11 +97,11 @@ class Config:
         self.extra_info = "_multitasking_mces20raw_gumbelhard_20241004"
 
         self.PREPROCESSING_PICKLE_FILE = None
-        self.PREPROCESSING_DIR = f"/scratch/antwerpen/209/vsc20939/data/preprocessing_edit_distance_20250117/"
-        self.PREPROCESSING_DIR_TRAIN = f"/scratch/antwerpen/209/vsc20939/data/preprocessing_ed_mces_20250123/"
-        self.PREPROCESSING_DIR_VAL_TEST = f"/scratch/antwerpen/209/vsc20939/data/preprocessing_mces_threshold20_newdata_20240925/"
+        self.PREPROCESSING_DIR = None
+        self.PREPROCESSING_DIR_TRAIN = None
+        self.PREPROCESSING_DIR_VAL_TEST = None
         self.MOL_SPEC_MAPPING_FILE = (
-            f"edit_distance_neurips_nist_exhaustive.pkl"
+            "edit_distance_neurips_nist_exhaustive.pkl"
         )
         self.CHECKPOINT_DIR = None
         self.pretrained_path = None
