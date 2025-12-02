@@ -154,33 +154,25 @@ def setup_model(config: Config):
     else:
         best_model_path = config.CHECKPOINT_DIR + "last.ckpt"
 
+    load_kwargs = {
+        "d_model": int(config.D_MODEL),
+        "n_layers": int(config.N_LAYERS),
+        "n_classes": config.EDIT_DISTANCE_N_CLASSES,
+        "use_gumbel": config.EDIT_DISTANCE_USE_GUMBEL,
+        "use_element_wise": True,
+        "use_cosine_distance": config.use_cosine_distance,
+        "use_edit_distance_regresion": config.USE_EDIT_DISTANCE_REGRESSION,
+        "strict": False,
+    }
+    
     if config.USE_ADDUCT:
-        best_model = EmbedderMultitask.load_from_checkpoint(
-            best_model_path,
-            d_model=int(config.D_MODEL),
-            n_layers=int(config.N_LAYERS),
-            n_classes=config.EDIT_DISTANCE_N_CLASSES,
-            use_gumbel=config.EDIT_DISTANCE_USE_GUMBEL,
-            use_element_wise=True,
-            use_cosine_distance=config.use_cosine_distance,
-            use_edit_distance_regresion=config.USE_EDIT_DISTANCE_REGRESSION,
-            strict=False,
-            use_adduct=config.USE_ADDUCT,
-            categorical_adducts=config.USE_CATEGORICAL_ADDUCTS,
-            adduct_mass_map=config.ADDUCT_MASS_MAP_CSV,
-        )
-    else:
-        best_model = EmbedderMultitask.load_from_checkpoint(
-            best_model_path,
-            d_model=int(config.D_MODEL),
-            n_layers=int(config.N_LAYERS),
-            n_classes=config.EDIT_DISTANCE_N_CLASSES,
-            use_gumbel=config.EDIT_DISTANCE_USE_GUMBEL,
-            use_element_wise=True,
-            use_cosine_distance=config.use_cosine_distance,
-            use_edit_distance_regresion=config.USE_EDIT_DISTANCE_REGRESSION,
-            strict=False,
-        )
+        load_kwargs.update({
+            "use_adduct": config.USE_ADDUCT,
+            "categorical_adducts": config.USE_CATEGORICAL_ADDUCTS,
+            "adduct_mass_map": config.ADDUCT_MASS_MAP_CSV,
+        })
+    
+    best_model = EmbedderMultitask.load_from_checkpoint(best_model_path, **load_kwargs)
     return best_model
 
 
