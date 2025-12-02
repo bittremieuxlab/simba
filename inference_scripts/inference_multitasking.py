@@ -1,14 +1,12 @@
 import copy
 import os
 import sys
-from typing import Tuple
 
 import dill
 import lightning.pytorch as pl
 import matplotlib.pyplot as plt
 import numpy as np
 import seaborn as sns
-import torch
 from scipy.stats import spearmanr
 from sklearn.metrics import accuracy_score, confusion_matrix
 from torch.utils.data import DataLoader
@@ -25,6 +23,7 @@ from simba.ordinal_classification.load_data_multitasking import (
 from simba.parser import Parser
 from simba.train_utils import TrainUtils
 from simba.transformers.postprocessing import Postprocessing
+
 
 sys.modules["src"] = simba
 
@@ -51,7 +50,6 @@ def setup_paths(config: Config):
 
 
 def load_dataset(dataset_path: str):
-
     logger.info("Loading the dataset...")
     # Load the dataset from the pickle file
     with open(dataset_path, "rb") as file:
@@ -80,34 +78,28 @@ def prepare_data(
 
     molecule_pairs_ed.pair_distances = pair_distances[:, 0:3]
     molecule_pairs_ed.extra_distances = pair_distances[:, 3]
-    logger.info(
-        f"{len(molecule_pairs_ed)} pairs remain after removing duplicates"
-    )
+    logger.info(f"{len(molecule_pairs_ed)} pairs remain after removing duplicates")
 
     molecule_pairs_mces.pair_distances = pair_distances[:, [0, 1, 3]]
     molecule_pairs_mces.extra_distances = pair_distances[:, 3]
 
     if config.UNIFORMIZE_DURING_TESTING:
         logger.info("Uniformize pairs across bins...")
-        molecule_pairs_ed_uniform, binned_molecule_pairs_ed = (
-            TrainUtils.uniformise(
-                molecule_pairs_ed,
-                number_bins=config.bins_uniformise_INFERENCE,
-                return_binned_list=True,
-                bin_sim_1=True,
-                # bin_sim_1=False,
-                ordinal_classification=True,
-            )
+        molecule_pairs_ed_uniform, binned_molecule_pairs_ed = TrainUtils.uniformise(
+            molecule_pairs_ed,
+            number_bins=config.bins_uniformise_INFERENCE,
+            return_binned_list=True,
+            bin_sim_1=True,
+            # bin_sim_1=False,
+            ordinal_classification=True,
         )  # do not treat sim==1 as another bin
-        molecule_pairs_mces_uniform, binned_molecule_pairs_mces = (
-            TrainUtils.uniformise(
-                molecule_pairs_mces,
-                number_bins=config.bins_uniformise_INFERENCE,
-                return_binned_list=True,
-                bin_sim_1=False,
-                # bin_sim_1=False,
-                # ordinal_classification=True,
-            )
+        molecule_pairs_mces_uniform, binned_molecule_pairs_mces = TrainUtils.uniformise(
+            molecule_pairs_mces,
+            number_bins=config.bins_uniformise_INFERENCE,
+            return_binned_list=True,
+            bin_sim_1=False,
+            # bin_sim_1=False,
+            # ordinal_classification=True,
         )  # do not treat sim==1 as another bin
     else:
         molecule_pairs_ed_uniform = molecule_pairs_ed
@@ -135,15 +127,13 @@ def create_dataloaders(
     molecule_pairs_ed_uniform,
     molecule_pairs_mces_uniform,
     config: Config,
-) -> Tuple[DataLoader, DataLoader]:
+) -> tuple[DataLoader, DataLoader]:
     dataset_ed = LoadDataMultitasking.from_molecule_pairs_to_dataset(
         molecule_pairs_ed_uniform,
         max_num_peaks=int(config.TRANSFORMER_CONTEXT),
         use_adduct=config.USE_ADDUCT,
     )
-    dataloader_ed = DataLoader(
-        dataset_ed, batch_size=config.BATCH_SIZE, shuffle=False
-    )
+    dataloader_ed = DataLoader(dataset_ed, batch_size=config.BATCH_SIZE, shuffle=False)
 
     dataset_mces = LoadDataMultitasking.from_molecule_pairs_to_dataset(
         molecule_pairs_mces_uniform,
@@ -162,7 +152,7 @@ def setup_model(config: Config):
     ):
         best_model_path = config.CHECKPOINT_DIR + config.BEST_MODEL_NAME
     else:
-        best_model_path = config.CHECKPOINT_DIR + f"last.ckpt"
+        best_model_path = config.CHECKPOINT_DIR + "last.ckpt"
 
     if config.USE_ADDUCT:
         best_model = EmbedderMultitask.load_from_checkpoint(
@@ -220,46 +210,33 @@ def inference(dataloader_ed, dataloader_mces, model, config: Config):
 def evaluate_predictions(
     dataloader_ed, dataloader_mces, pred_ed, pred_mces, config: Config
 ):
-    ed_true, mces_true = Postprocessing.get_similarities_multitasking(
-        dataloader_ed
-    )
-    _, mces_true = Postprocessing.get_similarities_multitasking(
-        dataloader_mces
-    )
+    ed_true, mces_true = Postprocessing.get_similarities_multitasking(dataloader_ed)
+    _, mces_true = Postprocessing.get_similarities_multitasking(dataloader_mces)
 
     # flat the results
     pred_mces_mces_flat = []
     pred_mces_mces_flat = [[p.item() for p in pred[1]] for pred in pred_mces]
-    pred_mces_mces_flat = [
-        item for sublist in pred_mces_mces_flat for item in sublist
-    ]
+    pred_mces_mces_flat = [item for sublist in pred_mces_mces_flat for item in sublist]
     pred_mces_mces_flat = np.array(pred_mces_mces_flat)
 
     pred_ed_mces_flat = []
     pred_ed_mces_flat = [[p.item() for p in pred[1]] for pred in pred_ed]
-    pred_ed_mces_flat = [
-        item for sublist in pred_ed_mces_flat for item in sublist
-    ]
+    pred_ed_mces_flat = [item for sublist in pred_ed_mces_flat for item in sublist]
     pred_ed_mces_flat = np.array(pred_ed_mces_flat)
 
     pred_ed_ed_flat = []
     pred_ed_ed_flat = [p[0] for p in pred_ed]
-    pred_ed_ed_flat = [
-        [which_index(p) for p in p_list] for p_list in pred_ed_ed_flat
-    ]
+    pred_ed_ed_flat = [[which_index(p) for p in p_list] for p_list in pred_ed_ed_flat]
     pred_ed_ed_flat = [item for sublist in pred_ed_ed_flat for item in sublist]
-    pred_ed_ed_flat = np.array(pred_ed_ed_flat)
-
-    # convert to numpy
-    confident_pred_test1 = []
-    confident_pred_test1 = np.array(confident_pred_test1)
+    pred_ed_ed_flat = np.array(pred_ed_ed_flat, dtype=float)
 
     # get the results
     ed_true = np.array(ed_true)
     mces_true = np.array(mces_true)
 
-    ed_true_clean = ed_true[~np.isnan(pred_ed_ed_flat)]
-    pred_ed_ed_clean = pred_ed_ed_flat[~np.isnan(pred_ed_ed_flat)]
+    mask = ~np.isnan(pred_ed_ed_flat)
+    ed_true_clean = ed_true[mask]
+    pred_ed_ed_clean = pred_ed_ed_flat[mask]
 
     # edit distance correlation
     corr_model_ed, _ = spearmanr(ed_true_clean, pred_ed_ed_clean)
@@ -303,9 +280,7 @@ def evaluate_predictions(
     if not config.USE_TANIMOTO:
         # if using mces20, apply de-normalization to obtain scalar value sof MCES20
         mces_true = config.MCES20_MAX_VALUE * (1 - mces_true)
-        pred_mces_mces_flat = config.MCES20_MAX_VALUE * (
-            1 - pred_mces_mces_flat
-        )
+        pred_mces_mces_flat = config.MCES20_MAX_VALUE * (1 - pred_mces_mces_flat)
         # pred_ed_mces_flat = config.MCES20_MAX_VALUE * (1 - pred_ed_mces_flat)
 
     plot_performance(mces_true, pred_mces_mces_flat, config)
@@ -342,7 +317,6 @@ def which_index_regression(p, max_index=5):
 
 
 def plot_cm(true, preds, config, file_name="cm.png", reverse_labels=True):
-
     # reverse the labels only for displaying:
     true = np.array(true)
     preds = np.array(preds)
@@ -372,9 +346,7 @@ def plot_cm(true, preds, config, file_name="cm.png", reverse_labels=True):
     # Annotate each cell with the percentage, using white text if the background is dark
     for i in range(cm_normalized.shape[0]):
         for j in range(cm_normalized.shape[1]):
-            text_color = (
-                "white" if cm_normalized[i, j] > threshold else "black"
-            )
+            text_color = "white" if cm_normalized[i, j] > threshold else "black"
             plt.text(
                 j,
                 i,
@@ -415,10 +387,7 @@ def divide_predictions_in_bins(
     output_elements1 = np.array([])
     output_elements2 = np.array([])
 
-    if bin_sim_1:
-        number_bins_effective = number_bins + 1
-    else:
-        number_bins_effective = number_bins
+    number_bins_effective = number_bins + 1 if bin_sim_1 else number_bins
 
     for p in range(int(number_bins_effective)):
         if p == 0:  # cover all the possible values equal or lower than 0
@@ -442,9 +411,7 @@ def divide_predictions_in_bins(
         # randomize the arrays
         if len(list_elements1_temp) > 0:
             np.random.seed(42)
-            random_indexes = np.random.randint(
-                0, list_elements1_temp.shape[0], min_bin
-            )
+            random_indexes = np.random.randint(0, list_elements1_temp.shape[0], min_bin)
             output_elements1 = np.concatenate(
                 (output_elements1, list_elements1_temp[random_indexes])
             )
@@ -464,7 +431,7 @@ def plot_performance(mces_true, mces_pred, config: Config):
         y=mces_pred,
         kind="hex",
         color="#4CB391",
-        joint_kws=dict(alpha=1, gridsize=15),
+        joint_kws={"alpha": 1, "gridsize": 15},
     )
     plot.set_axis_labels("Ground truth Similarity", "Prediction", fontsize=12)
     plot.fig.suptitle(f"Spearman Correlation:{corr_mces}", fontsize=16)
@@ -479,9 +446,7 @@ def plot_performance(mces_true, mces_pred, config: Config):
     plt.ylabel("prediction")
     plt.grid()
     plt.tight_layout()
-    plt.savefig(
-        config.CHECKPOINT_DIR + f"scatter_plot_{config.MODEL_CODE}.png"
-    )
+    plt.savefig(config.CHECKPOINT_DIR + f"scatter_plot_{config.MODEL_CODE}.png")
 
 
 if __name__ == "__main__":
@@ -496,9 +461,5 @@ if __name__ == "__main__":
         molecule_pairs_ed_uniform, molecule_pairs_mces_uniform, config
     )
     model = setup_model(config)
-    pred_ed, pred_mces = inference(
-        dataloader_ed, dataloader_mces, model, config
-    )
-    evaluate_predictions(
-        dataloader_ed, dataloader_mces, pred_ed, pred_mces, config
-    )
+    pred_ed, pred_mces = inference(dataloader_ed, dataloader_mces, model, config)
+    evaluate_predictions(dataloader_ed, dataloader_mces, pred_ed, pred_mces, config)
