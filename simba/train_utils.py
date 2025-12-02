@@ -12,6 +12,7 @@ from rdkit import Chem
 from tqdm import tqdm
 
 from simba.config import Config
+from simba.logger_setup import logger
 from simba.molecular_pairs_set import MolecularPairsSet
 from simba.molecule_pair import MoleculePair
 from simba.molecule_pairs_opt import MoleculePairsOpt
@@ -54,7 +55,7 @@ class TrainUtils:
 
     @staticmethod
     def train_val_test_split_bms(
-        spectrums: List[SpectrumExt],
+        spectra: List[SpectrumExt],
         val_split: float = 0.1,
         test_split: float = 0.1,
         seed: int = 42,
@@ -65,7 +66,7 @@ class TrainUtils:
 
         Parameters
         ----------
-        spectrums: List[SpectrumExt]
+        spectra: List[SpectrumExt]
             List of SpectrumExt objects to be split.
         val_split: float
             Proportion of data to be used for validation.
@@ -85,10 +86,15 @@ class TrainUtils:
         # get the percentage of training data
         train_split = 1 - val_split - test_split
         # get the murcko scaffold
-        bms = [s.murcko_scaffold for s in spectrums]
+        bms = [s.murcko_scaffold for s in spectra]
 
         # count the unique elements
         unique_values, counts = np.unique(bms, return_counts=True)
+        idx_no_bms = np.where(unique_values == "")
+        if len(idx_no_bms[0]) > 0:
+            logger.info(
+                f"{counts[np.where(unique_values == '')][0]}/{len(bms)} spectra without bms"
+            )
 
         # remove the appearence of not identified bms
         unique_values = unique_values[unique_values != ""]
@@ -107,12 +113,10 @@ class TrainUtils:
 
         # get data
         spectrums_train = [
-            s for s in spectrums if s.murcko_scaffold in train_bms
+            s for s in spectra if s.murcko_scaffold in train_bms
         ]
-        spectrums_val = [s for s in spectrums if s.murcko_scaffold in val_bms]
-        spectrums_test = [
-            s for s in spectrums if s.murcko_scaffold in test_bms
-        ]
+        spectrums_val = [s for s in spectra if s.murcko_scaffold in val_bms]
+        spectrums_test = [s for s in spectra if s.murcko_scaffold in test_bms]
         return spectrums_train, spectrums_val, spectrums_test
 
     @staticmethod
@@ -203,8 +207,6 @@ class TrainUtils:
         all_charge = [s.precursor_charge for s in all_spectra]
         all_library = [s.library for s in all_spectra]
         all_inchi = [s.inchi for s in all_spectra]
-        all_ionmode = [s.ionmode for s in all_spectra]
-        all_adduct_mass = [s.adduct_mass for s in all_spectra]
         all_bms = [s.murcko_scaffold for s in all_spectra]
         all_superclass = [s.superclass for s in all_spectra]
         all_classe = [s.classe for s in all_spectra]
@@ -234,10 +236,6 @@ class TrainUtils:
         df_smiles["charge"] = [all_charge[u_s] for u_s in indexes_original]
         df_smiles["library"] = [all_library[u_s] for u_s in indexes_original]
         df_smiles["inchi"] = [all_inchi[u_s] for u_s in indexes_original]
-        df_smiles["ionmode"] = [all_ionmode[u_s] for u_s in indexes_original]
-        df_smiles["adduct_mass"] = [
-            all_adduct_mass[u_s] for u_s in indexes_original
-        ]
         df_smiles["bms"] = [all_bms[u_s] for u_s in indexes_original]
         df_smiles["superclass"] = [
             all_superclass[u_s] for u_s in indexes_original
@@ -293,8 +291,11 @@ class TrainUtils:
                 library=row.library,
                 inchi=row.inchi,
                 smiles=row.canon_smiles,
-                ionmode=row.ionmode,
-                adduct_mass=0.0,
+                ionmode=None,
+                adduct_mass=None,
+                ce=None,
+                ion_activation="",
+                ionization_method="",
                 bms=row.bms,
                 superclass=row.superclass,
                 classe=row.classe,

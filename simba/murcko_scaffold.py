@@ -1,6 +1,8 @@
 from rdkit import Chem
 from rdkit.Chem.Scaffolds.MurckoScaffold import MakeScaffoldGeneric
 
+from simba.logger_setup import logger
+
 
 class MurckoScaffold:
     """
@@ -13,6 +15,6 @@ class MurckoScaffold:
                 MakeScaffoldGeneric(mol=Chem.MolFromSmiles(smiles))
             )
         except Exception:
-            # print("Raise AtomValenceException, return basic Murcko Scaffold")
+            logger.warning(f"No scaffold for given SMILES ({smiles})")
             scaffold = ""
         return scaffold

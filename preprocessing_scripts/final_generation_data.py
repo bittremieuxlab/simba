@@ -182,13 +182,14 @@ def compute_distances(config: Config, pairs_filename: str):
         Filename to save the computed pairs.
     """
     # Load and preprocess spectra
+    logger.info(f"Reading spectra from {config.SPECTRA_PATH}")
     all_spectra = PreprocessingSimba.load_spectra(
         config.SPECTRA_PATH,
         config,
+        n_samples=700_000,
         use_gnps_format=False,
         use_only_protonized_adducts=config.USE_ONLY_PROTONIZED_ADDUCTS,
     )
-    logger.info(f"Read {len(all_spectra)} spectra from {config.SPECTRA_PATH}")
 
     # Split data into train, validation, and test sets
     all_spectra_train, all_spectra_val, all_spectra_test = (

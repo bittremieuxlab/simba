@@ -320,35 +320,47 @@ class LoadData:
         else:  # JANSSEN
             if "id" in spectrum_dict["params"]:
                 identifier = spectrum_dict["params"]["id"]
+            elif "title" in spectrum_dict["params"]:
+                identifier = spectrum_dict["params"]["title"]
             else:
                 identifier = "none"
             inchi = ""
             library = "janssen"
 
         params = spectrum_dict["params"]
+
         library = library
         inchi = inchi
-        smiles = (
-            spectrum_dict["params"]["smiles"]
-            if "smiles" in spectrum_dict["params"]
-            else ""
-        )
+        smiles = params["smiles"] if "smiles" in params else ""
 
-        if "ionmode" in spectrum_dict["params"]:
-            ionmode = spectrum_dict["params"]["ionmode"].lower()
+        precursor_mz = LoadData.get_precursor_mz(spectrum_dict)
+        if precursor_mz is None:
+            return None
+
+        if "charge" in params:
+            charge = int(params["charge"][0])
         else:
-            ionmode = "none"
+            charge = None
 
-        if "adduct" in spectrum_dict["params"]:
-            adduct = spectrum_dict["params"]["adduct"]
+        ionmode = params["ionmode"].lower() if "ionmode" in params else "none"
+
+        if "adduct" in params:
+            adduct = params["adduct"].replace(" ", "")
             adduct_mass = chem_utils.ion_to_mass(adduct)
             if adduct_mass is None:
                 logger.warning(f"Adduct {adduct} not supported.")
-                adduct = "none"
+                adduct = ""
                 adduct_mass = 0.0
         else:
-            adduct = "none"
-            adduct_mass = 0.0
+            adduct = ""
+
+        ce = params["ce"] if "ce" in params else None
+        ia = params["ion_activation"] if "ion_activation" in params else None
+        im = (
+            params["ionization_method"]
+            if "ionization_method" in params
+            else None
+        )
 
         # compute hash id value
         spectrum_hash_result = spectrum_hash(
@@ -369,15 +381,6 @@ class LoadData:
             classe = None
             subclass = None
 
-        precursor_mz = LoadData.get_precursor_mz(spectrum_dict)
-        if precursor_mz is None:
-            return None
-
-        if "charge" in spectrum_dict["params"]:
-            charge = int(spectrum_dict["params"]["charge"][0])
-        else:
-            charge = None
-
         spec = SpectrumExt(
             identifier=identifier,
             precursor_mz=precursor_mz,
@@ -392,10 +395,14 @@ class LoadData:
             smiles=smiles,
             ionmode=ionmode,
             adduct_mass=adduct_mass,
+            ce=ce,
+            ion_activation=ia,
+            ionization_method=im,
             bms=bms,
             superclass=superclass,
             classe=classe,
             subclass=subclass,
+            inchi_key=params["inchikey"] if "inchikey" in params else None,
             spectrum_hash=spectrum_hash_result,
         )
 

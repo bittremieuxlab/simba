@@ -23,14 +23,40 @@ class LoadDataMultitasking:
     @staticmethod
     def from_molecule_pairs_to_dataset(
         molecule_pairs_input: MoleculePairsOpt,
-        max_num_peaks,
-        training=False,  # shuffle the spectrum 0 and 1 for data augmentation
-        N_classes=6,
-        use_fingerprints=False,
-        use_adduct=False,
-    ):
+        max_num_peaks: int,
+        training: bool = False,  # shuffle the spectrum 0 and 1 for data augmentation
+        n_classes: int = 6,
+        use_fingerprints: bool = False,
+        use_adduct: bool = False,
+        use_ce: bool = False,
+        use_ion_activation: bool = False,
+        use_ion_method: bool = False,
+    ) -> CustomDatasetMultitasking:
         """
-        preprocess the spectra and convert it for being used in Pytorch
+        Load data from molecule pairs into a Pytorch dataset for multitask learning.
+        Includes preprocessing of the spectra.
+
+        Parameters
+        ----------
+        molecule_pairs_input: MoleculePairsOpt
+            The molecule pairs to load into the dataset.
+        max_num_peaks: int
+            The maximum number of peaks in a spectrum. Other peaks will be removed.
+        training: bool
+            Dataset for training or not.
+        n_classes: int
+            Number of classes for edit distance.
+        use_fingerprints: bool
+            Use fingerprints or not.
+        use_adduct: bool
+            Use adduct information or not.
+        use_ce: bool
+            Use collision energy or not.
+
+        Returns
+        -------
+        CustomDatasetMultitasking
+            The Pytorch dataset.
         """
         # copy spectrums to avoid overwriting
         molecule_pairs = MoleculePairsOpt(
@@ -74,6 +100,10 @@ class LoadDataMultitasking:
             adduct_mass = np.zeros(
                 (len(molecule_pairs.original_spectra), 1), dtype=np.float32
             )
+        if use_ce:
+            ce = np.zeros(
+                (len(molecule_pairs.original_spectra), 1), dtype=np.int32
+            )
 
         logger.info("Loading mz, intensity and precursor data ...")
         for i, spec in enumerate(molecule_pairs.original_spectra):
@@ -98,6 +128,9 @@ class LoadDataMultitasking:
                     ionmode[i] = 1.0 if spec.ionmode == "positive" else -1.0
                 adduct_mass[i] = spec.adduct_mass
 
+            if use_ce:
+                ce[i] = spec.ce
+
         # logger.info("Normalizing intensities")
         # Normalize the intensity array
         # intensity = intensity / np.sqrt(np.sum(intensity**2, axis=1, keepdims=True))
@@ -105,7 +138,7 @@ class LoadDataMultitasking:
         # Adjust ED towards a N classification problem
         ed = OrdinalClassification.from_float_to_class(
             molecule_pairs_input.pair_distances[:, 2].reshape(-1, 1),
-            N_classes=N_classes,
+            n_classes=n_classes,
         )
 
         if molecule_pairs.extra_distances is None:
@@ -149,6 +182,8 @@ class LoadDataMultitasking:
             fingerprint_0=fingerprint_0,
             max_num_peaks=max_num_peaks,
             use_adduct=use_adduct,
-            ionization_mode_precursor=(ionmode if use_adduct else None),
-            adduct_mass_precursor=(adduct_mass if use_adduct else None),
+            ionmode=(ionmode if use_adduct else None),
+            adduct_mass=(adduct_mass if use_adduct else None),
+            use_ce=use_ce,
+            ce=(ce if use_ce else None),
         )
