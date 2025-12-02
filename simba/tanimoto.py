@@ -1,29 +1,29 @@
+import functools
+from functools import lru_cache
+
+import numpy as np
+import rdkit.rdBase as rkrb
+import rdkit.RDLogger as rkl
+from numba import njit
 from rdkit import Chem
 from rdkit.Chem import AllChem
 from rdkit.Chem import DataStructs
-import rdkit.rdBase as rkrb
-import rdkit.RDLogger as rkl
 from rdkit.Chem.inchi import MolFromInchi
-import functools
+from rdkit.DataStructs import ConvertToNumpyArray
+from rdkit.DataStructs.cDataStructs import ExplicitBitVect
 
 # disable logging info
 logger = rkl.logger()
 logger.setLevel(rkl.ERROR)
 rkrb.DisableLog("rdApp.error")
-from numba import njit
-
-from functools import lru_cache
-import numpy as np
-from rdkit import Chem
-from rdkit.DataStructs import ConvertToNumpyArray
-from rdkit.DataStructs.cDataStructs import ExplicitBitVect
 
 # get the right size
 _example = Chem.RDKFingerprint(Chem.MolFromSmiles("CC"))
 FP_SIZE = _example.GetNumBits()
 
+
 class Tanimoto:
-    
+
     @functools.lru_cache
     def compute_tanimoto(fp1, fp2, nbits=2048, use_inchi=False):
         if (fp1 is not None) and (fp2 is not None):
@@ -32,7 +32,7 @@ class Tanimoto:
         else:
             return None
 
-    '''
+    """
     @lru_cache(maxsize=None)
     def compute_fingerprint(smiles):
         # build or fallback to a zero‐vector bitvect
@@ -52,7 +52,7 @@ class Tanimoto:
         arr = np.zeros((FP_SIZE,), dtype=int)
         ConvertToNumpyArray(bv, arr)
         return arr
-    '''
+    """
 
     @staticmethod
     @lru_cache(maxsize=None)
@@ -76,7 +76,7 @@ class Tanimoto:
         # rdkit returns 0.0 if both are zero‐vector
         return DataStructs.TanimotoSimilarity(fp0, fp1)
 
-    '''
+    """
     @functools.lru_cache
     def compute_fingerprint(smiles):
         if smiles != "" and smiles != "N/A":
@@ -97,4 +97,4 @@ class Tanimoto:
         fp0 = Tanimoto.compute_fingerprint(smiles0)
         fp1 = Tanimoto.compute_fingerprint(smiles1)
         return Tanimoto.compute_tanimoto(list(fp0), list(fp1))
-    '''
+    """

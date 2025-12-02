@@ -1,5 +1,6 @@
-import numpy as np
 import pickle
+
+import numpy as np
 
 data_path = "/scratch/antwerpen/209/vsc20939/data/preprocessing_mces_20250118/"
 file_path = data_path + "mces_indexes_tani_incremental_train_1.npy"
@@ -20,7 +21,6 @@ print(f"Unique values: {np.unique(array[:,2], return_counts=True)}")
 
 
 from myopic_mces import MCES
-
 
 for i in range(0, 20):
     index_0 = array[i, 0]

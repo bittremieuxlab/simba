@@ -1,34 +1,31 @@
 import os
-
-# In[268]:
-
+import random
 
 import dill
-import torch
-from torch.utils.data import DataLoader
 import lightning.pytorch as pl
-
-from pytorch_lightning.callbacks import ProgressBar
-from simba.train_utils import TrainUtils
 import matplotlib.pyplot as plt
-from simba.config import Config
 import numpy as np
+import seaborn as sns
+import torch
+from pytorch_lightning.callbacks import ProgressBar
+from scipy.stats import spearmanr
+from sklearn.metrics import accuracy_score, confusion_matrix
 from torch.utils.data import DataLoader, WeightedRandomSampler
-import os
-from simba.parser import Parser
-import random
-from simba.weight_sampling import WeightSampling
+
+from simba.config import Config
+from simba.load_mces.load_mces import LoadMCES
 from simba.losscallback import LossCallback
 from simba.molecular_pairs_set import MolecularPairsSet
-from simba.sanity_checks import SanityChecks
-from simba.transformers.postprocessing import Postprocessing
-from scipy.stats import spearmanr
-import seaborn as sns
-from simba.ordinal_classification.load_data_ordinal import LoadDataOrdinal
 from simba.ordinal_classification.embedder_ordinal import EmbedderOrdinal
-from sklearn.metrics import confusion_matrix, accuracy_score
-from simba.load_mces.load_mces import LoadMCES
+from simba.ordinal_classification.load_data_ordinal import LoadDataOrdinal
+from simba.parser import Parser
 from simba.performance_metrics.performance_metrics import PerformanceMetrics
+from simba.sanity_checks import SanityChecks
+from simba.train_utils import TrainUtils
+from simba.transformers.postprocessing import Postprocessing
+from simba.weight_sampling import WeightSampling
+
+# In[268]:
 
 
 config = Config()
@@ -147,7 +144,7 @@ binned_molecule_pairs[4].indexes_tani.shape
 # In[ ]:
 
 
-uniformed_molecule_pairs_test.indexes_tani
+uniformed_molecule_pairs_test.pair_distances
 
 
 # In[ ]:
@@ -157,7 +154,9 @@ uniformed_molecule_pairs_test.indexes_tani
 dataset_test = LoadDataOrdinal.from_molecule_pairs_to_dataset(
     uniformed_molecule_pairs_test
 )
-dataloader_test = DataLoader(dataset_test, batch_size=config.BATCH_SIZE, shuffle=False)
+dataloader_test = DataLoader(
+    dataset_test, batch_size=config.BATCH_SIZE, shuffle=False
+)
 
 
 # In[ ]:
@@ -240,7 +239,9 @@ flat_pred_test = []
 confident_pred_test = []
 for pred in pred_test:
     flat_pred_test = flat_pred_test + [which_index(p) for p in pred]
-    confident_pred_test = confident_pred_test + [which_index_confident(p) for p in pred]
+    confident_pred_test = confident_pred_test + [
+        which_index_confident(p) for p in pred
+    ]
 flat_pred_test = np.array(flat_pred_test)
 confident_pred_test = np.array(confident_pred_test)
 
@@ -253,7 +254,9 @@ flat_pred_test = np.array(flat_pred_test)
 good_indexes = PerformanceMetrics.get_correct_predictions(
     similarities_test, flat_pred_test
 )
-bad_indexes = PerformanceMetrics.get_bad_predictions(similarities_test, flat_pred_test)
+bad_indexes = PerformanceMetrics.get_bad_predictions(
+    similarities_test, flat_pred_test
+)
 
 PerformanceMetrics.plot_molecules(
     uniformed_molecule_pairs_test,
@@ -295,7 +298,9 @@ len(similarities_test_cleaned)
 # In[ ]:
 
 
-corr_model, p_value_model = spearmanr(similarities_test_cleaned, flat_pred_test_cleaned)
+corr_model, p_value_model = spearmanr(
+    similarities_test_cleaned, flat_pred_test_cleaned
+)
 
 
 # In[ ]:
@@ -339,15 +344,21 @@ def plot_cm(true, preds, config, file_name="cm.png"):
 plot_cm(similarities_test_cleaned, flat_pred_test_cleaned, config)
 ## analyze the impact of thresholding
 
-similarities_test_cleaned_confident = similarities_test[~np.isnan(confident_pred_test)]
-flat_pred_test_cleaned_confident = confident_pred_test[~np.isnan(confident_pred_test)]
+similarities_test_cleaned_confident = similarities_test[
+    ~np.isnan(confident_pred_test)
+]
+flat_pred_test_cleaned_confident = confident_pred_test[
+    ~np.isnan(confident_pred_test)
+]
 
 confident_corr_model, confident_p_value_model = spearmanr(
     similarities_test_cleaned_confident, flat_pred_test_cleaned_confident
 )
 
 print(f"Original size of predictions:{similarities_test.shape}")
-print(f"Confident size of predictions:{similarities_test_cleaned_confident.shape}")
+print(
+    f"Confident size of predictions:{similarities_test_cleaned_confident.shape}"
+)
 # In[ ]:
 
 

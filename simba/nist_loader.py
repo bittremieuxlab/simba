@@ -1,13 +1,15 @@
-from typing import Dict, IO, Sequence, Union
-from simba.spectrum_ext import SpectrumExt
-import numpy as np
-from simba.config import Config
-from tqdm import tqdm
 import re
-from rdkit import Chem
-from rdkit.Chem import inchi
 import requests
 from itertools import islice
+from typing import Dict, IO, Sequence, Union
+
+import numpy as np
+from rdkit import Chem
+from rdkit.Chem import inchi
+from tqdm import tqdm
+
+from simba.config import Config
+from simba.spectrum_ext import SpectrumExt
 
 
 class NistLoader:

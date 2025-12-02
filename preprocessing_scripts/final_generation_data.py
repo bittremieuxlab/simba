@@ -1,195 +1,228 @@
+import argparse
+import logging
+import os
+import pickle
+import random
+import sys
+from datetime import datetime
+
 import dill
+import numpy as np
 
 # from simba.load_data import LoadData
 from sklearn.model_selection import train_test_split
-from simba.train_utils import TrainUtils
-from simba.preprocessor import Preprocessor
-import pickle
-import sys
+
 from simba.config import Config
-from simba.parser import Parser
-from datetime import datetime
 from simba.loader_saver import LoaderSaver
-import pickle
-import numpy as np
+from simba.logger_setup import logger
 from simba.mces.mces_computation import MCES
-import random
-import os
-
-import argparse
-
+from simba.parser import Parser
+from simba.preprocessor import Preprocessor
 from simba.simba.preprocessing_simba import PreprocessingSimba
+from simba.train_utils import TrainUtils
 
 
-def preprocess_data(array):
-    # if any of edit distance or mces is undefined, then we have to put mces and edit distance to a high value (e.g 666)
-    ed = array[:, config.COLUMN_EDIT_DISTANCE]
-    mces = array[:, config.COLUMN_MCES20]
+def setup_config():
+    """
+    Setup configuration by parsing command-line arguments and updating the Config object.
 
-    indexes_unvalid = np.isnan(ed) | np.isnan(mces)
-    # array[indexes_unvalid, config.COLUMN_EDIT_DISTANCE]=config.EDIT_DISTANCE_MAX_VALUE
-    # array[indexes_unvalid, config.COLUMN_MCES20]=config.THRESHOLD_MCES
+    Returns
+    -------
+    Config
+        Updated configuration object.
+    """
+    parser = argparse.ArgumentParser(
+        description="distance computation script."
+    )
+    parser.add_argument(
+        f"--spectra_path",
+        type=str,
+        default=None,
+        help="Path to the spectra file.",
+    )
+    parser.add_argument(
+        f"--workspace",
+        type=str,
+        default=None,
+        help="Directory where distances will be saved.",
+    )
+    parser.add_argument(
+        "--PREPROCESSING_OVERWRITE",
+        action="store_true",
+        help="Whether to overwrite existing preprocessing files.",
+    )
+    parser.add_argument(
+        f"--MAX_SPECTRA_TRAIN",
+        type=int,
+        default=10000000000,
+        help="Maximum number of training spectra.",
+    )
+    parser.add_argument(
+        f"--MAX_SPECTRA_VAL",
+        type=int,
+        default=1000000000000,
+        help="Maximum number of validation spectra.",
+    )
+    parser.add_argument(
+        f"--MAX_SPECTRA_TEST",
+        type=int,
+        default=100000000000,
+        help="Maximum number of test spectra.",
+    )
+    parser.add_argument(
+        f"--mapping_file_name",
+        type=str,
+        default=None,
+        help="Name of the mapping file that maps SMILES to spectra (will be saved in <workspace>/).",
+    )
+    parser.add_argument(
+        f"--PREPROCESSING_NUM_WORKERS",
+        type=int,
+        default=None,
+        help="Number of workers for preprocessing.",
+    )
+    parser.add_argument(
+        "--PREPROCESSING_NUM_NODES",
+        type=int,
+        default=1,
+        help="Number of nodes for preprocessing.",
+    )
+    parser.add_argument(
+        "--PREPROCESSING_CURRENT_NODE",
+        type=int,
+        default=None,
+        help="Current node for preprocessing (0-indexed).",
+    )
+    parser.add_argument(
+        f"--VAL_SPLIT", type=float, default=0.1, help="Validation split ratio."
+    )
+    parser.add_argument(
+        f"--TEST_SPLIT", type=float, default=0.1, help="Test split ratio."
+    )
+    args = parser.parse_args()
 
-    # make sure that any value of the columns does not exceed the permitted value
-    ed_exceeded = array[:, config.COLUMN_EDIT_DISTANCE] == 666
-    # array[ed_exceeded, config.COLUMN_EDIT_DISTANCE]= config.EDIT_DISTANCE_MAX_VALUE
+    # Parsing arguments
+    config = Config()
+    config.SPECTRA_PATH = args.spectra_path
+    config.MOL_SPEC_MAPPING_FILE = args.mapping_file_name
+    config.PREPROCESSING_DIR = args.workspace
+    config.PREPROCESSING_OVERWRITE = args.PREPROCESSING_OVERWRITE
+    config.PREPROCESSING_NUM_WORKERS = args.PREPROCESSING_NUM_WORKERS
+    config.PREPROCESSING_NUM_NODES = args.PREPROCESSING_NUM_NODES
+    config.PREPROCESSING_CURRENT_NODE = args.PREPROCESSING_CURRENT_NODE
 
-    mces_exceeded = array[:, config.COLUMN_MCES20] == 666
-    # array[mces_exceeded, config.COLUMN_MCES20]= config.THRESHOLD_MCES
+    config.MAX_SPECTRA_TRAIN = args.MAX_SPECTRA_TRAIN
+    config.MAX_SPECTRA_VAL = args.MAX_SPECTRA_VAL
+    config.MAX_SPECTRA_TEST = args.MAX_SPECTRA_TEST
+    config.VAL_SPLIT = args.VAL_SPLIT
+    config.TEST_SPLIT = args.TEST_SPLIT
 
-    # remove invalid values
-    array = array[(~indexes_unvalid) & (~ed_exceeded) & (~mces_exceeded)]
-    return array
-
-
-parser = argparse.ArgumentParser(description="script.")
-parser.add_argument(f"--spectra_path", type=str, default=None)
-parser.add_argument(f"--workspace", type=str, default=None)
-parser.add_argument(f"--MAX_SPECTRA_TRAIN", type=int, default=10000000000)
-parser.add_argument(f"--MAX_SPECTRA_VAL", type=int, default=1000000000000)
-parser.add_argument(f"--MAX_SPECTRA_TEST", type=int, default=100000000000)
-parser.add_argument(f"--mapping_file_name", type=str, default=None)
-parser.add_argument(f"--PREPROCESSING_NUM_WORKERS", type=int, default=None)
-parser.add_argument(f"--VAL_SPLIT", type=float, default=0.1)
-parser.add_argument(f"--TEST_SPLIT", type=float, default=0.1)
-args = parser.parse_args()
-
-## Parsing arguments
-config = Config()
-config.PREPROCESSING_PICKLE_FILE = args.mapping_file_name
-
-## PARAMETERS
-
-# spectra_path = r"/Users/sebas/projects/data/processed_massformer/spec_df.pkl"
-# spectra_path = r"/Users/sebas/projects/data/MassSpecGym.mgf"
-spectra_path = args.spectra_path
-
-
-config.PREPROCESSING_DIR = args.workspace
-config.PREPROCESSING_NUM_WORKERS = args.PREPROCESSING_NUM_WORKERS
-MAX_SPECTRA_TRAIN = args.MAX_SPECTRA_TRAIN
-MAX_SPECTRA_VAL = args.MAX_SPECTRA_VAL
-MAX_SPECTRA_TEST = args.MAX_SPECTRA_TEST
-VAL_SPLIT = args.VAL_SPLIT
-TEST_SPLIT =args.TEST_SPLIT 
-
-if config.RANDOM_MCES_SAMPLING:
-    subfix = ""
-else:
-    subfix = "_exhaustive"
-
-
-# In[7]:
-
-
-output_pairs_file = config.PREPROCESSING_DIR + config.PREPROCESSING_PICKLE_FILE
-output_np_indexes_train = (
-    config.PREPROCESSING_DIR + f"indexes_tani_mces_train{subfix}.npy"
-)
-output_np_indexes_val = config.PREPROCESSING_DIR + f"indexes_tani_mces_val{subfix}.npy"
-output_np_indexes_test = (
-    config.PREPROCESSING_DIR + f"indexes_tani_mces_test{subfix}.npy"
-)
-output_nist_file = config.PREPROCESSING_DIR + f"all_spectrums_nist.pkl"
-output_neurips_file = config.PREPROCESSING_DIR + f"all_spectrums_neurips.pkl"
-output_spectrums_file = (
-    config.PREPROCESSING_DIR + f"all_spectrums_neurips_nist_20240814.pkl"
-)
-
-USE_ONLY_LOW_RANGE = True
-high_tanimoto_range = (
-    0 if USE_ONLY_LOW_RANGE else 0.5
-)  # to get more high similarity pairs
-
-
-print(f"output_file:{output_pairs_file}")
-# params
-max_number_spectra_neurips = 1000000000
-max_number_spectra_nist = 10000000000
-train_molecules = 1000
-val_molecules = 1000
-test_molecules = -1000
-
-block_size_nist = 30000
-use_tqdm = config.enable_progress_bar
-load_nist_spectra = True
-load_neurips_spectra = True
-load_train_val_test_data = (
-    True  # to load previously train, test, val with proper smiles
-)
-write_data_flag = True
-
-
-# In[9]:
+    return config
 
 
-def write_data(
-    file_path,
-    all_spectrums_train=None,
-    all_spectrums_val=None,
-    all_spectrums_test=None,
-    molecule_pairs_train=None,
-    molecule_pairs_val=None,
-    molecule_pairs_test=None,
-    uniformed_molecule_pairs_test=None,
-):
-    dataset = {
-        "all_spectrums_train": all_spectrums_train,
-        "all_spectrums_val": all_spectrums_val,
-        "all_spectrums_test": all_spectrums_test,
-        "molecule_pairs_train": molecule_pairs_train,
-        "molecule_pairs_val": molecule_pairs_val,
-        "molecule_pairs_test": molecule_pairs_test,
-        "uniformed_molecule_pairs_test": uniformed_molecule_pairs_test,
-    }
-    with open(file_path, "wb") as file:
-        pickle.dump(dataset, file)
+def setup_paths(config: Config):
+    """
+    Setup output paths based on the configuration.
 
+    Parameters
+    ----------
+    config : Config
+        Configuration object containing paths and settings.
 
-if __name__ == "__main__":
-    # In[10]:
+    Returns
+    -------
+    tuple
+        A tuple containing paths for various output files.
+    """
+    if config.RANDOM_MCES_SAMPLING:
+        subfix = ""
+    else:
+        subfix = "_exhaustive"
 
-    all_spectrums = PreprocessingSimba.load_spectra(
-        spectra_path, config, use_gnps_format=False, use_only_protonized_adducts=config.USE_ONLY_PROTONIZED_ADDUCTS,
+    # output filenames
+    output_pairs_file = config.PREPROCESSING_DIR + config.MOL_SPEC_MAPPING_FILE
+    output_np_indexes_train = (
+        config.PREPROCESSING_DIR + f"indexes_tani_mces_train{subfix}.npy"
+    )
+    output_np_indexes_val = (
+        config.PREPROCESSING_DIR + f"indexes_tani_mces_val{subfix}.npy"
+    )
+    output_np_indexes_test = (
+        config.PREPROCESSING_DIR + f"indexes_tani_mces_test{subfix}.npy"
+    )
+    output_nist_file = config.PREPROCESSING_DIR + f"all_spectrums_nist.pkl"
+    output_neurips_file = (
+        config.PREPROCESSING_DIR + f"all_spectrums_neurips.pkl"
+    )
+    output_spectrums_file = (
+        config.PREPROCESSING_DIR + f"all_spectrums_neurips_nist_20240814.pkl"
+    )
+    logging.info(f"Pairs will be saved to {output_pairs_file}")
+
+    return (
+        output_pairs_file,
+        output_np_indexes_train,
+        output_np_indexes_val,
+        output_np_indexes_test,
+        output_nist_file,
+        output_neurips_file,
+        output_spectrums_file,
     )
 
-    # ## Division, training, validation, test
 
-    # In[11]:
+def compute_distances(config: Config, pairs_filename: str):
+    """
+    Compute distances between spectra using MCES and optionally edit distance.
 
-    print("Dividing between training, validation and test")
-    all_spectrums_train, all_spectrums_val, all_spectrums_test = (
-        TrainUtils.train_val_test_split_bms(all_spectrums, val_split=VAL_SPLIT, test_split=TEST_SPLIT)
+    Parameters
+    ----------
+    config : Config
+        Configuration object containing paths and settings.
+    pairs_filename : str
+        Filename to save the computed pairs.
+    """
+    # Load and preprocess spectra
+    all_spectra = PreprocessingSimba.load_spectra(
+        config.SPECTRA_PATH,
+        config,
+        use_gnps_format=False,
+        use_only_protonized_adducts=config.USE_ONLY_PROTONIZED_ADDUCTS,
+    )
+    logger.info(f"Read {len(all_spectra)} spectra from {config.SPECTRA_PATH}")
+
+    # Split data into train, validation, and test sets
+    all_spectra_train, all_spectra_val, all_spectra_test = (
+        TrainUtils.train_val_test_split_bms(
+            all_spectra,
+            val_split=config.VAL_SPLIT,
+            test_split=config.TEST_SPLIT,
+        )
+    )
+    all_spectra_train = all_spectra_train[0 : config.MAX_SPECTRA_TRAIN]
+    all_spectra_val = all_spectra_val[0 : config.MAX_SPECTRA_VAL]
+    all_spectra_test = all_spectra_test[0 : config.MAX_SPECTRA_TEST]
+    logger.info(
+        f"Train: {len(all_spectra_train)}, Val: {len(all_spectra_val)}, Test: {len(all_spectra_test)}"
     )
 
-    # In[12]:
-
-    all_spectrums_train = all_spectrums_train[0:MAX_SPECTRA_TRAIN]
-    all_spectrums_val = all_spectrums_val[0:MAX_SPECTRA_VAL]
-    all_spectrums_test = all_spectrums_test[0:MAX_SPECTRA_TEST]
-
-    # In[13]:
     molecule_pairs = {}
-    print("Validation pairs ...")
     for type_data in ["_train", "_val", "_test"]:
 
         if type_data == "_train":
-            spectra = all_spectrums_train
+            spectra = all_spectra_train
+            logger.info(f"Computing distances for training set...")
         elif type_data == "_val":
-            spectra = all_spectrums_val
+            spectra = all_spectra_val
+            logger.info(f"Computing distances for validation set...")
         elif type_data == "_test":
-            spectra = all_spectrums_test
+            spectra = all_spectra_test
+            logger.info(f"Computing distances for test set...")
 
         for use_edit_distance in [False, True]:
             molecule_pairs[type_data] = MCES.compute_all_mces_results_unique(
                 spectra,
                 max_combinations=10000000000000,
-                use_tqdm=use_tqdm,
-                max_mass_diff=config.MAX_MASS_DIFF,
-                min_mass_diff=config.MIN_MASS_DIFF,
-                high_tanimoto_range=high_tanimoto_range,
                 num_workers=config.PREPROCESSING_NUM_WORKERS,
-                use_exhaustive=True,
                 random_sampling=config.RANDOM_MCES_SAMPLING,
                 config=config,
                 identifier=type_data,
@@ -197,25 +230,78 @@ if __name__ == "__main__":
                 loaded_molecule_pairs=None,
             )
 
-    ## Write the data file
+    # Write mapping to file
     write_data(
-        output_pairs_file,
-        all_spectrums_train=None,
-        all_spectrums_val=None,
-        all_spectrums_test=None,
+        pairs_filename,
+        all_spectra_train=None,
+        all_spectra_val=None,
+        all_spectra_test=None,
         molecule_pairs_train=molecule_pairs["_train"],
         molecule_pairs_val=molecule_pairs["_val"],
         molecule_pairs_test=molecule_pairs["_test"],
         uniformed_molecule_pairs_test=None,
     )
 
-    # List all files in the directory
+
+def write_data(
+    file_path,
+    all_spectra_train=None,
+    all_spectra_val=None,
+    all_spectra_test=None,
+    molecule_pairs_train=None,
+    molecule_pairs_val=None,
+    molecule_pairs_test=None,
+    uniformed_molecule_pairs_test=None,
+):
+    """
+    Write the molecule -> spectra mapping to a pickle file.
+
+    Parameters
+    ----------
+    file_path : str
+        The path to the output file.
+    all_spectra_train : list, optional
+        List of training spectra, by default None.
+    all_spectra_val : list, optional
+        List of validation spectra, by default None.
+    all_spectra_test : list, optional
+        List of test spectra, by default None.
+    molecule_pairs_train : dict, optional
+        Dictionary of training molecule pairs, by default None.
+    molecule_pairs_val : dict, optional
+        Dictionary of validation molecule pairs, by default None.
+    molecule_pairs_test : dict, optional
+        Dictionary of test molecule pairs, by default None.
+    uniformed_molecule_pairs_test : dict, optional
+        Dictionary of uniformed test molecule pairs, by default None.
+    """
+    dataset = {
+        "all_spectrums_train": all_spectra_train,
+        "all_spectrums_val": all_spectra_val,
+        "all_spectrums_test": all_spectra_test,
+        "molecule_pairs_train": molecule_pairs_train,
+        "molecule_pairs_val": molecule_pairs_val,
+        "molecule_pairs_test": molecule_pairs_test,
+        "uniformed_molecule_pairs_test": uniformed_molecule_pairs_test,
+    }
+    logger.info(f"Writing molecule to spectra mapping to {file_path}")
+    os.makedirs(os.path.dirname(file_path), exist_ok=True)
+    with open(file_path, "wb") as file:
+        pickle.dump(dataset, file)
+
+
+def combine_distances(config: Config):
+    """
+    Combine edit distance and MCES distances from precomputed files.
+
+    Parameters
+    ----------
+    config : Config
+        Configuration object containing paths and settings.
+    """
+    logger.info("Combining edit distance and MCES distances...")
+
     all_files = os.listdir(config.PREPROCESSING_DIR)
-
-    ed_data_path = config.PREPROCESSING_DIR
-    mces_data_path = config.PREPROCESSING_DIR
-    output_data_path = config.PREPROCESSING_DIR
-
     for partition in ["train", "val", "test"]:
         # Filter only the files ending with '.npy'
         npy_files = [f for f in all_files if f.endswith(".npy")]
@@ -225,49 +311,115 @@ if __name__ == "__main__":
             index = file_loaded.split("_")[-1].split(".npy")[0]
             index = int(index)
 
-            print(f"Loading index: {index}")
+            logger.info(f"Loading file index {index}...")
 
+            # define file names
             sufix = "indexes_tani_incremental_" + partition + "_"
-            prefix_ed = "edit_distance_"
-            prefix_mces = "mces_"
-            prefix_output = "ed_mces_"
-
-            file_ed = prefix_ed + sufix + str(index) + ".npy"
-            file_mces = prefix_mces + sufix + str(index) + ".npy"
-            file_output = prefix_output + sufix + str(index) + ".npy"
-
-            # add directory
-            file_ed = ed_data_path + file_ed
-            file_mces = mces_data_path + file_mces
-            file_output = output_data_path + file_output
+            file_ed = (
+                config.PREPROCESSING_DIR
+                + "edit_distance_"
+                + sufix
+                + str(index)
+                + ".npy"
+            )
+            file_mces = (
+                config.PREPROCESSING_DIR
+                + "mces_"
+                + sufix
+                + str(index)
+                + ".npy"
+            )
+            file_output = (
+                config.PREPROCESSING_DIR
+                + "ed_mces_"
+                + sufix
+                + str(index)
+                + ".npy"
+            )
 
             # load data
             ed_data = np.load(file_ed)
-            print(f"ed_data: {ed_data}")
-
             try:
                 mces_data = np.load(file_mces)
-                print(f"mces_data {mces_data}")
             except:
-                print("The MCES partition is not present.")
+                logger.warning(f"No MCES distance file found at {file_mces}.")
                 continue
 
-            ## check that the indexes are the same:
+            # check that the indexes are the same:
             if np.all(ed_data[:, 0] == mces_data[:, 0]) and np.all(
                 ed_data[:, 1] == mces_data[:, 1]
             ):
-                print("The data loaded correspond to the same pairs")
+                logger.info(
+                    "The MCES and ED data corresponds to the same pairs"
+                )
 
-                total_data = np.column_stack((ed_data, mces_data[:, 2]))
-                print(f"The data loaded has the original shape: {total_data.shape}")
-
-                print("Preprocessing:")
-                total_data = preprocess_data(total_data)
-
-                print(total_data)
+                all_distance_data = np.column_stack((ed_data, mces_data[:, 2]))
+                all_distance_data = preprocess_distances(
+                    all_distance_data, config
+                )
                 np.save(
                     file_output,
-                    total_data,
+                    all_distance_data,
                 )
             else:
-                print("ERROR: The data loaded does not correspond to the same pairs")
+                logger.error(
+                    "The data loaded does not correspond to the same pairs"
+                )
+
+
+def preprocess_distances(array: np.ndarray, config: Config) -> np.ndarray:
+    """
+    Preprocess the input array by handling invalid values and filtering based on edit distance and MCES20.
+
+    Parameters
+    ----------
+    array : np.ndarray
+        Input array with shape (n_samples, n_features) where specific columns correspond to edit distance
+        and MCES20 values.
+
+    Returns
+    -------
+    np.ndarray
+        Preprocessed array with invalid entries removed.
+    """
+    # extract ED and MCES20 columns
+    ed = array[:, config.COLUMN_EDIT_DISTANCE]
+    mces = array[:, config.COLUMN_MCES20]
+
+    indexes_unvalid = np.isnan(ed) | np.isnan(mces)
+
+    # identify rows with invalid values
+    ed_exceeded = array[:, config.COLUMN_EDIT_DISTANCE] == 666
+    mces_exceeded = array[:, config.COLUMN_MCES20] == 666
+
+    # remove invalid values
+    array = array[(~indexes_unvalid) & (~ed_exceeded) & (~mces_exceeded)]
+    return array
+
+
+if __name__ == "__main__":
+
+    config = setup_config()
+    output_paths = setup_paths(config)
+
+    if config.PREPROCESSING_OVERWRITE:
+        logger.info("Removing existing distance files...")
+        if os.path.exists(config.PREPROCESSING_DIR):
+            for file in os.listdir(config.PREPROCESSING_DIR):
+                file_path = os.path.join(config.PREPROCESSING_DIR, file)
+                try:
+                    if os.path.isfile(file_path):
+                        os.remove(file_path)
+                except Exception as e:
+                    logger.error(f"Error deleting file {file_path}: {e}")
+
+    # to get more high similarity pairs
+    USE_ONLY_LOW_RANGE = True
+    high_tanimoto_range = 0 if USE_ONLY_LOW_RANGE else 0.5
+
+    use_tqdm = config.enable_progress_bar
+
+    compute_distances(config, output_paths[0])
+    combine_distances(config)
+
+    logger.info("All done!")

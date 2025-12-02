@@ -1,24 +1,19 @@
-import logging
-from typing import Dict, IO, Iterator, Sequence, Union
+import pickle
+from typing import IO, Dict, Iterator, List, Sequence, Union
 
-from pyteomics import mgf
-import pyteomics
-from spectrum_utils.spectrum import MsmsSpectrum
-from simba.spectrum_ext import SpectrumExt
-import matplotlib.pyplot as plt
-import spectrum_utils.plot as sup
-import spectrum_utils as su
 import numpy as np
-from simba.config import Config
-from simba.preprocessing_utils import PreprocessingUtils
-from simba.murcko_scaffold import MurckoScaffold
-
+from pyteomics import mgf
 from tqdm import tqdm
 
+from simba import chem_utils
+from simba.config import Config
+from simba.logger_setup import logger
+from simba.murcko_scaffold import MurckoScaffold
 from simba.nist_loader import NistLoader
+from simba.preprocessing_utils import PreprocessingUtils
 from simba.preprocessor import Preprocessor
+from simba.spectrum_ext import SpectrumExt
 from simba.utils import spectrum_hash
-import pickle
 
 
 class LoadData:
@@ -43,6 +38,14 @@ class LoadData:
         scan_nrs : Sequence[int]
             Only read spectra with the given scan numbers. If `None`, no filtering
             on scan number is performed.
+        compute_classes : bool
+            Whether to compute chemical superclass, class and subclass of the molecules
+            using Classyfire.
+        config : Config
+            Configuration object containing parameters for preprocessing.
+        use_gnps_format : bool
+            Whether the MGF file follows the GNPS format. If `False`, it is assumed
+            to follow the Janssen format.
 
         Returns
         -------
@@ -69,7 +72,9 @@ class LoadData:
                 # try:
                 if use_only_protonized_adducts:
                     if use_gnps_format:
-                        condition, res = LoadData.is_valid_spectrum_gnps(spectrum, config)
+                        condition, res = LoadData.is_valid_spectrum_gnps(
+                            spectrum, config
+                        )
                     else:  # janssen format
                         condition, res = LoadData.is_valid_spectrum_janssen(
                             spectrum, config
@@ -80,38 +85,43 @@ class LoadData:
                 total_results.append(res)
                 if condition:
                     # yield spectrum['params']['name']
-                    yield LoadData._parse_spectrum(
+                    spec = LoadData._parse_spectrum(
                         spectrum,
                         compute_classes=compute_classes,
                         use_gnps_format=use_gnps_format,
                     )
+                    if spec is not None:
+                        yield spec
             # except ValueError as e:
             #    pass
 
     @staticmethod
     def get_precursor_mz(spectrum):
         if "pepmass" in spectrum["params"]:
-                if len(spectrum["params"]["pepmass"])>0:
-                    precursor_mz = float(spectrum["params"]["pepmass"][0])
-                else:
-                    precursor_mz = float(spectrum["params"]["pepmass"])
+            if len(spectrum["params"]["pepmass"]) > 0:
+                precursor_mz = float(spectrum["params"]["pepmass"][0])
+            else:
+                precursor_mz = float(spectrum["params"]["pepmass"])
         elif "precursor_mz" in spectrum["params"]:
             precursor_mz = float(spectrum["params"]["precursor_mz"])
         else:
-            precursor_mz = 0 
-        return precursor_mz 
+            precursor_mz = None
+        return precursor_mz
 
     @staticmethod
-    def default_filters(spectrum: SpectrumExt, config):
+    def default_filters(spectrum: SpectrumExt, config: Config):
         cond_library = True  # all the library is good
         cond_charge = True
-        cond_pepmass = True if LoadData.get_precursor_mz(spectrum) > 0 else False
+        precursor_mz = LoadData.get_precursor_mz(spectrum)
+        cond_pepmass = precursor_mz is not None and precursor_mz > 0
         cond_mz_array = len(spectrum["m/z array"]) >= config.MIN_N_PEAKS
         cond_ion_mode = True
-        cond_name= True
+        cond_name = True
         cond_inchi_smiles = True
-        cond_centroid = PreprocessingUtils.is_centroid(spectrum["intensity array"])
-        
+        cond_centroid = PreprocessingUtils.is_centroid(
+            spectrum["intensity array"]
+        )
+
         ##cond_name=True
         ##cond_name=True
         dict_results = {
@@ -124,7 +134,7 @@ class LoadData:
             "cond_centroid": cond_centroid,
             "cond_inchi_smiles": cond_inchi_smiles,
         }
-        
+
         # return cond_ion_mode and cond_mz_array
 
         total_condition = (
@@ -139,12 +149,15 @@ class LoadData:
         )
 
         return total_condition, dict_results
+
     @staticmethod
-    def is_valid_spectrum_janssen(spectrum: SpectrumExt, config):
+    def is_valid_spectrum_janssen(spectrum: SpectrumExt, config: Config):
 
         cond_library = True  # all the library is good
         if "charge" in spectrum["params"]:
-            cond_charge = int(spectrum["params"]["charge"][0]) in config.CHARGES
+            cond_charge = (
+                int(spectrum["params"]["charge"][0]) in config.CHARGES
+            )
         else:
             cond_charge = True
 
@@ -162,25 +175,31 @@ class LoadData:
             cond_ion_mode = True
 
         if "adduct" in spectrum["params"]:
-
-            cond_name = spectrum["params"]["adduct"] in ["M+", "[M+H]+", "M+H"]  # adduct
+            cond_name = spectrum["params"]["adduct"] in [
+                "M+",
+                "[M+H]+",
+                "M+H",
+            ]
         else:
-            print('WARNING: Adduct information not found in spectrum. Please make sure the spectra corresponds to protonozied adducts [M+H]')
-            cond_name= True
+            logger.warning(
+                "Adduct information not found in spectrum. Please make sure the spectra corresponds to protonized adducts [M+H]"
+            )
+            cond_name = True
 
-
-        if 'smiles' in spectrum["params"]:
+        if "smiles" in spectrum["params"]:
             cond_inchi_smiles = (
-            # spectrum['params']["inchi"] != "N/A" or
-            spectrum["params"]["smiles"]
-            != "N/A"
+                # spectrum['params']["inchi"] != "N/A" or
+                spectrum["params"]["smiles"]
+                != "N/A"
             )
         else:
-            print('WARNING: Smiles not found on spectra.')
+            logger.warning("Smiles not found in spectrum.")
             cond_inchi_smiles = True
 
-        cond_centroid = PreprocessingUtils.is_centroid(spectrum["intensity array"])
-        
+        cond_centroid = PreprocessingUtils.is_centroid(
+            spectrum["intensity array"]
+        )
+
         ##cond_name=True
         ##cond_name=True
         dict_results = {
@@ -193,7 +212,7 @@ class LoadData:
             "cond_centroid": cond_centroid,
             "cond_inchi_smiles": cond_inchi_smiles,
         }
-        
+
         # return cond_ion_mode and cond_mz_array
 
         total_condition = (
@@ -210,21 +229,23 @@ class LoadData:
         return total_condition, dict_results
 
     @staticmethod
-    def is_valid_spectrum_gnps(spectrum: SpectrumExt, config):
+    def is_valid_spectrum_gnps(spectrum: SpectrumExt, config: Config):
         if "libraryquality" in spectrum["params"].keys():
             cond_library = int(spectrum["params"]["libraryquality"]) <= 3
         else:
             cond_library = True
 
         if "charge" in spectrum["params"]:
-            cond_charge = int(spectrum["params"]["charge"][0]) in config.CHARGES
+            cond_charge = (
+                int(spectrum["params"]["charge"][0]) in config.CHARGES
+            )
         else:
             cond_charge = True
         # try to convert to float the pep mass
         try:
             cond_pepmass = float(spectrum["params"]["pepmass"][0]) > 0
         except:
-            cond_pepmass = 0.0
+            cond_pepmass = False
 
         cond_mz_array = len(spectrum["m/z array"]) >= config.MIN_N_PEAKS
 
@@ -233,7 +254,9 @@ class LoadData:
         else:
             cond_ion_mode = True
         cond_name = spectrum["params"]["name"].rstrip().endswith(" M+H")
-        cond_centroid = PreprocessingUtils.is_centroid(spectrum["intensity array"])
+        cond_centroid = PreprocessingUtils.is_centroid(
+            spectrum["intensity array"]
+        )
         cond_inchi_smiles = (
             # spectrum['params']["inchi"] != "N/A" or
             (spectrum["params"]["smiles"] != "N/A")
@@ -266,7 +289,9 @@ class LoadData:
         return total_condition, dict_results
 
     def _parse_spectrum(
-        spectrum_dict: Dict, compute_classes=False, use_gnps_format=True
+        spectrum_dict: Dict,
+        compute_classes: bool = False,
+        use_gnps_format: bool = True,
     ) -> SpectrumExt:
         """
         Parse the Pyteomics spectrum dict.
@@ -275,10 +300,16 @@ class LoadData:
         ----------
         spectrum_dict : Dict
             The Pyteomics spectrum dict to be parsed.
+        compute_classes : bool
+            Whether to compute chemical superclass, class and subclass of the molecules
+            using Classyfire.
+        use_gnps_format : bool
+            Whether the MGF file follows the GNPS format. If `False`, it is assumed
+            to follow the Janssen format.
 
         Returns
         -------
-        SprectumExt
+        SpectrumExt
             The parsed spectrum.
         """
         # identifier = spectrum_dict['params']['title']
@@ -297,12 +328,27 @@ class LoadData:
         params = spectrum_dict["params"]
         library = library
         inchi = inchi
-        smiles = spectrum_dict["params"]["smiles"] if 'smiles' in spectrum_dict["params"] else ''
+        smiles = (
+            spectrum_dict["params"]["smiles"]
+            if "smiles" in spectrum_dict["params"]
+            else ""
+        )
 
         if "ionmode" in spectrum_dict["params"]:
-            ionmode = spectrum_dict["params"]["ionmode"]
+            ionmode = spectrum_dict["params"]["ionmode"].lower()
         else:
             ionmode = "none"
+
+        if "adduct" in spectrum_dict["params"]:
+            adduct = spectrum_dict["params"]["adduct"]
+            adduct_mass = chem_utils.ion_to_mass(adduct)
+            if adduct_mass is None:
+                logger.warning(f"Adduct {adduct} not supported.")
+                adduct = "none"
+                adduct_mass = 0.0
+        else:
+            adduct = "none"
+            adduct_mass = 0.0
 
         # compute hash id value
         spectrum_hash_result = spectrum_hash(
@@ -324,10 +370,14 @@ class LoadData:
             subclass = None
 
         precursor_mz = LoadData.get_precursor_mz(spectrum_dict)
-        try:
-            charge = max(int(spectrum_dict["params"]["charge"][0]), 1)
-        except:
-            charge = 1
+        if precursor_mz is None:
+            return None
+
+        if "charge" in spectrum_dict["params"]:
+            charge = int(spectrum_dict["params"]["charge"][0])
+        else:
+            charge = None
+
         spec = SpectrumExt(
             identifier=identifier,
             precursor_mz=precursor_mz,
@@ -341,6 +391,7 @@ class LoadData:
             inchi=inchi,
             smiles=smiles,
             ionmode=ionmode,
+            adduct_mass=adduct_mass,
             bms=bms,
             superclass=superclass,
             classe=classe,
@@ -354,19 +405,48 @@ class LoadData:
 
         return spec
 
-    def get_all_spectrums_mgf(
-        file,
-        num_samples=-1,
-        compute_classes=False,
-        use_tqdm=True,
+    def get_all_spectra_mgf(
+        file: Union[IO, str],
+        num_samples: int = -1,
+        compute_classes: bool = False,
+        use_tqdm: bool = True,
         config=None,
-        use_gnps_format=True,
+        use_gnps_format: bool = True,
         use_only_protonized_adducts=True,
-    ):
+    ) -> List[SpectrumExt]:
+        """
+        Get the MS/MS spectra from the given MGF file, optionally filtering by
+        scan number.
 
+        Parameters
+        ----------
+        file : Union[IO, str]
+            The MGF file (file name or open file object) from which the spectra
+            are read.
+        num_samples : int
+            The maximum number of spectra to read. If -1, all spectra are read.
+        compute_classes : bool
+            Whether to compute chemical superclass, class and subclass of the molecules
+            using Classyfire.
+        use_tqdm : bool
+            Whether to display a progress bar using tqdm.
+        config : Config
+            Configuration object containing parameters for preprocessing.
+        use_gnps_format : bool
+            Whether the MGF file follows the GNPS format. If `False`, it is assumed
+            to follow the Janssen format.
+        use_only_protonized_adducts : bool
+            Whether to filter spectra to only include those with protonated adducts
+            ([M+H]+).
+
+        Returns
+        -------
+        List[SpectrumExt]
+            A list of the parsed spectra.
+        """
         num_samples = 10**8 if num_samples == -1 else num_samples
-        spectrums = []  # to save all the spectrums
-        spectra = LoadData.get_spectra(
+        spectra = []  # to save all the spectra
+        spectra_to_process = LoadData.get_spectra(
             file,
             compute_classes=compute_classes,
             config=config,
@@ -384,17 +464,19 @@ class LoadData:
 
         for i in iterator:
             try:
-                spectrum = next(spectra)
+                spectrum = next(spectra_to_process)
                 # spectrum = pp.preprocess_spectrum(spectrum)
-                spectrums.append(spectrum)
-            except StopIteration:  # in case it is not possible to get more samples
-                print(f"We reached the end of the array at index {i}")
+                spectra.append(spectrum)
+            except (
+                StopIteration
+            ):  # in case it is not possible to get more samples
+                logger.info(f"Only {i} spectra found.")
                 break
             # go to next iteration
 
-        return spectrums
+        return spectra
 
-    def get_all_spectrums_nist(
+    def get_all_spectra_nist(
         file,
         num_samples=10,
         compute_classes=False,
@@ -421,22 +503,26 @@ class LoadData:
             An iterator over the requested spectra in the given file.
         """
         nist_loader = NistLoader()
-        spectrums, current_line_number = nist_loader.parse_file(
-            file, num_samples=num_samples, initial_line_number=initial_line_number
+        spectra, current_line_number = nist_loader.parse_file(
+            file,
+            num_samples=num_samples,
+            initial_line_number=initial_line_number,
         )
 
         # check adducts
         # print([s['identifier'] for s in spectrums])
 
-        spectrums = nist_loader.compute_all_smiles(spectrums, use_tqdm=use_tqdm)
+        spectra = nist_loader.compute_all_smiles(spectra, use_tqdm=use_tqdm)
 
         # processing
-        all_spectrums = []
+        all_spectra = []
         pp = Preprocessor()
 
-        for spectrum in spectrums:
+        for spectrum in spectra:
             # use the validation from gnps format since it is the format we are parsing
-            condition, res = LoadData.is_valid_spectrum_gnps(spectrum, config=config)
+            condition, res = LoadData.is_valid_spectrum_gnps(
+                spectrum, config=config
+            )
             # print(res)
             if condition:
                 # yield spectrum['params']['name']
@@ -444,11 +530,12 @@ class LoadData:
                     spectrum, compute_classes=compute_classes
                 )
                 # spec = pp.preprocess_spectrum(spec)
-                all_spectrums.append(spec)
+                if spec is not None:
+                    all_spectra.append(spec)
 
-        return all_spectrums, current_line_number
+        return all_spectra, current_line_number
 
-    def get_all_spectrums_casmi(
+    def get_all_spectra_casmi(
         file,
         num_samples=10,
         compute_classes=False,
@@ -459,7 +546,7 @@ class LoadData:
         # open casmi file
         with open(file, "rb") as f:
             spectra_df = pickle.load(f)
-        all_spectrums_parsed = []
+        all_spectra_parsed = []
 
         for index, spectra_row in spectra_df.iterrows():
 
@@ -476,12 +563,16 @@ class LoadData:
             spectrum_dict["params"]["spectrumid"] = (
                 str(spectra_row["casmi_id"]) + adduct
             )
-            spectrum_dict["params"]["name"] = str(spectra_row["casmi_id"]) + adduct
+            spectrum_dict["params"]["name"] = (
+                str(spectra_row["casmi_id"]) + adduct
+            )
             spectrum_dict["params"]["inchi"] = ""
             spectrum_dict["params"]["organism"] = "casmi"
             spectrum_dict["params"]["id"] = spectra_row["casmi_id"]
             spectrum_dict["params"]["smiles"] = spectra_row["smiles"]
-            ionmode = "Positive" if spectra_row["ion_mode"] == "P" else "Negative"
+            ionmode = (
+                "Positive" if spectra_row["ion_mode"] == "P" else "Negative"
+            )
             spectrum_dict["params"]["ionmode"] = ionmode
             spectrum_dict["params"]["pepmass"] = [spectra_row["prec_mz"]]
             spectrum_dict["params"]["charge"] = [1]
@@ -494,15 +585,17 @@ class LoadData:
             spectrum_dict["m/z array"] = mz
             spectrum_dict["intensity array"] = intensity
 
-            all_spectrums_parsed.append(spectrum_dict)
+            all_spectra_parsed.append(spectrum_dict)
 
         # processing
-        all_spectrums = []
+        all_spectra = []
         pp = Preprocessor()
 
-        for spectrum in all_spectrums_parsed:
+        for spectrum in all_spectra_parsed:
             # use the validation from gnps format since it is the format we are parsing
-            condition, res = LoadData.is_valid_spectrum_gnps(spectrum, config=config)
+            condition, res = LoadData.is_valid_spectrum_gnps(
+                spectrum, config=config
+            )
             # print(res)
             if condition:
                 # yield spectrum['params']['name']
@@ -510,22 +603,52 @@ class LoadData:
                     spectrum, compute_classes=compute_classes
                 )
                 # spec = pp.preprocess_spectrum(spec)
-                all_spectrums.append(spec)
+                if spec is not None:
+                    all_spectra.append(spec)
 
-        return all_spectrums
+        return all_spectra
 
-    def get_all_spectrums(
-        file,
-        num_samples=10,
-        compute_classes=False,
-        use_tqdm=True,
-        use_nist=False,
-        config=None,
-        use_janssen=False,
-    ):
+    def get_all_spectra(
+        file: Union[IO, str],
+        num_samples: int = 10,
+        compute_classes: bool = False,
+        use_tqdm: bool = True,
+        use_nist: bool = False,
+        config: Config = None,
+        use_janssen: bool = False,
+    ) -> List[SpectrumExt]:
+        """
+        Get the MS/MS spectra from the given MGF or NIST file, optionally filtering by
+        scan number.
+
+        Parameters
+        ----------
+        file : Union[IO, str]
+            The MGF or NIST file (file name or open file object) from which the spectra
+            are read.
+        num_samples : int
+            The maximum number of spectra to read. If -1, all spectra are read.
+        compute_classes : bool
+            Whether to compute chemical superclass, class and subclass of the molecules
+            using Classyfire.
+        use_tqdm : bool
+            Whether to display a progress bar using tqdm.
+        use_nist : bool
+            Whether the file is a NIST file. If `False`, it is assumed to be an MGF file.
+        config : Config
+            Configuration object containing parameters for preprocessing.
+        use_janssen : bool
+            Whether the MGF file follows the Janssen format. If `False`, it is assumed
+            to follow the GNPS format.
+
+        Returns
+        -------
+        List[SpectrumExt]
+            A list of the parsed spectra.
+        """
 
         if use_janssen:
-            spectrums = LoadData.get_all_spectrums_mgf(
+            spectra = LoadData.get_all_spectra_mgf(
                 file=file,
                 num_samples=num_samples,
                 compute_classes=compute_classes,
@@ -534,7 +657,7 @@ class LoadData:
                 use_gnps_format=False,
             )  # use format from Janssen
         elif use_nist:
-            spectrums = LoadData.get_all_spectrums_nist(
+            spectra, _ = LoadData.get_all_spectra_nist(
                 file=file,
                 num_samples=num_samples,
                 compute_classes=compute_classes,
@@ -542,7 +665,7 @@ class LoadData:
                 config=config,
             )
         else:
-            spectrums = LoadData.get_all_spectrums_mgf(
+            spectra = LoadData.get_all_spectra_mgf(
                 file=file,
                 num_samples=num_samples,
                 compute_classes=compute_classes,
@@ -551,4 +674,4 @@ class LoadData:
                 use_gnps_format=True,
             )
 
-        return spectrums
+        return spectra

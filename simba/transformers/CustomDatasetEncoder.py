@@ -1,9 +1,11 @@
+import random
+
+import numpy as np
 import torch
 from torch.utils.data import Dataset
-import random
-from simba.transformers.augmentation import Augmentation
-import numpy as np
 from tqdm import tqdm
+
+from simba.transformers.augmentation import Augmentation
 
 
 class CustomDatasetEncoder(Dataset):

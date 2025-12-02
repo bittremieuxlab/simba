@@ -1,11 +1,13 @@
+import os
+
+import matplotlib.pyplot as plt
 import numpy as np
 from rdkit import Chem
+from rdkit.Chem import Descriptors
 from rdkit.Chem import Draw
-import matplotlib.pyplot as plt
+
 from simba.tanimoto import Tanimoto
 from simba.mces.mces_computation import MCES
-from rdkit.Chem import Descriptors
-import os
 
 
 class PerformanceAnalysis:

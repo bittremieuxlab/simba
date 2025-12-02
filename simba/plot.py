@@ -11,7 +11,6 @@ import spectrum_utils.spectrum as sus
 import simba.similarity
 import simba.utils
 
-
 FragmentAnnotation = collections.namedtuple("FragmentAnnotation", ["ion_type"])
 FragmentAnnotation.__str__ = lambda _: ""
 
@@ -144,7 +143,8 @@ def _annotate_matching_peaks(
     for match1, match2 in zip(peak_matches1, peak_matches2):
         ion_type = (
             "b"
-            if abs(spectrum1.mz[match1] - spectrum2.mz[match2]) < fragment_mz_tol
+            if abs(spectrum1.mz[match1] - spectrum2.mz[match2])
+            < fragment_mz_tol
             else "y"
         )
         spectrum1._annotation[match1] = FragmentAnnotation(ion_type=ion_type)

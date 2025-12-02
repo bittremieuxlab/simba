@@ -1,14 +1,15 @@
-from simba.ordinal_classification.embedder_multitask import EmbedderMultitask
+import time
+
 import lightning.pytorch as pl
+import numpy as np
+from torch.utils.data import DataLoader
+
+from simba.analog_discovery.fc_layers_analog_discovery import (
+    FcLayerAnalogDiscovery,
+)
+from simba.ordinal_classification.embedder_multitask import EmbedderMultitask
 from simba.transformers.encoder import Encoder
 from simba.transformers.load_data_encoder import LoadDataEncoder
-from simba.analog_discovery.fc_layers_analog_discovery import FcLayerAnalogDiscovery
-from torch.utils.data import DataLoader
-from simba.load_mces.load_mces import LoadMCES
-import numpy as np
-from simba.edit_distance.edit_distance import EditDistance
-
-import time
 
 
 class Simba:
@@ -41,18 +42,18 @@ class Simba:
         file_path,
     ):
         model = EmbedderMultitask.load_from_checkpoint(
-                file_path,
-                d_model=int(self.config.D_MODEL),
-                n_layers=int(self.config.N_LAYERS),
-                n_classes=self.config.EDIT_DISTANCE_N_CLASSES,
-                use_gumbel=self.config.EDIT_DISTANCE_USE_GUMBEL,
-                use_element_wise=True,
-                use_cosine_distance=self.config.use_cosine_distance,
-                use_edit_distance_regresion=self.config.USE_EDIT_DISTANCE_REGRESSION,
-                use_fingerprints=self.config.USE_FINGERPRINT,
-                USE_LEARNABLE_MULTITASK=self.config.USE_LEARNABLE_MULTITASK,
-                strict=False,
-            )
+            file_path,
+            d_model=int(self.config.D_MODEL),
+            n_layers=int(self.config.N_LAYERS),
+            n_classes=self.config.EDIT_DISTANCE_N_CLASSES,
+            use_gumbel=self.config.EDIT_DISTANCE_USE_GUMBEL,
+            use_element_wise=True,
+            use_cosine_distance=self.config.use_cosine_distance,
+            use_edit_distance_regresion=self.config.USE_EDIT_DISTANCE_REGRESSION,
+            use_fingerprints=self.config.USE_FINGERPRINT,
+            USE_LEARNABLE_MULTITASK=self.config.USE_LEARNABLE_MULTITASK,
+            strict=False,
+        )
         model.eval()
         return model
 
@@ -90,7 +91,9 @@ class Simba:
             print("Using CACHE embeddings")
         else:
             print("Processing embeddings ...")
-            embeddings = self.encoder.get_embeddings(dataloader, device=self.device)
+            embeddings = self.encoder.get_embeddings(
+                dataloader, device=self.device
+            )
             self._embedding_cache[cache_key] = embeddings
         return embeddings
 
@@ -117,11 +120,13 @@ class Simba:
         elapsed_time = end - start
         print(f"Elapsed time: {elapsed_time:.2f} seconds")
         # denormilize
-        similarities_ed = (self.config.EDIT_DISTANCE_N_CLASSES - 1) - np.argmax(
-            similarities_ed, axis=-1
-        )
+        similarities_ed = (
+            self.config.EDIT_DISTANCE_N_CLASSES - 1
+        ) - np.argmax(similarities_ed, axis=-1)
 
-        similarities_mces = self.config.MCES20_MAX_VALUE * (1 - similarities_mces)
+        similarities_mces = self.config.MCES20_MAX_VALUE * (
+            1 - similarities_mces
+        )
         # similarities_mces = np.round(similarities_mces)
         return similarities_ed, similarities_mces
 

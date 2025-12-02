@@ -1,6 +1,5 @@
-from matchms.Spectrum import Spectrum
-
 import numpy as np
+from matchms.Spectrum import Spectrum
 
 from spectrum_utils.spectrum import MsmsSpectrum
 

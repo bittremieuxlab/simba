@@ -1,18 +1,23 @@
 import torch
-from simba.adduct_handling.adduct_handling import AdductHandling
-
 from depthcharge.transformers import (
     SpectrumTransformerEncoder,
-    # PeptideTransformerEncoder,
-)
+)  # PeptideTransformerEncoder,
+
+from simba.adduct_handling.adduct_handling import AdductHandling
 
 
 class SpectrumTransformerEncoderCustom(SpectrumTransformerEncoder):
-    def __init__(self, *args, use_extra_metadata: bool = False, use_categorical_adducts: bool= False, 
-                      adduct_info_csv:str="",  **kwargs):
+    def __init__(
+        self,
+        *args,
+        use_extra_metadata: bool = False,
+        use_categorical_adducts: bool = False,
+        adduct_info_csv: str = "",
+        **kwargs,
+    ):
         """
         Custom Spectrum Transformer Encoder with optional precursor metadata usage.
-        
+
         Parameters
         ----------
         use_extra_metadata : bool, optional
@@ -20,8 +25,8 @@ class SpectrumTransformerEncoderCustom(SpectrumTransformerEncoder):
         """
         super().__init__(*args, **kwargs)
         self.use_extra_metadata = use_extra_metadata
-        self.use_categorical_adducts=use_categorical_adducts
-        self.adduct_info_csv =adduct_info_csv
+        self.use_categorical_adducts = use_categorical_adducts
+        self.adduct_info_csv = adduct_info_csv
 
     def precursor_hook(
         self,
@@ -29,11 +34,11 @@ class SpectrumTransformerEncoderCustom(SpectrumTransformerEncoder):
         intensity_array: torch.Tensor,
         **kwargs: dict,
     ):
-    # scalar / per-batch metadata
+        # scalar / per-batch metadata
         if self.use_extra_metadata:
             device = mz_array.device
-            dtype  = mz_array.dtype
-            B = mz_array.shape[0]   # batch size
+            dtype = mz_array.dtype
+            B = mz_array.shape[0]  # batch size
 
             # scalar metadata as tensors
             mass_precursor = kwargs["precursor_mass"].float().to(device)
@@ -42,7 +47,9 @@ class SpectrumTransformerEncoderCustom(SpectrumTransformerEncoder):
             adduct_mass_precursor = kwargs["adduct_mass"].float().to(device)
 
             # placeholder
-            placeholder = torch.zeros((B, self.d_model), dtype=dtype, device=device)
+            placeholder = torch.zeros(
+                (B, self.d_model), dtype=dtype, device=device
+            )
 
             # ---- FIRST 4 FIXED FEATURES ----
             base_meta = torch.cat(
@@ -61,7 +68,11 @@ class SpectrumTransformerEncoderCustom(SpectrumTransformerEncoder):
             # ======================================================
             # ionization_mode_precursor is numeric (e.g., +1 / -1)
             ion_mode_str_list = [
-                "positive" if ionization_mode_precursor[i].item() > 0 else "negative"
+                (
+                    "positive"
+                    if ionization_mode_precursor[i].item() > 0
+                    else "negative"
+                )
                 for i in range(B)
             ]
             # Now we have: ["positive", "negative", ...] for the batch
@@ -81,18 +92,23 @@ class SpectrumTransformerEncoderCustom(SpectrumTransformerEncoder):
                     adduct_vectors.append(adduct_list)
 
                 # Convert list[list] → tensor B × F
-                adduct_tensor = torch.tensor(adduct_vectors, dtype=dtype, device=device)
+                adduct_tensor = torch.tensor(
+                    adduct_vectors, dtype=dtype, device=device
+                )
 
                 # Write categorical adducts after the first 4 positions
-                placeholder[:, 4:4 + adduct_tensor.shape[1]] = adduct_tensor
+                placeholder[:, 4 : 4 + adduct_tensor.shape[1]] = adduct_tensor
         else:
             mass_precursor = torch.tensor(kwargs["precursor_mass"].float())
             charge_precursor = torch.tensor(kwargs["precursor_charge"].float())
 
             # placeholder
-            placeholder = torch.zeros((mz_array.shape[0], self.d_model)).type_as(mz_array)
+            placeholder = torch.zeros(
+                (mz_array.shape[0], self.d_model)
+            ).type_as(mz_array)
 
             placeholder[:, 0:2] = torch.cat(
-                (mass_precursor.view(-1, 1), charge_precursor.view(-1, 1)), dim=-1
+                (mass_precursor.view(-1, 1), charge_precursor.view(-1, 1)),
+                dim=-1,
             )
         return placeholder

@@ -3,48 +3,46 @@
 # os.chdir('/Users/sebas/projects/metabolomics')
 # os.environ["PYTORCH_ENABLE_MPS_FALLBACK"] = "1"
 
+import itertools
+import pickle
+import sys
+from datetime import datetime
+
+import dill
+
 # %%
 # from simba.transformers.sklearn_model import SklearnModel
 import gensim
-from simba.load_data import LoadData
-from simba.config import Config
-from tqdm import tqdm
-from simba.loader_saver import LoaderSaver
-import itertools
-import numpy as np
-from scipy.stats import spearmanr
-import dill
-from simba.plotting import Plotting
-from simba.load_data import LoadData
-from simba.molecule_pairs_opt import MoleculePairsOpt
-from sklearn.model_selection import train_test_split
-from simba.train_utils import TrainUtils
-from simba.preprocessor import Preprocessor
-import pickle
-import sys
-from simba.config import Config
-from simba.parser import Parser
-from datetime import datetime
-from ms2deepscore import MS2DeepScore
-from simba.loader_saver import LoaderSaver
-from simba.molecular_pairs_set import MolecularPairsSet
-from scipy.stats import spearmanr
-from simba.transformers.embedder import Embedder
-from simba.transformers.encoder import Encoder
 import matplotlib.pyplot as plt
-from simba.transformers.CustomDatasetEncoder import CustomDatasetEncoder
-from simba.transformers.load_data_encoder import LoadDataEncoder
-from torch.utils.data import DataLoader
-from simba.analog_discovery.cosine_similarity import CosineSimilarity
-from rdkit import Chem
+import numpy as np
+import tensorflow as tf
 from matchms.importing import load_from_mgf, load_from_msp
 from matchms.similarity import ModifiedCosine
-
-# from simba.spec2vec_comparison import Spec2VecComparison
-# from spec2vec import Spec2Vec
-import tensorflow as tf
+from ms2deepscore import MS2DeepScore
 from ms2deepscore.models import load_model
+from rdkit import Chem
+from scipy.stats import spearmanr
+from sklearn.model_selection import train_test_split
 
+# from spec2vec import Spec2Vec
+from torch.utils.data import DataLoader
+from tqdm import tqdm
+
+from simba.analog_discovery.cosine_similarity import CosineSimilarity
+from simba.config import Config
+from simba.load_data import LoadData
+from simba.loader_saver import LoaderSaver
+from simba.molecular_pairs_set import MolecularPairsSet
+from simba.molecule_pairs_opt import MoleculePairsOpt
+from simba.parser import Parser
+from simba.plotting import Plotting
+from simba.preprocessor import Preprocessor
+from simba.spec2vec_comparison import Spec2VecComparison
+from simba.train_utils import TrainUtils
+from simba.transformers.CustomDatasetEncoder import CustomDatasetEncoder
+from simba.transformers.embedder import Embedder
+from simba.transformers.encoder import Encoder
+from simba.transformers.load_data_encoder import LoadDataEncoder
 
 # %% [markdown]
 # ## params
@@ -56,12 +54,16 @@ gnps_path = data_folder + "ALL_GNPS_NO_PROPOGATED_wb.mgf"
 janssen_path = data_folder + "drug_plus.mgf"
 nist_path = data_folder + "hr_msms_nist_all.MSP"
 output_janssen_file = data_folder + "all_spectrums_janssen.pkl"
-dataset_path = data_folder + "merged_gnps_nist_20240311_unique_smiles_1_million.pkl"
+dataset_path = (
+    data_folder + "merged_gnps_nist_20240311_unique_smiles_1_million.pkl"
+)
 model_path = data_folder + "best_model_20240319_v2_512u_5_layers.ckpt"
 model_spec2vec_file = (
     data_folder + "spec2vec_AllPositive_ratio05_filtered_201101_iter_15.model"
 )
-model_ms2d_file = data_folder + "ms2deepscore_positive_10k_1000_1000_1000_500.hdf5"
+model_ms2d_file = (
+    data_folder + "ms2deepscore_positive_10k_1000_1000_1000_500.hdf5"
+)
 
 # %%
 config = Config()
@@ -88,7 +90,7 @@ loader_saver = LoaderSaver(
 )
 
 # %%
-all_spectrums_janssen_su = loader_saver.get_all_spectrums(
+all_spectrums_janssen_su = loader_saver.get_all_spectra(
     janssen_path,
     100000000,
     use_tqdm=True,
@@ -178,10 +180,14 @@ canon_smiles_janssen = [
     Chem.CanonSmiles(s.metadata["smiles"]) for s in all_spectrums_janssen
 ]
 janssen_indexes_in_ref = [
-    i for i, s in enumerate(canon_smiles_janssen) if s in canon_smiles_reference
+    i
+    for i, s in enumerate(canon_smiles_janssen)
+    if s in canon_smiles_reference
 ]
 janssen_indexes_not_in_ref = [
-    i for i, s in enumerate(canon_smiles_janssen) if s not in canon_smiles_reference
+    i
+    for i, s in enumerate(canon_smiles_janssen)
+    if s not in canon_smiles_reference
 ]
 
 # %%
@@ -208,7 +214,9 @@ all_spectrums_janssen = [
 if similarity_name == "spec2vec":
     model = gensim.models.Word2Vec.load(model_spec2vec_file)
     similarity_model = Spec2Vec(
-        model=model, intensity_weighting_power=0.5, allowed_missing_percentage=100.0
+        model=model,
+        intensity_weighting_power=0.5,
+        allowed_missing_percentage=100.0,
     )
     PREPROCESS_SPECTRUMS = True
 elif similarity_name == "modified_cosine":
@@ -229,8 +237,10 @@ PREPROCESS_SPECTRUMS
 preprocessed_all_spectrums_janssen = all_spectrums_janssen.copy()
 if PREPROCESS_SPECTRUMS:
     for i, s in tqdm(enumerate(preprocessed_all_spectrums_janssen)):
-        preprocessed_all_spectrums_janssen[i] = Spec2VecComparison.spectrum_processing(
-            preprocessed_all_spectrums_janssen[i]
+        preprocessed_all_spectrums_janssen[i] = (
+            Spec2VecComparison.spectrum_processing(
+                preprocessed_all_spectrums_janssen[i]
+            )
         )
 preprocessed_all_spectrums_janssen = [
     s
@@ -332,7 +342,9 @@ max_sim = [r[1] for r in results_tuple]
 smiles_retrieved = [s.metadata["smiles"] for s in spectrums_retrieved]
 
 # %%
-smiles_janssen = [s.metadata["smiles"] for s in preprocessed_all_spectrums_janssen]
+smiles_janssen = [
+    s.metadata["smiles"] for s in preprocessed_all_spectrums_janssen
+]
 
 # %%
 from simba.tanimoto import Tanimoto
@@ -388,7 +400,9 @@ def calculate_mcs_similarity(smiles1, smiles2):
     mcs_mol = Chem.MolFromSmarts(mcs_smarts)
     # mcs_count = len(Chem.GetMolFrags(mcs_mol))
     mcs_count = mcs_mol.GetNumAtoms()
-    similarity = mcs_count / (mol1.GetNumAtoms() + mol2.GetNumAtoms() - mcs_count)
+    similarity = mcs_count / (
+        mol1.GetNumAtoms() + mol2.GetNumAtoms() - mcs_count
+    )
 
     return similarity, mcs_mol
 
@@ -446,7 +460,9 @@ sim_mcs, mol_mcs = calculate_mcs_similarity(
 sim_mcs
 
 # %%
-spectrums_retrieved[target_spectra].plot_against(all_spectrums_janssen[target_spectra])
+spectrums_retrieved[target_spectra].plot_against(
+    all_spectrums_janssen[target_spectra]
+)
 # plt.xlim(0, 100)
 
 # %%
@@ -477,7 +493,9 @@ mol_janssen
 Chem.CanonSmiles(spectrums_retrieved[target_spectra].metadata["smiles"])
 
 # %%
-mol_ref = Chem.MolFromSmiles(spectrums_retrieved[target_spectra].metadata["smiles"])
+mol_ref = Chem.MolFromSmiles(
+    spectrums_retrieved[target_spectra].metadata["smiles"]
+)
 mol_ref
 
 # %% [markdown]
@@ -503,7 +521,13 @@ bin_width = 0.1
 bins = np.arange(0, 1 + bin_width, bin_width)
 
 # %%
-plt.hist(tanimoto_retrieved, alpha=0.5, label="tanimoto sim.", density=True, bins=bins)
+plt.hist(
+    tanimoto_retrieved,
+    alpha=0.5,
+    label="tanimoto sim.",
+    density=True,
+    bins=bins,
+)
 plt.hist(
     [m for m in mces_sims if m is not None],
     alpha=0.5,
@@ -543,7 +567,9 @@ for s in spectrums_retrieved:
 # %%
 original_spectrums_retrieved = [
     all_spectrums_reference[all_spectrums_ref_identifiers.index(ident)]
-    for s, ident in zip(spectrums_retrieved, all_spectrums_retrieved_identifiers)
+    for s, ident in zip(
+        spectrums_retrieved, all_spectrums_retrieved_identifiers
+    )
 ]
 
 # %%
@@ -599,7 +625,9 @@ spectrums_retrieved[5].metadata
 # %%
 bad_indexes = np.argsort(tanimoto_retrieved)[0:20]
 good_indexes = [
-    index for index in range(0, len(tanimoto_retrieved)) if index not in bad_indexes
+    index
+    for index in range(0, len(tanimoto_retrieved))
+    if index not in bad_indexes
 ]
 
 # %%
@@ -607,8 +635,12 @@ bad_spectrums = [spectrums_retrieved[index] for index in bad_indexes]
 good_spectrums = [spectrums_retrieved[index] for index in good_indexes]
 
 # %%
-is_gnps_bad_spectrums = [s for s in bad_spectrums if "spectrum_id" in s.metadata]
-is_gnps_good_spectrums = [s for s in good_spectrums if "spectrum_id" in s.metadata]
+is_gnps_bad_spectrums = [
+    s for s in bad_spectrums if "spectrum_id" in s.metadata
+]
+is_gnps_good_spectrums = [
+    s for s in good_spectrums if "spectrum_id" in s.metadata
+]
 
 # %%
 len(is_gnps_bad_spectrums) / len(bad_spectrums)
@@ -637,10 +669,14 @@ target_spectrum_janssen
 
 # %%
 target_spectrum_ref = [
-    s for s in preprocessed_all_spectrums_reference if "spectrum_id" in s.metadata
+    s
+    for s in preprocessed_all_spectrums_reference
+    if "spectrum_id" in s.metadata
 ]
 target_spectrum_ref = [
-    s for s in target_spectrum_ref if s.metadata["spectrum_id"] == "CCMSLIB00003134614"
+    s
+    for s in target_spectrum_ref
+    if s.metadata["spectrum_id"] == "CCMSLIB00003134614"
 ][0]
 
 # %%
@@ -652,13 +688,17 @@ target_results = calculate_scores(
 )
 
 # %%
-target_results.scores_by_query(target_spectrum_janssen, name="Spec2Vec", sort=True)
+target_results.scores_by_query(
+    target_spectrum_janssen, name="Spec2Vec", sort=True
+)
 
 # %% [markdown]
 # ## what I got when I run the model?
 
 # %%
-results_scores.scores_by_query(target_spectrum_janssen, name="Spec2Vec", sort=True)
+results_scores.scores_by_query(
+    target_spectrum_janssen, name="Spec2Vec", sort=True
+)
 
 # %%
 spectrums_retrieved

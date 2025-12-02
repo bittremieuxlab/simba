@@ -1,29 +1,29 @@
 from typing import List
+
+import keras.backend as K
+import numpy as np
 import tensorflow as tf
+from keras.layers import GlobalMaxPooling1D
+from keras.optimizers import Adam
 from tensorflow import keras
 from tensorflow.keras import layers
-from tensorflow.keras.models import Model
-import numpy as np
-from tensorflow.keras.callbacks import TensorBoard
+from tensorflow.keras.models import Model, load_model
+from tensorflow.keras.callbacks import TensorBoard, ModelCheckpoint
 from tensorflow.keras.layers import (
-    Input,
+    BatchNormalization,
+    Concatenate,
     Conv1D,
     Conv2D,
-    MaxPooling1D,
-    Lambda,
-    Flatten,
     Dense,
     Dropout,
-    Concatenate,
-    BatchNormalization,
+    Flatten,
+    Input,
+    Lambda,
+    MaxPooling1D,
+    Reshape,
 )
-from tensorflow.keras.layers import Reshape
-from keras.layers import GlobalMaxPooling1D
-import keras.backend as K
-from tensorflow.keras.callbacks import ModelCheckpoint
-from tensorflow.keras.models import load_model
+
 from simba.molecule_pair import MoleculePair
-from keras.optimizers import Adam
 from simba.plot_losses import PlotLosses
 
 

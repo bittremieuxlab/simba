@@ -1,5 +1,7 @@
 import os
+
 import numpy as np
+
 from simba.config import Config
 
 
@@ -93,7 +95,9 @@ class LoadMCES:
 
     def add_high_similarity_pairs_edit_distance(merged_array):
         max_index_spectrum = int(np.max(merged_array[:, 0]))
-        indexes_tani_high = np.zeros((max_index_spectrum, merged_array.shape[1]))
+        indexes_tani_high = np.zeros(
+            (max_index_spectrum, merged_array.shape[1])
+        )
         indexes_tani_high[:, 0] = np.arange(0, max_index_spectrum)
         indexes_tani_high[:, 1] = np.arange(0, max_index_spectrum)
         indexes_tani_high[:, 2] = 1
@@ -138,7 +142,9 @@ class LoadMCES:
         merged_array[:, 2] = LoadMCES.normalize_mces(merged_array[:, 2])
 
         # add the high similarity pairs
-        merged_array = LoadMCES.add_high_similarity_pairs_edit_distance(merged_array)
+        merged_array = LoadMCES.add_high_similarity_pairs_edit_distance(
+            merged_array
+        )
         # normalize
         # remove excess low pairs
         # merged_array = LoadMCES.remove_excess_low_pairs(merged_array)
@@ -146,7 +152,12 @@ class LoadMCES:
         return merged_array
 
     def merge_numpy_arrays_multitask(
-        directory_path, prefix, remove_percentage=0.00, add_high_similarity_pairs=False, normalize_mces=True, normalize_ed=True,
+        directory_path,
+        prefix,
+        remove_percentage=0.00,
+        add_high_similarity_pairs=False,
+        normalize_mces=True,
+        normalize_ed=True,
     ):
         """
         load np arrays containing data as well as apply normalization
@@ -159,51 +170,61 @@ class LoadMCES:
 
         # load np files
         print("Loading the partitioned files of the pairs")
-        list_arrays = []
+        pair_distances_chunks = []
         for i, f in enumerate(files):
             print(f"Processing batch {i}")
-            np_array = np.load(f)
+            pair_distances = np.load(f)
 
             # print(f'Size without removal: {np_array.shape[0]}')
 
-            np_array = LoadMCES.remove_excess_low_pairs(
-                np_array,
+            pair_distances = LoadMCES.remove_excess_low_pairs(
+                pair_distances,
                 remove_percentage=remove_percentage,
                 target_column=config.COLUMN_EDIT_DISTANCE,
             )
             # print(f'Size with removal: {np_array.shape[0]}')
-            list_arrays.append(np_array)
+            pair_distances_chunks.append(pair_distances)
 
         # merge
         print("Merging")
-        merged_array = np.concatenate([l for l in list_arrays if len(l) > 0], axis=0)
+        all_pair_distances = np.concatenate(
+            [l for l in pair_distances_chunks if len(l) > 0], axis=0
+        )
 
         print("Normalizing")
 
         if normalize_ed:
-            merged_array[:, config.COLUMN_EDIT_DISTANCE] = LoadMCES.normalize_ed(
-                merged_array[:, config.COLUMN_EDIT_DISTANCE],
+            all_pair_distances[:, config.COLUMN_EDIT_DISTANCE] = (
+                LoadMCES.normalize_ed(
+                    all_pair_distances[:, config.COLUMN_EDIT_DISTANCE],
+                )
             )
 
         if normalize_mces:
-            if not (config.USE_TANIMOTO):  # if not using tanimoto normalize between 0 and 1
-                merged_array[:, config.COLUMN_MCES20] = LoadMCES.normalize_mces20(
-                    merged_array[:, config.COLUMN_MCES20],
-                    max_value=config.MCES20_MAX_VALUE,
-                    remove_negative_values=True,
+            if not (
+                config.USE_TANIMOTO
+            ):  # if not using tanimoto normalize between 0 and 1
+                all_pair_distances[:, config.COLUMN_MCES20] = (
+                    LoadMCES.normalize_mces20(
+                        all_pair_distances[:, config.COLUMN_MCES20],
+                        max_value=config.MCES20_MAX_VALUE,
+                        remove_negative_values=True,
+                    )
                 )
 
         # add the high similarity pairs
         if add_high_similarity_pairs:
-            merged_array = LoadMCES.add_high_similarity_pairs_edit_distance(
-                merged_array
+            all_pair_distances = (
+                LoadMCES.add_high_similarity_pairs_edit_distance(
+                    all_pair_distances
+                )
             )
         # normalize
         # remove excess low pairs
         # merged_array = LoadMCES.remove_excess_low_pairs(merged_array)
 
-        print(f"Number of pairs loaded: {merged_array.shape[0]}  ")
-        return merged_array
+        print(f"Number of pairs loaded: {all_pair_distances.shape[0]}  ")
+        return all_pair_distances
 
     def merge_numpy_arrays(
         directory_path,
@@ -249,12 +270,18 @@ class LoadMCES:
         sample_size = indexes_tani.shape[0] - int(
             remove_percentage * indexes_tani.shape[0]
         )
-        print(f'Shape of data loaded from folder: {indexes_tani.shape[0]}')
+        print(f"Shape of data loaded from folder: {indexes_tani.shape[0]}")
         # filter by high or low similarity, assuming MCES distance
-        indexes_tani_high = indexes_tani[indexes_tani[:, target_column] < max_value]
-        indexes_tani_low = indexes_tani[indexes_tani[:, target_column] >= max_value]
+        indexes_tani_high = indexes_tani[
+            indexes_tani[:, target_column] < max_value
+        ]
+        indexes_tani_low = indexes_tani[
+            indexes_tani[:, target_column] >= max_value
+        ]
 
-        print(f'indexes_tani_low.shape[0]: {indexes_tani_low.shape[0]}, sample_size:{sample_size}')
+        print(
+            f"indexes_tani_low.shape[0]: {indexes_tani_low.shape[0]}, sample_size:{sample_size}"
+        )
         if remove_percentage > 0:
             random_samples = np.random.randint(
                 0, indexes_tani_low.shape[0], sample_size

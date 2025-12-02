@@ -2,12 +2,13 @@
 import os
 
 os.chdir("/scratch/antwerpen/209/vsc20939/metabolomics")
-import dill
-from simba.config import Config
 import os
-from simba.parser import Parser
-from simba.molecule_pairs_opt import MoleculePairsOpt
 
+import dill
+
+from simba.config import Config
+from simba.molecule_pairs_opt import MoleculePairsOpt
+from simba.parser import Parser
 
 config = Config()
 parser = Parser()
@@ -48,10 +49,10 @@ for k in data_keys:
 
     target_dataset.indexes_tani = new_indexes_tani
     new_target_dataset = MoleculePairsOpt(
-        spectrums_original=target_dataset.spectrums_original,
-        spectrums_unique=target_dataset.spectrums,
+        original_spectra=target_dataset.spectrums_original,
+        unique_spectra=target_dataset.spectrums,
         df_smiles=target_dataset.df_smiles,
-        indexes_tani_unique=new_indexes_tani,
+        pair_distances=new_indexes_tani,
     )
     new_dataset[k] = new_target_dataset
     print(f"Number of pairs updated: {len(new_target_dataset)}")

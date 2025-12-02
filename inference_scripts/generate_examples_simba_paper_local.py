@@ -1,5 +1,5 @@
-import sys
 import os
+import sys
 
 # Make sure the root path is in sys.path
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
@@ -9,41 +9,45 @@ sys.path.insert(0, project_root)
 os.chdir(project_root)
 os.environ["PYTORCH_ENABLE_MPS_FALLBACK"] = "1"
 
-import simba 
-sys.modules['src']=simba
+import simba
+
+sys.modules["src"] = simba
+import pickle
+import random
+
 import dill
-import torch
-from torch.utils.data import DataLoader
 import lightning.pytorch as pl
+import matchms.filtering as msfilters
+import matplotlib.pyplot as plt
+import numpy as np
+import seaborn as sns
+import tensorflow as tf
+import torch
+from matchms import calculate_scores
+from matchms.filtering.default_pipelines import DEFAULT_FILTERS
+from matchms.Pipeline import Pipeline, create_workflow
 from matchms.similarity import ModifiedCosine
 from pytorch_lightning.callbacks import ProgressBar
-from simba.train_utils import TrainUtils
-import matplotlib.pyplot as plt
-from simba.config import Config
-import numpy as np
+from scipy.stats import spearmanr
+from sklearn.metrics import accuracy_score, confusion_matrix
 from torch.utils.data import DataLoader, WeightedRandomSampler
-import pickle
-from simba.parser import Parser
-import random
-from simba.weight_sampling import WeightSampling
+from tqdm import tqdm
+
+from simba.config import Config
+from simba.load_mces.load_mces import LoadMCES
 from simba.losscallback import LossCallback
 from simba.molecular_pairs_set import MolecularPairsSet
-from simba.sanity_checks import SanityChecks
-from simba.transformers.postprocessing import Postprocessing
-from scipy.stats import spearmanr
-import seaborn as sns
-from simba.ordinal_classification.load_data_multitasking import LoadDataMultitasking
 from simba.ordinal_classification.embedder_multitask import EmbedderMultitask
-from sklearn.metrics import confusion_matrix, accuracy_score
-from simba.load_mces.load_mces import LoadMCES
+from simba.ordinal_classification.load_data_multitasking import (
+    LoadDataMultitasking,
+)
+from simba.parser import Parser
 from simba.performance_metrics.performance_metrics import PerformanceMetrics
+from simba.sanity_checks import SanityChecks
 from simba.tanimoto import Tanimoto
-from matchms import calculate_scores
-import tensorflow as tf
-from tqdm import tqdm
-from matchms.Pipeline import Pipeline, create_workflow
-from matchms.filtering.default_pipelines import DEFAULT_FILTERS
-import matchms.filtering as msfilters
+from simba.train_utils import TrainUtils
+from simba.transformers.postprocessing import Postprocessing
+from simba.weight_sampling import WeightSampling
 
 
 def remove_duplicates_array(array):
@@ -72,15 +76,17 @@ config.LR = 0.00001
 config = parser.update_config(config)
 
 config.CHECKPOINT_DIR = "/Users/sebas/projects/data/model_checkpoints_256_units_5_layers_1000_epochs_1e-05_lr_128_bs_generated_data_peak_dropout_more_data/"
-config.PREPROCESSING_DIR = "/Users/sebas/projects/data/preprocessing_ed_mces_20250123/"
+config.PREPROCESSING_DIR = (
+    "/Users/sebas/projects/data/preprocessing_ed_mces_20250123/"
+)
 config.PREPROCESSING_DIR_TRAIN = (
     "/Users/sebas/projects/data/preprocessing_ed_mces_20250123/"
 )
 data_folder = "/Users/sebas/projects/data/"
 model_ms2d_file = data_folder + "ms2deepscore_model.pt"
 
-from ms2deepscore.models import load_model
 from ms2deepscore import MS2DeepScore
+from ms2deepscore.models import load_model
 
 model_ms2d = load_model(model_ms2d_file)
 
@@ -154,7 +160,9 @@ indexes_tani_multitasking_test = LoadMCES.merge_numpy_arrays(
     use_multitask=config.USE_MULTITASK,
 )
 
-indexes_tani_multitasking_test = remove_duplicates_array(indexes_tani_multitasking_test)
+indexes_tani_multitasking_test = remove_duplicates_array(
+    indexes_tani_multitasking_test
+)
 
 
 ### Just for subsampling
@@ -176,7 +184,9 @@ print(f"shape of similarity2: {molecule_pairs_test_ed.tanimotos.shape}")
 print(f"Number of pairs for test: {len(molecule_pairs_test_ed)}")
 
 # get the mces
-molecule_pairs_test_mces.indexes_tani = indexes_tani_multitasking_test[:, [0, 1, 3]]
+molecule_pairs_test_mces.indexes_tani = indexes_tani_multitasking_test[
+    :, [0, 1, 3]
+]
 molecule_pairs_test_mces.tanimotos = indexes_tani_multitasking_test[:, 3]
 
 
@@ -195,23 +205,27 @@ else:
 # molecule_pairs_test = dataset["molecule_pairs_test"]
 print(f"Number of molecule pairs: {len(molecule_pairs_test_ed)}")
 print("Uniformize the data")
-uniformed_molecule_pairs_test_ed, binned_molecule_pairs_ed = TrainUtils.uniformise(
-    molecule_pairs_test_ed,
-    number_bins=5,
-    return_binned_list=True,
-    bin_sim_1=True,
-    # bin_sim_1=False,
-    ordinal_classification=True,
+uniformed_molecule_pairs_test_ed, binned_molecule_pairs_ed = (
+    TrainUtils.uniformise(
+        molecule_pairs_test_ed,
+        number_bins=5,
+        return_binned_list=True,
+        bin_sim_1=True,
+        # bin_sim_1=False,
+        ordinal_classification=True,
+    )
 )  # do not treat sim==1 as another bin
 
 
-uniformed_molecule_pairs_test_mces, binned_molecule_pairs_mces = TrainUtils.uniformise(
-    molecule_pairs_test_mces,
-    number_bins=10,
-    return_binned_list=True,
-    bin_sim_1=False,
-    # bin_sim_1=False,
-    # ordinal_classification=True,
+uniformed_molecule_pairs_test_mces, binned_molecule_pairs_mces = (
+    TrainUtils.uniformise(
+        molecule_pairs_test_mces,
+        number_bins=10,
+        return_binned_list=True,
+        bin_sim_1=False,
+        # bin_sim_1=False,
+        # ordinal_classification=True,
+    )
 )  # do not treat sim==1 as another bin
 
 
@@ -220,14 +234,18 @@ n_spectra = len(uniformed_molecule_pairs_test_ed)
 # n_spectra= len(uniformed_molecule_pairs_test_mces)
 # indexes_0 = uniformed_molecule_pairs_test_mces.indexes_tani[:,0]
 # indexes_1 = uniformed_molecule_pairs_test_mces.indexes_tani[:,1]
-indexes_0 = uniformed_molecule_pairs_test_ed.indexes_tani[:, 0]
-indexes_1 = uniformed_molecule_pairs_test_ed.indexes_tani[:, 1]
+indexes_0 = uniformed_molecule_pairs_test_ed.pair_distances[:, 0]
+indexes_1 = uniformed_molecule_pairs_test_ed.pair_distances[:, 1]
 spectra0 = [
-    uniformed_molecule_pairs_test_mces.get_original_spectrum_from_unique_index(index, 0)
+    uniformed_molecule_pairs_test_mces.get_original_spectrum_from_unique_index(
+        index, 0
+    )
     for index in indexes_0
 ]
 spectra1 = [
-    uniformed_molecule_pairs_test_mces.get_original_spectrum_from_unique_index(index, 1)
+    uniformed_molecule_pairs_test_mces.get_original_spectrum_from_unique_index(
+        index, 1
+    )
     for index in indexes_1
 ]
 
@@ -258,14 +276,16 @@ spectra1_mms = create_new_spectra(spectra1_mms)
 
 # dataset_train = LoadData.from_molecule_pairs_to_dataset(m_train)
 dataset_test_ed = LoadDataMultitasking.from_molecule_pairs_to_dataset(
-    uniformed_molecule_pairs_test_ed, max_num_peaks=int(config.TRANSFORMER_CONTEXT)
+    uniformed_molecule_pairs_test_ed,
+    max_num_peaks=int(config.TRANSFORMER_CONTEXT),
 )
 dataloader_test_ed = DataLoader(
     dataset_test_ed, batch_size=config.BATCH_SIZE, shuffle=False
 )
 
 dataset_test_mces = LoadDataMultitasking.from_molecule_pairs_to_dataset(
-    uniformed_molecule_pairs_test_mces, max_num_peaks=int(config.TRANSFORMER_CONTEXT)
+    uniformed_molecule_pairs_test_mces,
+    max_num_peaks=int(config.TRANSFORMER_CONTEXT),
 )
 dataloader_test_mces = DataLoader(
     dataset_test_mces, batch_size=config.BATCH_SIZE, shuffle=False
@@ -370,7 +390,9 @@ flat_pred_test2 = np.array(flat_pred_test2)
 
 # flat_pred_test1 = [p[0] for p in pred_test_mces]
 flat_pred_test1 = [p[0] for p in pred_test_ed]
-flat_pred_test1 = [[which_index(p) for p in p_list] for p_list in flat_pred_test1]
+flat_pred_test1 = [
+    [which_index(p) for p in p_list] for p_list in flat_pred_test1
+]
 flat_pred_test1 = [item for sublist in flat_pred_test1 for item in sublist]
 flat_pred_test1 = np.array(flat_pred_test1)
 
@@ -438,7 +460,9 @@ pred_mod_cos = np.array(pred_mod_cos)
 
 print("Running tanimotos ...")
 tanimotos = [
-    Tanimoto.compute_tanimoto_from_smiles(s0.params["smiles"], s1.params["smiles"])
+    Tanimoto.compute_tanimoto_from_smiles(
+        s0.params["smiles"], s1.params["smiles"]
+    )
     for s0, s1 in zip(spectra0, spectra1)
 ]
 
@@ -466,13 +490,10 @@ def filter_good_examples(
     # equal_edit_distance= (sim_np_1==pred_np_1)
     equal_mces = np.abs(sim_np_2 - pred_np_2) < 0.2
 
-    bad_mces = np.abs(sim_np_2 - pred_np_2) > 0.5 
+    bad_mces = np.abs(sim_np_2 - pred_np_2) > 0.5
 
-
-
-    low_mces =  (sim_np_2 > 0.8) & (sim_np_2 != 1)
-    high_mces = (sim_np_2 < 0.2) 
-
+    low_mces = (sim_np_2 > 0.8) & (sim_np_2 != 1)
+    high_mces = sim_np_2 < 0.2
 
     # low_mces =  (sim_np_2>0.8)
     low_mod_cos = pred_mod_cos < 0.2
@@ -486,22 +507,30 @@ def filter_good_examples(
     )  ## the prediction is low and the differrence between tanimoto and ms2 is high
 
     condition_1 = (
-        (equal_edit_distance & equal_mces & low_mces) & low_tanimoto & low_mod_cos
+        (equal_edit_distance & equal_mces & low_mces)
+        & low_tanimoto
+        & low_mod_cos
     )
     condition_2 = (
-        (equal_edit_distance & equal_mces & low_mces) & low_tanimoto & high_mod_cos
+        (equal_edit_distance & equal_mces & low_mces)
+        & low_tanimoto
+        & high_mod_cos
     )
     condition_3 = (
-        (equal_edit_distance & equal_mces & low_mces) & high_tanimoto & low_mod_cos
+        (equal_edit_distance & equal_mces & low_mces)
+        & high_tanimoto
+        & low_mod_cos
     )
     condition_4 = (
-        (equal_edit_distance & equal_mces & low_mces) & high_tanimoto & high_mod_cos
+        (equal_edit_distance & equal_mces & low_mces)
+        & high_tanimoto
+        & high_mod_cos
     )
     condition_5 = (equal_edit_distance & equal_mces & low_mces) & low_ms2
 
     condition_6 = bad_mces & low_mces
     condition_7 = bad_mces & high_mces
-     
+
     good_indexes_dict = {}
 
     good_indexes_dict["bad_ms2"] = np.argwhere(condition_5)
@@ -513,13 +542,9 @@ def filter_good_examples(
         condition_5 & condition_3
     )
 
-    good_indexes_dict["bad_simba_low_mces"] = np.argwhere(
-        condition_6
-    )
+    good_indexes_dict["bad_simba_low_mces"] = np.argwhere(condition_6)
 
-    good_indexes_dict["bad_simba_high_mces"] = np.argwhere(
-        condition_7
-    )
+    good_indexes_dict["bad_simba_high_mces"] = np.argwhere(condition_7)
 
     # return np.argwhere(condition_1|condition_2 |condition_3 )
     return good_indexes_dict
@@ -540,16 +565,16 @@ good_indexes_dict = filter_good_examples(
     tanimotos,
 )
 
-with open('/Users/sebas/projects/data/good_indexes_dict.pkl','wb') as f:
-    data={}
-    data['good_indexes_dict']=good_indexes_dict
-    data['similarities_ed']=similarities_test1
+with open("/Users/sebas/projects/data/good_indexes_dict.pkl", "wb") as f:
+    data = {}
+    data["good_indexes_dict"] = good_indexes_dict
+    data["similarities_ed"] = similarities_test1
     data["similarities_mces"] = similarities_test2
     data["predictions_ed"] = flat_pred_test1
     data["predictions_mces"] = flat_pred_test2
     data["pred_mod_cos"] = pred_mod_cos
     data["pred_ms2"] = pred_ms2
-    data['uniformed_molecule_pairs_test_ed']=uniformed_molecule_pairs_test_ed
+    data["uniformed_molecule_pairs_test_ed"] = uniformed_molecule_pairs_test_ed
     dill.dump(data, f)
 
 

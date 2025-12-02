@@ -1,13 +1,14 @@
 ### Check the distribution of edit distance and mces with threshold 20
 
-from simba.load_mces.load_mces import LoadMCES
-from simba.mces.mces_computation import MCES
-import numpy as np
-from tqdm import tqdm
-import pandas as pd
 import os
+
 import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+from tqdm import tqdm
+
 from simba.config import Config
+from simba.load_mces.load_mces import LoadMCES
 from simba.mces.mces_computation import MCES
 
 
@@ -58,7 +59,9 @@ indexes_tani_multitasking_train_uc = LoadMCES.merge_numpy_arrays(
     add_high_similarity_pairs=0,
 )
 
-data_train = np.concatenate((data_train, indexes_tani_multitasking_train_uc), axis=0)
+data_train = np.concatenate(
+    (data_train, indexes_tani_multitasking_train_uc), axis=0
+)
 data_train = remove_duplicates_array(data_train)
 
 

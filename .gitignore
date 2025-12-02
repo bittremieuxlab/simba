@@ -60,12 +60,14 @@ htmlcov/
 *.pth
 *.pt
 model_checkpoints*
+output_dir*
+run_scripts_tfs*
 
 # Data files
 *.h5
 *.hdf5
-*.npy
-*.npz
+*.npy 
+*.csv
 
 # Logs
 logs/
@@ -83,9 +85,3 @@ temp/
 # ============================================================================
 .ruff_cache/
 .pre-commit-config.yaml.backup
-
-# ============================================================================
-# UV Package Manager
-# ============================================================================
-# uv.lock should be committed for reproducibility
-# Only ignore .venv (already covered above)

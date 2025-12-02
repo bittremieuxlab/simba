@@ -1,38 +1,38 @@
 import os
-
-# In[268]:
-
+import random
 
 import dill
-import torch
-from torch.utils.data import DataLoader
 import lightning.pytorch as pl
-
-from pytorch_lightning.callbacks import ProgressBar
-from simba.train_utils import TrainUtils
 import matplotlib.pyplot as plt
-from simba.config import Config
 import numpy as np
+import seaborn as sns
+import torch
+from pytorch_lightning.callbacks import ProgressBar
+from scipy.stats import spearmanr
+from sklearn.metrics import confusion_matrix
 from torch.utils.data import DataLoader, WeightedRandomSampler
-import os
-from simba.parser import Parser
-import random
-from simba.weight_sampling import WeightSampling
+
+from simba.config import Config
+from simba.load_mces.load_mces import LoadMCES
 from simba.losscallback import LossCallback
 from simba.molecular_pairs_set import MolecularPairsSet
-from simba.sanity_checks import SanityChecks
-from simba.transformers.postprocessing import Postprocessing
-from scipy.stats import spearmanr
-import seaborn as sns
-from simba.ordinal_classification.load_data_multitasking import LoadDataMultitasking
 from simba.ordinal_classification.embedder_multitask import EmbedderMultitask
+from simba.ordinal_classification.load_data_multitasking import (
+    LoadDataMultitasking,
+)
+from simba.parser import Parser
+from simba.plotting import Plotting
+from simba.sanity_checks import SanityChecks
+from simba.train_utils import TrainUtils
 from simba.transformers.embedder import Embedder
-from sklearn.metrics import confusion_matrix
-from simba.load_mces.load_mces import LoadMCES
+from simba.transformers.postprocessing import Postprocessing
+from simba.weight_sampling import WeightSampling
 from simba.weight_sampling_tools.custom_weighted_random_sampler import (
     CustomWeightedRandomSampler,
 )
-from simba.plotting import Plotting
+
+# In[268]:
+
 
 # parameters
 config = Config()
@@ -98,12 +98,16 @@ indexes_tani_multitasking_train_uc = LoadMCES.merge_numpy_arrays(
 )
 
 
-print(f"Size before removing duplicates {indexes_tani_multitasking_train_uc.shape}")
+print(
+    f"Size before removing duplicates {indexes_tani_multitasking_train_uc.shape}"
+)
 print("Remove duplicates")
 indexes_tani_multitasking_train_uc = remove_duplicates_array(
     indexes_tani_multitasking_train_uc
 )
-print(f"Size after removing duplicates {indexes_tani_multitasking_train_uc.shape}")
+print(
+    f"Size after removing duplicates {indexes_tani_multitasking_train_uc.shape}"
+)
 
 ## Load new generated data
 print("Loading generated data")
@@ -130,7 +134,10 @@ print(
 
 
 indexes_tani_multitasking_train_total = np.concatenate(
-    (indexes_tani_multitasking_train_uc, indexes_tani_multitasking_train_generated),
+    (
+        indexes_tani_multitasking_train_uc,
+        indexes_tani_multitasking_train_generated,
+    ),
     axis=0,
 )
 indexes_tani_multitasking_train_total = remove_duplicates_array(
@@ -142,7 +149,9 @@ for type_data in ["uc", "generated", "total"]:
     if type_data == "uc":
         indexes_tani_multitasking_train = indexes_tani_multitasking_train_uc
     elif type_data == "generated":
-        indexes_tani_multitasking_train = indexes_tani_multitasking_train_generated
+        indexes_tani_multitasking_train = (
+            indexes_tani_multitasking_train_generated
+        )
     else:
         indexes_tani_multitasking_train = indexes_tani_multitasking_train_total
 

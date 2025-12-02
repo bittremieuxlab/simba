@@ -1,8 +1,6 @@
 import os
 
-
 import numpy as np
-
 
 data_folder = "/scratch/antwerpen/209/vsc20939/data/"
 # datapath of tanimoto pairs computed
@@ -20,7 +18,9 @@ indexes_tani_train = np.load(data_path)
 # In[8]:
 
 
-indexes_tani_train_high_exhaustive = indexes_tani_train[indexes_tani_train[:, 2] > 0.5]
+indexes_tani_train_high_exhaustive = indexes_tani_train[
+    indexes_tani_train[:, 2] > 0.5
+]
 
 
 # In[9]:
@@ -66,7 +66,6 @@ matrix_similarities = np.load(matrix_similarities_path)
 # convert matrix similarities to the dimension of index train
 from tqdm import tqdm
 
-
 # In[15]:
 
 
@@ -108,7 +107,9 @@ for i, row in tqdm(enumerate(indexes_tani_train)):
 
 
 # compute abs diff between predicition and ground truth
-indexes_tani_train[:, 3] = np.abs(indexes_tani_train[:, 2] - indexes_tani_train[:, 3])
+indexes_tani_train[:, 3] = np.abs(
+    indexes_tani_train[:, 2] - indexes_tani_train[:, 3]
+)
 
 
 # In[ ]:

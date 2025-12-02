@@ -1,6 +1,8 @@
-import re
-import numpy as np
 import operator
+import re
+
+import numpy as np
+
 from simba.load_data import LoadData
 
 

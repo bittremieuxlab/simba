@@ -1,6 +1,6 @@
+import numpy as np
 import torch
 from torch.utils.data import WeightedRandomSampler
-import numpy as np
 
 
 class CustomWeightedRandomSampler(WeightedRandomSampler):

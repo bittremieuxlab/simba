@@ -1,9 +1,10 @@
+import os
+
+
 class Config:
     # default configuration
     # Spectra and spectrum pairs to include with the following settings.
     def __init__(self):
-        
-        
         # device
         self.ACCELERATOR = "gpu"
         # MULTITASKING
@@ -11,25 +12,32 @@ class Config:
         self.COLUMN_MCES20 = 3
 
         # PREPROCESSING
-        self.USE_ONLY_PROTONIZED_ADDUCTS=True
-        self.USE_EXTRA_METADATA_MODEL = False
         self.PREPROCESSING_BATCH_SIZE = 1000
         self.PREPROCESSING_NUM_WORKERS = 60
         self.PREPROCESSING_NUM_NODES = 10
-        self.PREPROCESSING_CURRENT_NODE = None  ## CURRENT NODE USED FOR PREPROCESSING
-
-        self.PREPROCESSING_OVERWRITE = (
-            False  # overwrite the output file during generation
-        )
+        # current node for preprocessing
+        self.PREPROCESSING_CURRENT_NODE = None
+        # overwrite the output file during generation
+        self.PREPROCESSING_OVERWRITE = False
+        # path to the spectra file
+        self.SPECTRA_PATH = None
+        # maximum number of spectra to use for training
+        self.MAX_SPECTRA_TRAIN = 1000
+        # maximum number of spectra to use for validation
+        self.MAX_SPECTRA_VAL = 1000
+        # maximum number of spectra to use for testing
+        self.MAX_SPECTRA_TEST = 1000
+        # fraction of spectra to use for validation
+        self.VAL_SPLIT = 0.1
+        # fraction of spectra to use for testing
+        self.TEST_SPLIT = 0.1
         # self.COMPUTE_SPECIFIC_PAIRS=True
-        self.USE_LEARNABLE_MULTITASK=True
+        self.USE_LEARNABLE_MULTITASK = True
         self.FORMAT_FILE_SPECIFIC_PAIRS = "INPUT_SPECIFIC_PAIRS_indexes_tani_incremental"  # the prefix of the file containing the indexes to be computed
         # self.USE_EDIT_DISTANCE=False ## If using edit distance for generating data, not for training!!!
         self.SUBSAMPLE_PREPROCESSING = False
         self.RANDOM_MCES_SAMPLING = False
-        self.CHARGES = [
-            1,
-        ]
+        self.CHARGES = [1]
         self.MIN_N_PEAKS = 6
         self.FRAGMENT_MZ_TOLERANCE = 0.1
         self.MIN_MASS_DIFF = 0  # Da
@@ -37,8 +45,15 @@ class Config:
         self.THRESHOLD_MCES = 20
         self.USE_PRECURSOR_MZ_FOR_MODEL = True
 
+        # Metadata
+        self.USE_ONLY_PROTONIZED_ADDUCTS = False
+        self.USE_ADDUCT = False
+        # Input adduct info as categorical variables
+        self.CATEGORICAL_ADDUCTS = False
+        self.ADDUCT_MASS_MAP_CSV = None
+
         ## FOR COMPUTING EDIT DISTANCE LOCALLY
-        self.USE_FINGERPRINT=False
+        self.USE_FINGERPRINT = False
         self.USE_EDIT_DISTANCE = (
             True  ## If using edit distance for generating data, not for training!!!
         )
@@ -69,17 +84,15 @@ class Config:
         self.use_cosine_distance = True
         self.LR = 1e-4
         self.epochs = 1000
-        self.VAL_CHECK_INTERVAL=10000
+        self.VAL_CHECK_INTERVAL = 10000
         self.BATCH_SIZE = 128
         self.enable_progress_bar = True
         self.threshold_class = 0.7  # threshold classification binary
         self.load_maldi_embedder = False
         self.INFERENCE_USE_LAST_MODEL = False
-        self.maldi_embedder_path = (
-            "/scratch/antwerpen/209/vsc20939/data/maldi_embedder/best_model.ckpt"
-        )
+        self.maldi_embedder_path = None  # Set via --maldi_embedder_path
         self.load_pretrained = False  # a whole SIMBA model
-        self.dataset_path = "/scratch/antwerpen/209/vsc20939/data/merged_gnps_nist_20240319_unique_smiles_100_million_v2_no_identity.pkl"
+        self.dataset_path = None  # Set via --dataset_path
         self.use_uniform_data_TRAINING = False
         self.bins_uniformise_TRAINING = 10
         self.use_uniform_data_INFERENCE = True
@@ -87,35 +100,33 @@ class Config:
         self.validate_after_ratio = 0.0010  # it indicates the interval between validations. O.1 means 10 validations in 1 epoch
         self.extra_info = "_multitasking_mces20raw_gumbelhard_20241004"
 
-        self.PREPROCESSING_DIR = f"/scratch/antwerpen/209/vsc20939/data/preprocessing_edit_distance_20250117/"
-        self.PREPROCESSING_DIR_TRAIN = (
-            f"/scratch/antwerpen/209/vsc20939/data/preprocessing_ed_mces_20250123/"
-        )
-        self.PREPROCESSING_DIR_VAL_TEST = f"/scratch/antwerpen/209/vsc20939/data/preprocessing_mces_threshold20_newdata_20240925/"
-        self.PREPROCESSING_PICKLE_FILE = f"edit_distance_neurips_nist_exhaustive.pkl"
+        self.PREPROCESSING_PICKLE_FILE = None
+        self.PREPROCESSING_DIR = None
+        self.PREPROCESSING_DIR_TRAIN = None
+        self.PREPROCESSING_DIR_VAL_TEST = None
+        self.MOL_SPEC_MAPPING_FILE = "edit_distance_neurips_nist_exhaustive.pkl"
         self.CHECKPOINT_DIR = None
-        self.pretrained_path=None
-        self.BEST_MODEL_NAME = f"best_model.ckpt"
-        self.PRETRAINED_MODEL_NAME = f"pretrained_model.ckpt"
+        self.pretrained_path = None
+        self.BEST_MODEL_NAME = "best_model.ckpt"
+        self.PRETRAINED_MODEL_NAME = "pretrained_model.ckpt"
         self.derived_variables()
-        
+
         ## TESTING
-        self.UNIFORMIZE_DURING_TESTING=True 
-        
-        ## ADDUCT HANDLING
-        self.USE_CATEGORICAL_ADDUCTS=False ## input adduct info as categorical variables
-        self.ADDUCT_INFO_CSV= "/Users/sebas/projects/metabolomics/data/ion_modes_with_adducts_with_M.csv"
-        
+        self.UNIFORMIZE_DURING_TESTING = True
+
     def derived_variables(self):
         self.MODEL_CODE = f"{self.D_MODEL}_units_{self.N_LAYERS}_layers_{self.epochs}_epochs_{self.LR}_lr_{self.BATCH_SIZE}_bs{self.extra_info}"
 
-        
         if self.CHECKPOINT_DIR is None:
-            self.CHECKPOINT_DIR = f"/scratch/antwerpen/209/vsc20939/data/model_checkpoints/model_checkpoints_{self.MODEL_CODE}/"
-
-        
-        
+            # Use environment variable or fallback to current working directory
+            # Set CHECKPOINT_BASE env var to customize (e.g., for cluster: /scratch/antwerpen/209/vsc20939/data/model_checkpoints)
+            checkpoint_base = os.environ.get("CHECKPOINT_BASE", "./checkpoints")
+            self.CHECKPOINT_DIR = os.path.join(
+                checkpoint_base, f"model_checkpoints_{self.MODEL_CODE}"
+            )
 
         if self.pretrained_path is None:
-            self.pretrained_path = self.CHECKPOINT_DIR + self.PRETRAINED_MODEL_NAME
-        self.best_model_path = self.CHECKPOINT_DIR + self.BEST_MODEL_NAME
+            self.pretrained_path = os.path.join(
+                self.CHECKPOINT_DIR, self.PRETRAINED_MODEL_NAME
+            )
+        self.best_model_path = os.path.join(self.CHECKPOINT_DIR, self.BEST_MODEL_NAME)

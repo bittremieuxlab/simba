@@ -1,10 +1,9 @@
-from simba.load_mces.load_mces import LoadMCES
-import numpy as np
 import dill
+import numpy as np
 
-data_folder = (
-    "/scratch/antwerpen/209/vsc20939/data/preprocessing_mces_threshold20_matching_ed_1/"
-)
+from simba.load_mces.load_mces import LoadMCES
+
+data_folder = "/scratch/antwerpen/209/vsc20939/data/preprocessing_mces_threshold20_matching_ed_1/"
 np_path = data_folder + "indexes_tani_incremental_val_1.npy"
 mol_file = data_folder + f"edit_distance_neurips_nist_exhaustive.pkl"
 

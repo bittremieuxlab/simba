@@ -1,6 +1,6 @@
+from matchms import calculate_scores
 from matchms.similarity import ModifiedCosine
 from tqdm import tqdm
-from matchms import calculate_scores
 
 
 class ModCosine:

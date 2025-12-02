@@ -2,14 +2,12 @@ print("Initiating script")
 
 # finderprints
 import dill
+import numpy as np
 from rdkit import Chem
 from rdkit.Chem import AllChem
-import numpy as np
 from tqdm import tqdm
 
-dataset_path = (
-    "/scratch/antwerpen/209/vsc20939/data/dataset_processed_augmented_20231207.pkl"
-)
+dataset_path = "/scratch/antwerpen/209/vsc20939/data/dataset_processed_augmented_20231207.pkl"
 output_path = "/scratch/antwerpen/209/vsc20939/data/dataset_processed_augmented_20231207_fingerprints.pkl"
 
 

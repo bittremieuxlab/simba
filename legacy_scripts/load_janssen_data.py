@@ -1,14 +1,16 @@
-import dill
-from simba.load_data import LoadData
-from sklearn.model_selection import train_test_split
-from simba.train_utils import TrainUtils
-from simba.preprocessor import Preprocessor
 import pickle
 import sys
-from simba.config import Config
-from simba.parser import Parser
 from datetime import datetime
+
+import dill
+from sklearn.model_selection import train_test_split
+
+from simba.config import Config
+from simba.load_data import LoadData
 from simba.loader_saver import LoaderSaver
+from simba.parser import Parser
+from simba.preprocessor import Preprocessor
+from simba.train_utils import TrainUtils
 
 # Get the current date and time
 print("Initiating molecular pair script ...")
@@ -23,7 +25,7 @@ use_tqdm = config.enable_progress_bar
 max_number_spectra_gnps = 100000
 max_combinations = 100
 # load spectra
-all_spectrums_janssen = LoadData.get_all_spectrums(
+all_spectrums_janssen = LoadData.get_all_spectra(
     janssen_path,
     max_number_spectra_gnps,
     use_tqdm=use_tqdm,

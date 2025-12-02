@@ -1,14 +1,16 @@
+import os
+
+import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
+import seaborn
+import spectrum_utils.plot as sup
 from rdkit import Chem
 from rdkit.Chem import Draw
 from PIL import Image, ImageDraw, ImageFont
-import matplotlib.pyplot as plt
-import spectrum_utils.plot as sup
-from simba.tanimoto import Tanimoto
+
 from simba.analog_discovery.mces import MCES
-import os
-import pandas as pd
-import seaborn
+from simba.tanimoto import Tanimoto
 
 
 class PerformanceMetrics:
@@ -154,8 +156,6 @@ class PerformanceMetrics:
         # sup.mirror(spec0, spec1, ax=ax)
         return fig, ax
 
-
-   
     @staticmethod
     def plot_molecules(
         molecule_pairs,

@@ -1,23 +1,25 @@
+import argparse
+import os
+import sys
+
 import dill
-import torch
-from torch.utils.data import DataLoader
-from simba.transformers.load_data_unique import LoadDataUnique
 import lightning.pytorch as pl
+import matplotlib.pyplot as plt
+import numpy as np
+import seaborn as sns
+import torch
+from scipy.stats import spearmanr
+from sklearn.metrics import r2_score
+from torch.utils.data import DataLoader
+
+from simba.config import Config
+from simba.deterministic_similarity import DetSimilarity
+from simba.parser import Parser
+from simba.plotting import Plotting
+from simba.train_utils import TrainUtils
+from simba.transformers.load_data_unique import LoadDataUnique
 from simba.transformers.embedder import Embedder
 from simba.transformers.postprocessing import Postprocessing
-from sklearn.metrics import r2_score
-from simba.train_utils import TrainUtils
-import matplotlib.pyplot as plt
-from simba.deterministic_similarity import DetSimilarity
-from simba.plotting import Plotting
-from simba.config import Config
-import numpy as np
-from torch.utils.data import DataLoader
-import argparse
-import sys
-import os
-from simba.parser import Parser
-from scipy.stats import spearmanr
 
 # parse arguments
 config = Config()
@@ -139,16 +141,12 @@ plt.grid()
 plt.savefig(fig_path)
 
 # hexbin plot
-import numpy as np
-import seaborn as sns
-
 print(f"Number of test samples: {len(y)}")
 sns.set_theme(style="ticks")
 plot = sns.jointplot(x=x, y=y, kind="hex", color="#4CB391", joint_kws=dict(alpha=1))
 # Set x and y labels
 plot.set_axis_labels("Tanimoto similarity", "Model prediction", fontsize=12)
 plt.savefig(config.CHECKPOINT_DIR + f"hexbin_plot_{config.MODEL_CODE}.png")
-
 
 # comparison with
 DetSimilarity.compute_all_scores(m_test, model_file=best_model_path, config=config)

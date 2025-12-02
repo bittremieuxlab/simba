@@ -10,18 +10,17 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-
 from depthcharge.data import AnnotatedSpectrumDataset
 from depthcharge.tokenizers import PeptideTokenizer
 from depthcharge.transformers import (
     SpectrumTransformerEncoder,
     # PeptideTransformerEncoder,
 )
+
+from simba.config import Config
 from simba.transformers.spectrum_transformer_encoder_custom import (
     SpectrumTransformerEncoderCustom,
 )
-import torch
-from simba.config import Config
 
 
 class FixedLinearRegression(nn.Module):

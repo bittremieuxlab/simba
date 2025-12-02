@@ -1,15 +1,15 @@
+import textwrap
+
 import matplotlib.pyplot as plt
-import spectrum_utils.plot as sup
 import matplotlib.ticker as mticker
 import numpy as np
 import pandas as pd
 import seaborn as sns
-from matplotlib.gridspec import GridSpec
+import spectrum_utils.plot as sup
 from matplotlib.colors import LogNorm
-import textwrap
-import numpy as np
-import matplotlib.pyplot as plt
+from matplotlib.gridspec import GridSpec
 from sklearn.metrics import roc_curve, auc
+
 from simba.config import Config
 
 
