@@ -84,11 +84,13 @@ class TestInferencePipeline:
         model.eval()
 
         mocker.patch(
-            'simba.ordinal_classification.embedder_multitask.EmbedderMultitask.load_from_checkpoint',
-            return_value=model
+            "simba.ordinal_classification.embedder_multitask.EmbedderMultitask.load_from_checkpoint",
+            return_value=model,
         )
 
-        simba = Simba("fake_model.ckpt", config=config, device="cpu", cache_embeddings=True)
+        simba = Simba(
+            "fake_model.ckpt", config=config, device="cpu", cache_embeddings=True
+        )
         assert simba is not None
         assert simba.model is not None
 
@@ -117,15 +119,19 @@ class TestInferencePipeline:
         model.eval()
 
         mocker.patch(
-            'simba.ordinal_classification.embedder_multitask.EmbedderMultitask.load_from_checkpoint',
-            return_value=model
+            "simba.ordinal_classification.embedder_multitask.EmbedderMultitask.load_from_checkpoint",
+            return_value=model,
         )
 
-        simba = Simba("fake_model.ckpt", config=config, device="cpu", cache_embeddings=True)
+        simba = Simba(
+            "fake_model.ckpt", config=config, device="cpu", cache_embeddings=True
+        )
 
         assert simba.cache_embeddings is True
-        assert hasattr(simba, '_embedding_cache')
+        assert hasattr(simba, "_embedding_cache")
         assert isinstance(simba._embedding_cache, dict)
 
-        simba_no_cache = Simba("fake_model.ckpt", config=config, device="cpu", cache_embeddings=False)
+        simba_no_cache = Simba(
+            "fake_model.ckpt", config=config, device="cpu", cache_embeddings=False
+        )
         assert simba_no_cache.cache_embeddings is False
