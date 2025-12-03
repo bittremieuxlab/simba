@@ -88,5 +88,8 @@ class PreprocessingSimba:
             )
             if len(s_processed.mz) >= min_peaks
         ]
+        logger.info(
+            f"{len(filtered_spectra)} spectra remaining after filtering."
+        )
 
         return filtered_spectra

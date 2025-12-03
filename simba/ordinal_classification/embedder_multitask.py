@@ -10,7 +10,6 @@ from depthcharge.data import AnnotatedSpectrumDataset
 from depthcharge.tokenizers import PeptideTokenizer
 from depthcharge.transformers import SpectrumTransformerEncoder
 
-# from depthcharge.transformers import PeptideTransformerEncoder,
 from simba.config import Config
 from simba.ordinal_classification.ordinal_classification import (
     OrdinalClassification,
@@ -96,6 +95,9 @@ class EmbedderMultitask(Embedder):
         use_adduct=False,
         categorical_adducts=False,
         adduct_mass_map="",
+        use_ce=False,
+        use_ion_activation=False,
+        use_ion_method=False,
     ):
         """Initialize the CCSPredictor"""
         super().__init__(
@@ -106,9 +108,12 @@ class EmbedderMultitask(Embedder):
             lr=lr,
             use_element_wise=use_element_wise,
             use_cosine_distance=use_cosine_distance,
-            use_extra_metadata=use_adduct,
-            use_categorical_adducts=categorical_adducts,
-            adduct_info_csv=adduct_mass_map,
+            use_adduct=use_adduct,
+            categorical_adducts=categorical_adducts,
+            adduct_mass_map=adduct_mass_map,
+            use_ce=use_ce,
+            use_ion_activation=use_ion_activation,
+            use_ion_method=use_ion_method,
         )
         self.weights = weights
 
@@ -193,6 +198,18 @@ class EmbedderMultitask(Embedder):
             kwargs_0["adduct_mass"] = batch["adduct_mass_0"].float()
             kwargs_1["adduct_mass"] = batch["adduct_mass_1"].float()
 
+        if self.use_ce:
+            kwargs_0["ce"] = batch["ce_0"].float()
+            kwargs_1["ce"] = batch["ce_1"].float()
+
+        if self.use_ion_activation:
+            kwargs_0["ion_activation"] = batch["ion_activation_0"].float()
+            kwargs_1["ion_activation"] = batch["ion_activation_1"].float()
+
+        if self.use_ion_method:
+            kwargs_0["ion_method"] = batch["ion_method_0"].float()
+            kwargs_1["ion_method"] = batch["ion_method_1"].float()
+
         emb0, _ = self.spectrum_encoder(
             mz_array=batch["mz_0"].float(),
             intensity_array=batch["intensity_0"].float(),
@@ -264,11 +281,9 @@ class EmbedderMultitask(Embedder):
         logits_list = self(batch)
         logits1 = logits_list[0]
         logits2 = logits_list[1]
-        target1 = torch.tensor(batch["ed"], dtype=torch.long).to(self.device)
+        target1 = batch["ed"].to(dtype=torch.long, device=self.device)
         target1 = target1.view(-1)
-        target2 = torch.tensor(batch["mces"], dtype=torch.float32).to(
-            self.device
-        )
+        target2 = batch["mces"].to(dtype=torch.float32, device=self.device)
         target2 = target2.view(-1)
 
         if self.use_edit_distance_regresion:
@@ -430,5 +445,4 @@ class EmbedderMultitask(Embedder):
             e1 = self.linear1_2(self.relu(self.linear1(emb1)))
             emb = self.relu(e0 + e1)
             emb = self.classifier(emb)
-
         return emb, emb_sim_2
