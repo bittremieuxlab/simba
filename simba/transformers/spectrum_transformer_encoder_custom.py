@@ -58,7 +58,12 @@ class SpectrumTransformerEncoderCustom(SpectrumTransformerEncoder):
         placeholder[:, 1] = precursor_charge
 
         current_idx = 2  # keep track of where to insert metadata
-        metadata_encoder = OneHotEncoding(self.adduct_mass_map)
+
+        # Initialize metadata encoder if any metadata features are used
+        metadata_encoder = None
+        if (self.use_adduct or self.use_ion_activation or self.use_ion_method) and self.adduct_mass_map:
+            metadata_encoder = OneHotEncoding(self.adduct_mass_map)
+
         if self.use_adduct:
             ionmode = kwargs["ionmode"].float().to(device).view(batch_size)
             placeholder[:, current_idx] = ionmode
