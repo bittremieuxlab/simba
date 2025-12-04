@@ -65,19 +65,21 @@ class TestTanimotoComputeFingerprint:
         fp = Tanimoto.compute_fingerprint("")
 
         assert isinstance(fp, ExplicitBitVect)
-        # Zero vector fingerprint
+        assert fp.GetNumOnBits() == 0  # Zero vector fingerprint
 
     def test_compute_fingerprint_na_smiles(self):
         """Test fingerprint for 'N/A' SMILES returns zero vector."""
         fp = Tanimoto.compute_fingerprint("N/A")
 
         assert isinstance(fp, ExplicitBitVect)
+        assert fp.GetNumOnBits() == 0  # Zero vector fingerprint
 
     def test_compute_fingerprint_invalid_smiles(self):
         """Test fingerprint for invalid SMILES returns zero vector."""
         fp = Tanimoto.compute_fingerprint("INVALID_SMILES_123")
 
         assert isinstance(fp, ExplicitBitVect)
+        assert fp.GetNumOnBits() == 0  # Zero vector fingerprint
 
     def test_compute_fingerprint_caching(self):
         """Test that compute_fingerprint uses caching."""
@@ -135,8 +137,8 @@ class TestTanimotoComputeTanimotoFromSmiles:
 
         similarity = Tanimoto.compute_tanimoto_from_smiles(smiles, "")
 
-        assert 0.0 <= similarity <= 1.0
-        # Non-zero vs zero vector should give low similarity
+        # Non-zero vs zero vector should give zero similarity
+        assert similarity == pytest.approx(0.0)
 
     def test_compute_tanimoto_from_smiles_caching(self):
         """Test that compute_tanimoto_from_smiles uses caching."""
