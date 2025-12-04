@@ -5,6 +5,7 @@ import torch
 from torch.utils.data import Dataset
 from tqdm import tqdm
 
+from simba.one_hot_encoding import one_hot_encoding
 from simba.transformers.augmentation import Augmentation
 
 
@@ -28,6 +29,10 @@ class CustomDatasetMultitasking(Dataset):
         adduct_mass=None,
         use_ce=False,
         ce=None,
+        use_ion_activation=False,
+        ion_activation=None,
+        use_ion_method=False,
+        ion_method=None,
     ):
         self.data = your_dict
         self.keys = list(your_dict.keys())
@@ -42,6 +47,10 @@ class CustomDatasetMultitasking(Dataset):
         self.use_fingerprints = use_fingerprints
         self.use_adduct = use_adduct
         self.use_ce = use_ce
+        self.use_ion_activation = use_ion_activation
+        self.ion_activation = ion_activation
+        self.use_ion_method = use_ion_method
+        self.ion_method = ion_method
 
         if self.use_fingerprints:
             self.fingerprint_0 = fingerprint_0
@@ -107,6 +116,26 @@ class CustomDatasetMultitasking(Dataset):
         if self.use_ce:
             dictionary["ce_0"] = np.zeros((len_data, 1), dtype=np.float32)
             dictionary["ce_1"] = np.zeros((len_data, 1), dtype=np.float32)
+
+        if self.use_ion_activation:
+            dictionary["ion_activation_0"] = np.zeros(
+                len_data, len(one_hot_encoding.ION_ACTIVATION), dtype=np.int32
+            )
+            dictionary["ion_activation_1"] = np.zeros(
+                len_data, len(one_hot_encoding.ION_ACTIVATION), dtype=np.int32
+            )
+
+        if self.use_ion_method:
+            dictionary["ion_method_0"] = np.zeros(
+                len_data,
+                len(one_hot_encoding.IONIZATION_METHODS),
+                dtype=np.int32,
+            )
+            dictionary["ion_method_1"] = np.zeros(
+                len_data,
+                len(one_hot_encoding.IONIZATION_METHODS),
+                dtype=np.int32,
+            )
 
         if self.use_fingerprints:
             print("Defining fingerprints ...")
@@ -174,6 +203,22 @@ class CustomDatasetMultitasking(Dataset):
             if self.use_ce:
                 dictionary["ce_0"][idx] = self.ce[indexes_original_0]
                 dictionary["ce_1"][idx] = self.ce[indexes_original_1]
+
+            if self.use_ion_activation:
+                dictionary["ion_activation_0"][idx] = self.ion_activation[
+                    indexes_original_0
+                ]
+                dictionary["ion_activation_1"][idx] = self.ion_activation[
+                    indexes_original_1
+                ]
+
+            if self.use_ion_method:
+                dictionary["ion_method_0"][idx] = self.ion_method[
+                    indexes_original_0
+                ]
+                dictionary["ion_method_1"][idx] = self.ion_method[
+                    indexes_original_1
+                ]
 
             if self.use_fingerprints:
                 dictionary["fingerprint_0"][idx] = self.fingerprint_0[
@@ -266,6 +311,18 @@ class CustomDatasetMultitasking(Dataset):
             spectrum_sample["ce_1"] = self.ce[idx_1_original].astype(
                 np.float32
             )
+
+        if self.use_ion_activation:
+            spectrum_sample["ion_activation_0"] = self.ion_activation[
+                idx_0_original
+            ]
+            spectrum_sample["ion_activation_1"] = self.ion_activation[
+                idx_1_original
+            ]
+
+        if self.use_ion_method:
+            spectrum_sample["ion_method_0"] = self.ion_method[idx_0_original]
+            spectrum_sample["ion_method_1"] = self.ion_method[idx_1_original]
 
         if self.training:
             if random.random() < self.prob_aug:

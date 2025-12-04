@@ -7,7 +7,11 @@ IONIZATION_METHODS = ["NSI", "ESI", "APCI"]
 class OneHotEncoding:
 
     def __init__(self, adduct_file_path):
-        self.df_adduct = self.load_adduct_info(adduct_file_path)
+        self.df_adduct = (
+            self.load_adduct_info(adduct_file_path)
+            if adduct_file_path is not None
+            else None
+        )
 
     # TODO: adduct to mass dict also in simba/chem_utils.py
     def load_adduct_info(self, path_adduct_csv):

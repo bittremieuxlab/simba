@@ -5,6 +5,7 @@ from tqdm import tqdm
 
 from simba.logger_setup import logger
 from simba.molecule_pairs_opt import MoleculePairsOpt
+from simba.one_hot_encoding import one_hot_encoding
 from simba.ordinal_classification.ordinal_classification import (
     OrdinalClassification,
 )
@@ -104,6 +105,22 @@ class LoadDataMultitasking:
             ce = np.zeros(
                 (len(molecule_pairs.original_spectra), 1), dtype=np.int32
             )
+        if use_ion_activation:
+            ia = np.zeros(
+                (
+                    len(molecule_pairs.original_spectra),
+                    len(one_hot_encoding.ION_ACTIVATION),
+                ),
+                dtype=np.int32,
+            )
+        if use_ion_method:
+            im = np.zeros(
+                (
+                    len(molecule_pairs.original_spectra),
+                    len(one_hot_encoding.IONIZATION_METHODS),
+                ),
+                dtype=np.int32,
+            )
 
         logger.info("Loading mz, intensity and precursor data ...")
         for i, spec in enumerate(molecule_pairs.original_spectra):
@@ -129,7 +146,32 @@ class LoadDataMultitasking:
                 adduct_mass[i] = spec.adduct_mass
 
             if use_ce:
-                ce[i] = spec.ce
+                if spec.ce == "None":
+                    ce[i] = 0  # TODO: array dtype -> int
+                else:
+                    ce[i] = spec.ce
+
+            if use_ion_activation or use_ion_method:
+                encoder = one_hot_encoding.OneHotEncoding(None)
+
+            if use_ion_activation:
+                if spec.ion_activation == "None":
+                    ia[i] = np.zeros(
+                        len(one_hot_encoding.ION_ACTIVATION), dtype=np.int32
+                    )
+                else:
+                    ia[i] = encoder.encode_ion_activation(spec.ion_activation)
+
+            if use_ion_method:
+                if spec.ionization_method == "None":
+                    im[i] = np.zeros(
+                        len(one_hot_encoding.IONIZATION_METHODS),
+                        dtype=np.int32,
+                    )
+                else:
+                    im[i] = encoder.encode_ionization_method(
+                        spec.ionization_method
+                    )
 
         # logger.info("Normalizing intensities")
         # Normalize the intensity array
@@ -186,4 +228,8 @@ class LoadDataMultitasking:
             adduct_mass=(adduct_mass if use_adduct else None),
             use_ce=use_ce,
             ce=(ce if use_ce else None),
+            use_ion_activation=use_ion_activation,
+            ion_activation=(ia if use_ion_activation else None),
+            use_ion_method=use_ion_method,
+            ion_method=(im if use_ion_method else None),
         )

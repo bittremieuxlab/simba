@@ -96,16 +96,14 @@ class SpectrumTransformerEncoderCustom(SpectrumTransformerEncoder):
             current_idx += 1
 
         if self.use_ion_activation:
-            ia = kwargs["ion_activation"].float().to(device).view(batch_size)
-            ia_encoded = metadata_encoder.encode_ion_activation(ia)
-            stop_idx = current_idx + len(ia_encoded)
+            ia = kwargs["ion_activation"].to(device)
+            stop_idx = current_idx + ia.shape[1]
             placeholder[:, current_idx:stop_idx] = ia
             current_idx = stop_idx
 
         if self.use_ion_method:
-            im = kwargs["ion_method"].float().to(device).view(batch_size)
-            im_encoded = metadata_encoder.encode_ionization_method(im)
-            stop_idx = current_idx + len(im_encoded)
+            im = kwargs["ion_method"].to(device)
+            stop_idx = current_idx + im.shape[1]
             placeholder[:, current_idx:stop_idx] = im
             current_idx = stop_idx
 
