@@ -9,6 +9,7 @@ class MurckoScaffold:
     code for computing murcko scaffold for dividing train, val and test sets
     """
 
+    @staticmethod
     def get_bm_scaffold(smiles):
         try:
             scaffold = Chem.MolToSmiles(
