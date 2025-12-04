@@ -59,9 +59,16 @@ class OneHotEncoding:
         return list_adduct_elements
 
     def encode_ion_activation(self, ion_activation):
-        return [1 if ion_activation == ia else 0 for ia in ION_ACTIVATION]
+        ion_activation_upper = ion_activation.upper() if ion_activation else ""
+        return [
+            1 if ion_activation_upper == ia else 0 for ia in ION_ACTIVATION
+        ]
 
     def encode_ionization_method(self, ionization_method):
+        ionization_method_upper = (
+            ionization_method.upper() if ionization_method else ""
+        )
         return [
-            1 if ionization_method == im else 0 for im in IONIZATION_METHODS
+            1 if ionization_method_upper == im else 0
+            for im in IONIZATION_METHODS
         ]

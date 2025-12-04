@@ -19,12 +19,22 @@ class SpectrumTransformerEncoderCustom(SpectrumTransformerEncoder):
         **kwargs,
     ):
         """
-        Custom Spectrum Transformer Encoder with optional precursor metadata usage.
+        Custom Spectrum Transformer Encoder with optional metadata usage.
 
-        Parameters
+        Attributes
         ----------
-        use_extra_metadata : bool, optional
-            Whether to include extra precursor metadata in the encoding (default: False).
+        use_adduct: bool
+            use adduct info during training
+        categorical_adduct: bool
+            convert adduct mass to vector
+        adduct_mass_map: str
+            file that maps adduct masses to vectors
+        use_ce: bool
+            use collision energy during training
+        use_ion_activation: bool
+            use ion activation info during training
+        use_ion_method: bool
+            use ionization method during training
         """
         super().__init__(*args, **kwargs)
         self.use_adduct = use_adduct
@@ -61,7 +71,9 @@ class SpectrumTransformerEncoderCustom(SpectrumTransformerEncoder):
 
         # Initialize metadata encoder if any metadata features are used
         metadata_encoder = None
-        if (self.use_adduct or self.use_ion_activation or self.use_ion_method) and self.adduct_mass_map:
+        if (
+            self.use_adduct or self.use_ion_activation or self.use_ion_method
+        ) and self.adduct_mass_map:
             metadata_encoder = OneHotEncoding(self.adduct_mass_map)
 
         if self.use_adduct:

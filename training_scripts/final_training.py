@@ -435,6 +435,9 @@ def setup_model(config, weights_mces):
                 use_adduct=config.USE_ADDUCT,
                 categorical_adducts=config.CATEGORICAL_ADDUCTS,
                 adduct_mass_map=config.ADDUCT_MASS_MAP_CSV,
+                use_ce=config.USE_CE,
+                use_ion_activation=config.USE_ION_ACTIVATION,
+                use_ion_method=config.USE_ION_METHOD,
             )
             logger.info("Loaded full model from checkpoint")
         except Exception as e:
@@ -454,6 +457,9 @@ def setup_model(config, weights_mces):
                 use_adduct=config.USE_ADDUCT,
                 categorical_adducts=config.CATEGORICAL_ADDUCTS,
                 adduct_mass_map=config.ADDUCT_MASS_MAP_CSV,
+                use_ce=config.USE_CE,
+                use_ion_activation=config.USE_ION_ACTIVATION,
+                use_ion_method=config.USE_ION_METHOD,
             )
 
             model.spectrum_encoder = model_pretrained.spectrum_encoder

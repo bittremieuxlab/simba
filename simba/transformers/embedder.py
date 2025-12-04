@@ -136,7 +136,7 @@ class Embedder(pl.LightningModule):
         if self.use_ce:
             logger.info("Using CE in the model")
             kwargs_0["ce"] = batch["ce_0"].float()
-            kwargs_1["ce"] = batch["ce_0"].float()
+            kwargs_1["ce"] = batch["ce_1"].float()
 
         if self.use_ion_activation:
             kwargs_0["ion_activation"] = batch["ion_activation_0"].float()

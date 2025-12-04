@@ -353,6 +353,7 @@ class LoadData:
                 adduct_mass = 0.0
         else:
             adduct = ""
+            adduct_mass = 0.0
 
         ce = params["ce"] if "ce" in params else None
         ia = params["ion_activation"] if "ion_activation" in params else None

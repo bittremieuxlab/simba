@@ -21,7 +21,7 @@ class LoadDataOrdinal:
         molecule_pairs_input,
         max_num_peaks=100,
         training=False,  # shuffle the spectrum 0 and 1 for data augmentation
-        N_classes=6,
+        n_classes=6,
         tanimotos=None,
     ):
         """
@@ -78,7 +78,7 @@ class LoadDataOrdinal:
         ## Adjust similarity towards a N classification problem
         similarity = OrdinalClassification.from_float_to_class(
             molecule_pairs_input.pair_distances[:, 2].reshape(-1, 1),
-            n_classes=N_classes,
+            n_classes=n_classes,
         )
         # similarity= molecule_pairs_input.indexes_tani[:, 2].reshape(-1,1)
 

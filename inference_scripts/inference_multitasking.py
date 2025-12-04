@@ -175,7 +175,7 @@ def setup_model(config: Config):
         "adduct_mass_map": config.ADDUCT_MASS_MAP_CSV,
         "use_ce": config.USE_CE,
         "use_ion_activation": config.USE_ION_ACTIVATION,
-        "use_ionization_method": config.USE_ION_METHOD,
+        "use_ion_method": config.USE_ION_METHOD,
     }
 
     best_model = EmbedderMultitask.load_from_checkpoint(
