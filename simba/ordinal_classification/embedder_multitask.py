@@ -93,8 +93,6 @@ class EmbedderMultitask(Embedder):
         gumbel_reg_weight=0.1,
         USE_LEARNABLE_MULTITASK=True,
         use_adduct=False,
-        categorical_adducts=False,
-        adduct_mass_map="",
         use_ce=False,
         use_ion_activation=False,
         use_ion_method=False,
@@ -109,8 +107,6 @@ class EmbedderMultitask(Embedder):
             use_element_wise=use_element_wise,
             use_cosine_distance=use_cosine_distance,
             use_adduct=use_adduct,
-            categorical_adducts=categorical_adducts,
-            adduct_mass_map=adduct_mass_map,
             use_ce=use_ce,
             use_ion_activation=use_ion_activation,
             use_ion_method=use_ion_method,
@@ -195,8 +191,8 @@ class EmbedderMultitask(Embedder):
         if self.use_extra_metadata:
             kwargs_0["ionmode"] = batch["ionmode_0"].float()
             kwargs_1["ionmode"] = batch["ionmode_1"].float()
-            kwargs_0["adduct_mass"] = batch["adduct_mass_0"].float()
-            kwargs_1["adduct_mass"] = batch["adduct_mass_1"].float()
+            kwargs_0["adduct"] = batch["adduct_0"].float()
+            kwargs_1["adduct"] = batch["adduct_1"].float()
 
         if self.use_ce:
             kwargs_0["ce"] = batch["ce_0"].float()

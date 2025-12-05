@@ -29,7 +29,7 @@ class SpectrumExt(MsmsSpectrum):
         inchi: str,
         smiles: str,
         ionmode: str,
-        adduct_mass: float,
+        adduct: float,
         ce: float,
         ion_activation: str,
         ionization_method: str,
@@ -61,7 +61,7 @@ class SpectrumExt(MsmsSpectrum):
         self.library = library
         self.inchi = inchi
         self.ionmode = ionmode
-        self.adduct_mass = adduct_mass
+        self.adduct = adduct
         self.ce = ce
         self.ion_activation = ion_activation
         self.ionization_method = ionization_method
@@ -97,7 +97,7 @@ class SpectrumExt(MsmsSpectrum):
                 "library": self.library,
                 "inchi": self.inchi,
                 "ionmode": self.ionmode,
-                "adduct_mass": self.adduct_mass,
+                "adduct": self.adduct,
                 "ce": self.ce,
                 "ion_activation": self.ion_activation,
                 "ionization_method": self.ionization_method,
@@ -126,7 +126,7 @@ class SpectrumExt(MsmsSpectrum):
         self.library = state["library"]
         self.inchi = state["inchi"]
         self.ionmode = state["ionmode"]
-        self.adduct_mass = state["adduct_mass"]
+        self.adduct = state["adduct"]
         self.ce = state["ce"]
         self.ion_activation = state["ion_activation"]
         self.ionization_method = state["ionization_method"]

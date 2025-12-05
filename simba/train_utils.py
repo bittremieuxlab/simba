@@ -292,7 +292,7 @@ class TrainUtils:
                 inchi=row.inchi,
                 smiles=row.canon_smiles,
                 ionmode=None,
-                adduct_mass=None,
+                adduct=None,
                 ce=None,
                 ion_activation="",
                 ionization_method="",

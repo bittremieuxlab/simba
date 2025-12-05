@@ -3,6 +3,7 @@ import copy
 import numpy as np
 from tqdm import tqdm
 
+from simba.chem_utils import ADDUCT_TO_MASS
 from simba.logger_setup import logger
 from simba.molecule_pairs_opt import MoleculePairsOpt
 from simba.one_hot_encoding import one_hot_encoding
@@ -98,8 +99,12 @@ class LoadDataMultitasking:
             ionmode = np.zeros(
                 (len(molecule_pairs.original_spectra), 1), dtype=np.float32
             )
-            adduct_mass = np.zeros(
-                (len(molecule_pairs.original_spectra), 1), dtype=np.float32
+            adduct = np.zeros(
+                (
+                    len(molecule_pairs.original_spectra),
+                    len(ADDUCT_TO_MASS.keys()),
+                ),
+                dtype=np.float32,
             )
         if use_ce:
             ce = np.zeros(
@@ -143,7 +148,7 @@ class LoadDataMultitasking:
                     ionmode[i] = np.nan
                 else:
                     ionmode[i] = 1.0 if spec.ionmode == "positive" else -1.0
-                adduct_mass[i] = spec.adduct_mass
+                adduct[i] = one_hot_encoding.encode_adduct(spec.adduct)
 
             if use_ce:
                 if spec.ce == "None":
@@ -151,16 +156,15 @@ class LoadDataMultitasking:
                 else:
                     ce[i] = spec.ce
 
-            if use_ion_activation or use_ion_method:
-                encoder = one_hot_encoding.OneHotEncoding(None)
-
             if use_ion_activation:
                 if spec.ion_activation == "None":
                     ia[i] = np.zeros(
                         len(one_hot_encoding.ION_ACTIVATION), dtype=np.int32
                     )
                 else:
-                    ia[i] = encoder.encode_ion_activation(spec.ion_activation)
+                    ia[i] = one_hot_encoding.encode_ion_activation(
+                        spec.ion_activation
+                    )
 
             if use_ion_method:
                 if spec.ionization_method == "None":
@@ -169,7 +173,7 @@ class LoadDataMultitasking:
                         dtype=np.int32,
                     )
                 else:
-                    im[i] = encoder.encode_ionization_method(
+                    im[i] = one_hot_encoding.encode_ionization_method(
                         spec.ionization_method
                     )
 
@@ -225,7 +229,7 @@ class LoadDataMultitasking:
             max_num_peaks=max_num_peaks,
             use_adduct=use_adduct,
             ionmode=(ionmode if use_adduct else None),
-            adduct_mass=(adduct_mass if use_adduct else None),
+            adduct=(adduct if use_adduct else None),
             use_ce=use_ce,
             ce=(ce if use_ce else None),
             use_ion_activation=use_ion_activation,

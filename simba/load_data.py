@@ -346,11 +346,6 @@ class LoadData:
 
         if "adduct" in params:
             adduct = params["adduct"].replace(" ", "")
-            adduct_mass = chem_utils.ion_to_mass(adduct)
-            if adduct_mass is None:
-                logger.warning(f"Adduct {adduct} not supported.")
-                adduct = ""
-                adduct_mass = 0.0
         else:
             adduct = ""
 
@@ -394,7 +389,7 @@ class LoadData:
             inchi=inchi,
             smiles=smiles,
             ionmode=ionmode,
-            adduct_mass=adduct_mass,
+            adduct=adduct,
             ce=ce,
             ion_activation=ia,
             ionization_method=im,

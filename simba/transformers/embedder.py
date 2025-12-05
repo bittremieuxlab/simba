@@ -56,8 +56,6 @@ class Embedder(pl.LightningModule):
         use_element_wise=True,
         use_cosine_distance=True,  # element wise instead of concat for mixing info between embeddings
         use_adduct=False,
-        categorical_adducts=False,
-        adduct_mass_map="",
         use_ce=False,
         use_ion_activation=False,
         use_ion_method=False,
@@ -83,8 +81,6 @@ class Embedder(pl.LightningModule):
             n_layers=n_layers,
             dropout=dropout,
             use_adduct=use_adduct,
-            categorical_adducts=categorical_adducts,
-            adduct_mass_map=adduct_mass_map,
             use_ce=use_ce,
             use_ion_activation=use_ion_activation,
             use_ion_method=use_ion_method,
@@ -130,8 +126,8 @@ class Embedder(pl.LightningModule):
         if self.use_adduct:
             kwargs_0["ionmode"] = batch["ionmode_0"].float()
             kwargs_1["ionmode"] = batch["ionmode_1"].float()
-            kwargs_0["adduct_mass"] = batch["adduct_mass_0"].float()
-            kwargs_1["adduct_mass"] = batch["adduct_mass_1"].float()
+            kwargs_0["adduct"] = batch["adduct_0"].float()
+            kwargs_1["adduct"] = batch["adduct_1"].float()
 
         if self.use_ce:
             logger.info("Using CE in the model")

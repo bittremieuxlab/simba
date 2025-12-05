@@ -5,6 +5,7 @@ import torch
 from torch.utils.data import Dataset
 from tqdm import tqdm
 
+from simba.chem_utils import ADDUCT_TO_MASS
 from simba.one_hot_encoding import one_hot_encoding
 from simba.transformers.augmentation import Augmentation
 
@@ -106,11 +107,11 @@ class CustomDatasetMultitasking(Dataset):
         if self.use_adduct:
             dictionary["ionmode_0"] = np.zeros((len_data, 1), dtype=np.float32)
             dictionary["ionmode_1"] = np.zeros((len_data, 1), dtype=np.float32)
-            dictionary["adduct_mass_0"] = np.zeros(
-                (len_data, 1), dtype=np.float32
+            dictionary["adduct_0"] = np.zeros(
+                (len_data, len(ADDUCT_TO_MASS.keys())), dtype=np.float32
             )
-            dictionary["adduct_mass_1"] = np.zeros(
-                (len_data, 1), dtype=np.float32
+            dictionary["adduct_1"] = np.zeros(
+                (len_data, len(ADDUCT_TO_MASS.keys())), dtype=np.float32
             )
 
         if self.use_ce:
@@ -193,10 +194,10 @@ class CustomDatasetMultitasking(Dataset):
                     indexes_original_1
                 ].astype(np.float32)
 
-                dictionary["adduct_mass_0"][idx] = self.adduct_mass[
+                dictionary["adduct_0"][idx] = self.adduct_mass[
                     indexes_original_0
                 ].astype(np.float32)
-                dictionary["adduct_mass_1"][idx] = self.adduct_mass[
+                dictionary["adduct_1"][idx] = self.adduct_mass[
                     indexes_original_1
                 ].astype(np.float32)
 
@@ -297,10 +298,10 @@ class CustomDatasetMultitasking(Dataset):
                 np.float32
             )
 
-            spectrum_sample["adduct_mass_0"] = self.adduct_mass[
+            spectrum_sample["adduct_0"] = self.adduct_mass[
                 idx_0_original
             ].astype(np.float32)
-            spectrum_sample["adduct_mass_1"] = self.adduct_mass[
+            spectrum_sample["adduct_1"] = self.adduct_mass[
                 idx_1_original
             ].astype(np.float32)
 
