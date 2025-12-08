@@ -1,17 +1,24 @@
 """Unit tests for Edit Distance computations."""
 
 import numpy as np
+import pandas as pd
 import pytest
 from rdkit import Chem
 from rdkit.Chem.Fingerprints import FingerprintMols
 
 from simba.edit_distance.edit_distance import (
     VERY_HIGH_DISTANCE,
+    create_input_df,
+    compute_ed_or_mces,
+    get_number_of_modification_edges,
+    get_data,
+    return_mol,
     get_edit_distance_from_smiles,
     simba_get_edit_distance,
     simba_solve_pair_edit_distance,
     simba_solve_pair_mces,
 )
+from simba.config import Config
 
 
 pytestmark = pytest.mark.unit
@@ -215,3 +222,210 @@ class TestSimbaSolvePairMCES:
         # Both should return valid distances
         assert isinstance(distance1, (int, float, np.number))
         assert isinstance(distance2, (int, float, np.number))
+
+
+class TestCreateInputDF:
+    """Test create_input_df function."""
+
+    def test_create_input_df_basic(self):
+        """Test creating input DataFrame with basic inputs."""
+        smiles = ["CCO", "CCCO", "C", "CC"]
+        indexes_0 = [0, 1, 2]
+        indexes_1 = [1, 2, 3]
+
+        df = create_input_df(smiles, indexes_0, indexes_1)
+
+        assert len(df) == 3
+        assert "smiles_0" in df.columns
+        assert "smiles_1" in df.columns
+        assert df["smiles_0"].tolist() == ["CCO", "CCCO", "C"]
+        assert df["smiles_1"].tolist() == ["CCCO", "C", "CC"]
+
+
+class TestGetNumberOfModificationEdges:
+    """Test get_number_of_modification_edges function."""
+
+    def test_get_modification_edges_exact_match(self):
+        """Test with exact match (no modification edges)."""
+        mol = Chem.MolFromSmiles("CCO")
+        substructure = Chem.MolFromSmiles("CCO")
+
+        result = get_number_of_modification_edges(mol, substructure)
+
+        assert result == []
+
+    def test_get_modification_edges_with_additions(self):
+        """Test with substructure that has additional bonds."""
+        mol = Chem.MolFromSmiles("CCCO")  # Propanol
+        substructure = Chem.MolFromSmiles("CCO")  # Ethanol (substructure)
+
+        result = get_number_of_modification_edges(mol, substructure)
+
+        # Should have modification edges
+        assert isinstance(result, list)
+        assert len(result) > 0
+
+    def test_get_modification_edges_no_match(self):
+        """Test with non-matching substructure."""
+        mol = Chem.MolFromSmiles("CCO")
+        substructure = Chem.MolFromSmiles("c1ccccc1")  # Benzene
+
+        result = get_number_of_modification_edges(mol, substructure)
+
+        assert result is None
+
+
+class TestReturnMol:
+    """Test return_mol caching function."""
+
+    def test_return_mol_valid_smiles(self):
+        """Test return_mol with valid SMILES."""
+        smiles = "CCO"
+        mol = return_mol(smiles)
+
+        assert mol is not None
+        assert mol.GetNumAtoms() == 3
+
+    def test_return_mol_caching(self):
+        """Test that return_mol uses caching."""
+        smiles = "CCCO"
+
+        mol1 = return_mol(smiles)
+        mol2 = return_mol(smiles)
+
+        # Should return same cached object
+        assert mol1 is mol2
+
+
+class TestGetData:
+    """Test get_data batch splitting function."""
+
+    def test_get_data_even_split(self):
+        """Test splitting data evenly into batches."""
+        import pandas as pd
+
+        data = pd.DataFrame({"smiles": ["CCO", "CCCO", "C", "CC", "CCC", "CCCC"]})
+        batch_count = 3
+
+        batch0 = get_data(data, 0, batch_count)
+        batch1 = get_data(data, 1, batch_count)
+        batch2 = get_data(data, 2, batch_count)
+
+        assert len(batch0) == 2
+        assert len(batch1) == 2
+        assert len(batch2) == 2
+        assert batch0.index.tolist() == [0, 1]
+        assert batch1.index.tolist() == [0, 1]
+        assert batch2.index.tolist() == [0, 1]
+
+    def test_get_data_uneven_split(self):
+        """Test splitting data unevenly into batches."""
+        import pandas as pd
+
+        data = pd.DataFrame({"smiles": ["CCO", "CCCO", "C", "CC", "CCC"]})
+        batch_count = 3
+
+        batch0 = get_data(data, 0, batch_count)
+        batch1 = get_data(data, 1, batch_count)
+        batch2 = get_data(data, 2, batch_count)
+
+        # First two batches get 2 items, last gets 1
+        assert len(batch0) == 2
+        assert len(batch1) == 2
+        assert len(batch2) == 1
+
+
+class TestComputeEdOrMces:
+    """Test compute_ed_or_mces batch computation function."""
+
+    def test_compute_ed_non_random_sampling(self):
+        """Test compute_ed_or_mces with non-random sampling."""
+        smiles = ["CCO", "CCCO", "C", "CC"]
+        mols = [Chem.MolFromSmiles(s) for s in smiles]
+        fps = [FingerprintMols.FingerprintMol(m) for m in mols]
+        config = Config()
+
+        result = compute_ed_or_mces(
+            smiles=smiles,
+            sampled_index=0,
+            batch_size=3,
+            identifier=0,
+            random_sampling=False,
+            config=config,
+            fps=fps,
+            mols=mols,
+            use_edit_distance=True,
+        )
+
+        assert result.shape == (3, 3)
+        assert result[0, 0] == 0  # First index
+        assert result[0, 1] == 0  # Second index (starts from 0)
+        assert result[0, 2] == 0  # Distance (CCO vs CCO = 0)
+
+    def test_compute_ed_random_sampling(self):
+        """Test compute_ed_or_mces with random sampling."""
+        smiles = ["CCO", "CCCO", "C", "CC"]
+        mols = [Chem.MolFromSmiles(s) for s in smiles]
+        fps = [FingerprintMols.FingerprintMol(m) for m in mols]
+        config = Config()
+
+        result = compute_ed_or_mces(
+            smiles=smiles,
+            sampled_index=0,
+            batch_size=2,
+            identifier=42,
+            random_sampling=True,
+            config=config,
+            fps=fps,
+            mols=mols,
+            use_edit_distance=True,
+        )
+
+        assert result.shape == (2, 3)
+        # With random sampling, indices should be random
+        assert 0 <= result[0, 0] < len(smiles)
+        assert 0 <= result[0, 1] < len(smiles)
+
+    def test_compute_mces_non_random(self):
+        """Test compute_ed_or_mces with MCES computation."""
+        smiles = ["CCO", "CCCO"]
+        mols = [Chem.MolFromSmiles(s) for s in smiles]
+        fps = [FingerprintMols.FingerprintMol(m) for m in mols]
+        config = Config()
+        config.THRESHOLD_MCES = 20
+
+        result = compute_ed_or_mces(
+            smiles=smiles,
+            sampled_index=0,
+            batch_size=2,
+            identifier=0,
+            random_sampling=False,
+            config=config,
+            fps=fps,
+            mols=mols,
+            use_edit_distance=False,
+        )
+
+        assert result.shape == (2, 3)
+        assert result[0, 2] == 0  # CCO vs CCO = 0
+        assert result[1, 2] == 1.0  # CCO vs CCCO = 1
+
+    def test_compute_ed_batch_size_exceeds_molecules(self):
+        """Test that ValueError is raised when batch_size exceeds molecule count."""
+        smiles = ["CCO", "CCCO"]
+        mols = [Chem.MolFromSmiles(s) for s in smiles]
+        fps = [FingerprintMols.FingerprintMol(m) for m in mols]
+        config = Config()
+
+        with pytest.raises(ValueError, match="batch_size .* cannot exceed"):
+            compute_ed_or_mces(
+                smiles=smiles,
+                sampled_index=0,
+                batch_size=5,  # Exceeds len(smiles)
+                identifier=0,
+                random_sampling=False,
+                config=config,
+                fps=fps,
+                mols=mols,
+                use_edit_distance=True,
+            )
