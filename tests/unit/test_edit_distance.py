@@ -6,19 +6,19 @@ import pytest
 from rdkit import Chem
 from rdkit.Chem.Fingerprints import FingerprintMols
 
+from simba.config import Config
 from simba.edit_distance.edit_distance import (
     VERY_HIGH_DISTANCE,
-    create_input_df,
     compute_ed_or_mces,
-    get_number_of_modification_edges,
+    create_input_df,
     get_data,
-    return_mol,
     get_edit_distance_from_smiles,
+    get_number_of_modification_edges,
+    return_mol,
     simba_get_edit_distance,
     simba_solve_pair_edit_distance,
     simba_solve_pair_mces,
 )
-from simba.config import Config
 
 
 pytestmark = pytest.mark.unit
@@ -302,7 +302,6 @@ class TestGetData:
 
     def test_get_data_even_split(self):
         """Test splitting data evenly into batches."""
-        import pandas as pd
 
         data = pd.DataFrame({"smiles": ["CCO", "CCCO", "C", "CC", "CCC", "CCCC"]})
         batch_count = 3
@@ -320,7 +319,6 @@ class TestGetData:
 
     def test_get_data_uneven_split(self):
         """Test splitting data unevenly into batches."""
-        import pandas as pd
 
         data = pd.DataFrame({"smiles": ["CCO", "CCCO", "C", "CC", "CCC"]})
         batch_count = 3
