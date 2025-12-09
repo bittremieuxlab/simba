@@ -23,22 +23,24 @@ def sample_spectra(create_test_spectrum):
 
 @pytest.fixture
 def sample_molecule_pairs(sample_spectra):
-    pair_distances = np.array([
-        [0, 1, 0.9],
-        [0, 2, 0.85],
-        [0, 3, 0.8],
-        [1, 2, 0.75],
-        [1, 3, 0.7],
-        [2, 3, 0.65],
-        [3, 4, 0.6],
-        [4, 5, 0.5],
-        [5, 6, 0.4],
-        [6, 7, 0.3],
-        [0, 4, 0.2],
-        [1, 5, 0.15],
-        [2, 6, 0.1],
-        [3, 7, 0.05],
-    ])
+    pair_distances = np.array(
+        [
+            [0, 1, 0.9],
+            [0, 2, 0.85],
+            [0, 3, 0.8],
+            [1, 2, 0.75],
+            [1, 3, 0.7],
+            [2, 3, 0.65],
+            [3, 4, 0.6],
+            [4, 5, 0.5],
+            [5, 6, 0.4],
+            [6, 7, 0.3],
+            [0, 4, 0.2],
+            [1, 5, 0.15],
+            [2, 6, 0.1],
+            [3, 7, 0.05],
+        ]
+    )
     df_smiles = {
         "spec1": "CCO",
         "spec2": "CCCO",
@@ -59,9 +61,10 @@ def sample_molecule_pairs(sample_spectra):
 
 
 class TestTrainUtils:
-
     def test_compute_unique_combinations(self, sample_molecule_pairs):
-        result = TrainUtils.compute_unique_combinations(sample_molecule_pairs, high_sim=1)
+        result = TrainUtils.compute_unique_combinations(
+            sample_molecule_pairs, high_sim=1
+        )
 
         assert isinstance(result, MoleculePairsOpt)
         assert len(result.spectra) == len(sample_molecule_pairs.spectra)
@@ -69,10 +72,7 @@ class TestTrainUtils:
 
     def test_train_val_test_split_bms(self, sample_spectra):
         train, val, test = TrainUtils.train_val_test_split_bms(
-            sample_spectra,
-            val_split=0.25,
-            test_split=0.25,
-            seed=42
+            sample_spectra, val_split=0.25, test_split=0.25, seed=42
         )
 
         assert len(train) + len(val) + len(test) == len(sample_spectra)
@@ -80,7 +80,9 @@ class TestTrainUtils:
         assert len(test) > 0
 
     def test_get_combination_indexes(self):
-        indexes = TrainUtils.get_combination_indexes(num_samples=5, combination_length=2)
+        indexes = TrainUtils.get_combination_indexes(
+            num_samples=5, combination_length=2
+        )
 
         assert isinstance(indexes, list)
         assert all(len(idx) == 2 for idx in indexes)
@@ -88,10 +90,9 @@ class TestTrainUtils:
         assert len(indexes) == expected_combinations
 
     def test_generate_random_combinations(self):
-        combinations = list(TrainUtils.generate_random_combinations(
-            num_samples=10,
-            num_combinations=5
-        ))
+        combinations = list(
+            TrainUtils.generate_random_combinations(num_samples=10, num_combinations=5)
+        )
 
         assert len(combinations) == 5
         assert all(len(c) == 2 for c in combinations)
@@ -109,7 +110,7 @@ class TestTrainUtils:
             number_bins=2,
             return_binned_list=False,
             bin_sim_1=False,
-            seed=42
+            seed=42,
         )
 
         assert isinstance(result, MoleculePairsOpt)
@@ -121,16 +122,14 @@ class TestTrainUtils:
             number_bins=2,
             ordinal_classification=True,
             bin_sim_1=False,
-            seed=42
+            seed=42,
         )
 
         assert isinstance(result, MoleculePairsOpt)
 
     def test_divide_data_into_bins(self, sample_molecule_pairs):
         binned_pairs, min_bin = TrainUtils.divide_data_into_bins(
-            sample_molecule_pairs,
-            number_bins=2,
-            bin_sim_1=False
+            sample_molecule_pairs, number_bins=2, bin_sim_1=False
         )
 
         assert len(binned_pairs) == 2
@@ -140,9 +139,7 @@ class TestTrainUtils:
 
     def test_divide_data_into_bins_with_sim_1(self, sample_molecule_pairs):
         binned_pairs, min_bin = TrainUtils.divide_data_into_bins(
-            sample_molecule_pairs,
-            number_bins=2,
-            bin_sim_1=True
+            sample_molecule_pairs, number_bins=2, bin_sim_1=True
         )
 
         assert len(binned_pairs) == 3
@@ -150,9 +147,7 @@ class TestTrainUtils:
 
     def test_divide_data_into_bins_categories(self, sample_molecule_pairs):
         binned_pairs, min_bin = TrainUtils.divide_data_into_bins_categories(
-            sample_molecule_pairs,
-            number_bins=2,
-            bin_sim_1=False
+            sample_molecule_pairs, number_bins=2, bin_sim_1=False
         )
 
         assert len(binned_pairs) == 2
@@ -165,7 +160,7 @@ class TestTrainUtils:
             number_bins=2,
             return_binned_list=True,
             bin_sim_1=False,
-            seed=42
+            seed=42,
         )
 
         assert isinstance(result, MoleculePairsOpt)
@@ -181,10 +176,7 @@ class TestTrainUtils:
 
     def test_train_val_test_split_bms_no_val_test(self, sample_spectra):
         train, val, test = TrainUtils.train_val_test_split_bms(
-            sample_spectra,
-            val_split=0.0,
-            test_split=0.0,
-            seed=42
+            sample_spectra, val_split=0.0, test_split=0.0, seed=42
         )
 
         assert len(train) == len(sample_spectra)
