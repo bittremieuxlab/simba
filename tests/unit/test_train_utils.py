@@ -1,6 +1,7 @@
 """Tests for simba/train_utils.py"""
 
 import numpy as np
+import pandas as pd
 import pytest
 
 from simba.molecule_pairs_opt import MoleculePairsOpt
@@ -41,16 +42,21 @@ def sample_molecule_pairs(sample_spectra):
             [3, 7, 0.05],
         ]
     )
-    df_smiles = {
-        "spec1": "CCO",
-        "spec2": "CCCO",
-        "spec3": "CCCCO",
-        "spec4": "CCCCCO",
-        "spec5": "CCCCCCO",
-        "spec6": "CCCCCCCO",
-        "spec7": "CCCCCCCCO",
-        "spec8": "CCCCCCCCCO",
-    }
+    df_smiles = pd.DataFrame(
+        {
+            "indexes": [
+                [0],
+                [1],
+                [2],
+                [3],
+                [4],
+                [5],
+                [6],
+                [7],
+            ]
+        },
+        index=[0, 1, 2, 3, 4, 5, 6, 7],
+    )
 
     return MoleculePairsOpt(
         unique_spectra=sample_spectra,
@@ -102,7 +108,24 @@ class TestTrainUtils:
         unique_spectra, mapping = TrainUtils.get_unique_spectra(sample_spectra)
 
         assert len(unique_spectra) <= len(sample_spectra)
-        assert len(mapping) == len(sample_spectra)
+        assert len(mapping) == len(unique_spectra)
+
+    def test_get_unique_spectra_with_duplicates(self, create_test_spectrum):
+        # Test with duplicate SMILES to verify deduplication
+        spectra_with_duplicates = [
+            create_test_spectrum(identifier="spec1", smiles="CCO", bms="scaffold1"),
+            create_test_spectrum(identifier="spec2", smiles="CCO", bms="scaffold1"),
+            create_test_spectrum(identifier="spec3", smiles="CCCO", bms="scaffold2"),
+            create_test_spectrum(identifier="spec4", smiles="CCCO", bms="scaffold2"),
+            create_test_spectrum(identifier="spec5", smiles="CCCCO", bms="scaffold3"),
+        ]
+
+        unique_spectra, mapping = TrainUtils.get_unique_spectra(spectra_with_duplicates)
+
+        # Should have 3 unique SMILES: CCO, CCCO, CCCCO
+        assert len(unique_spectra) == 3
+        # Mapping should reflect the reduced set
+        assert len(mapping) == 3
 
     def test_uniformise(self, sample_molecule_pairs):
         result = TrainUtils.uniformise(
