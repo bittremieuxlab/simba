@@ -12,6 +12,7 @@ def create_test_spectrum():
 
     def _create(**kwargs):
         """Helper function to create a test spectrum with default values."""
+        smiles = kwargs.get("smiles", "CCO")
         defaults = {
             "identifier": "test_spectrum",
             "precursor_mz": 100.0,
@@ -19,10 +20,10 @@ def create_test_spectrum():
             "mz": np.array([100.0, 200.0]),
             "intensity": np.array([0.5, 1.0]),
             "retention_time": 1.5,
-            "params": {},
+            "params": {"smiles": smiles},
             "library": "test",
             "inchi": "test_inchi",
-            "smiles": "CCO",
+            "smiles": smiles,
             "ionmode": "positive",
             "adduct_mass": 18.01,
             "ce": 20.0,
@@ -36,6 +37,8 @@ def create_test_spectrum():
             "spectrum_hash": None,
         }
         defaults.update(kwargs)
+        if "smiles" in kwargs:
+            defaults["params"]["smiles"] = kwargs["smiles"]
         return SpectrumExt(**defaults)
 
     return _create
