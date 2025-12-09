@@ -24,8 +24,10 @@ class CustomDatasetMultitasking(Dataset):
         fingerprint_0=None,
         max_num_peaks=None,
         use_adduct=False,
-        ionization_mode_precursor=None,
-        adduct_mass_precursor=None,
+        ionmode=None,
+        adduct_mass=None,
+        use_ce=False,
+        ce=None,
     ):
         self.data = your_dict
         self.keys = list(your_dict.keys())
@@ -39,14 +41,18 @@ class CustomDatasetMultitasking(Dataset):
         self.df_smiles = df_smiles  ### df with rows smiles, indexes
         self.use_fingerprints = use_fingerprints
         self.use_adduct = use_adduct
+        self.use_ce = use_ce
 
         if self.use_fingerprints:
             self.fingerprint_0 = fingerprint_0
         self.max_num_peaks = max_num_peaks
 
         if self.use_adduct:
-            self.ionization_mode_precursor = ionization_mode_precursor
-            self.adduct_mass_precursor = adduct_mass_precursor
+            self.ionmode = ionmode
+            self.adduct_mass = adduct_mass
+
+        if self.use_ce:
+            self.ce = ce
 
     def __len__(self):
         return len(self.data[self.keys[0]])
@@ -98,6 +104,10 @@ class CustomDatasetMultitasking(Dataset):
                 (len_data, 1), dtype=np.float32
             )
 
+        if self.use_ce:
+            dictionary["ce_0"] = np.zeros((len_data, 1), dtype=np.float32)
+            dictionary["ce_1"] = np.zeros((len_data, 1), dtype=np.float32)
+
         if self.use_fingerprints:
             print("Defining fingerprints ...")
             dictionary["fingerprint_0"] = np.zeros(
@@ -147,19 +157,23 @@ class CustomDatasetMultitasking(Dataset):
             dictionary["ed"][idx] = sample_unique["ed"].astype(np.float32)
             dictionary["mces"][idx] = sample_unique["mces"].astype(np.float32)
             if self.use_adduct:
-                dictionary["ionmode_0"][idx] = self.ionization_mode_precursor[
+                dictionary["ionmode_0"][idx] = self.ionmode[
                     indexes_original_0
                 ].astype(np.float32)
-                dictionary["ionmode_1"][idx] = self.ionization_mode_precursor[
+                dictionary["ionmode_1"][idx] = self.ionmode[
                     indexes_original_1
                 ].astype(np.float32)
 
-                dictionary["adduct_mass_0"][idx] = self.adduct_mass_precursor[
+                dictionary["adduct_mass_0"][idx] = self.adduct_mass[
                     indexes_original_0
                 ].astype(np.float32)
-                dictionary["adduct_mass_1"][idx] = self.adduct_mass_precursor[
+                dictionary["adduct_mass_1"][idx] = self.adduct_mass[
                     indexes_original_1
                 ].astype(np.float32)
+
+            if self.use_ce:
+                dictionary["ce_0"][idx] = self.ce[indexes_original_0]
+                dictionary["ce_1"][idx] = self.ce[indexes_original_1]
 
             if self.use_fingerprints:
                 dictionary["fingerprint_0"][idx] = self.fingerprint_0[
@@ -231,19 +245,27 @@ class CustomDatasetMultitasking(Dataset):
                 ].astype(np.float32)
 
         if self.use_adduct:
-            spectrum_sample["ionmode_0"] = self.ionization_mode_precursor[
+            spectrum_sample["ionmode_0"] = self.ionmode[idx_0_original].astype(
+                np.float32
+            )
+            spectrum_sample["ionmode_1"] = self.ionmode[idx_1_original].astype(
+                np.float32
+            )
+
+            spectrum_sample["adduct_mass_0"] = self.adduct_mass[
                 idx_0_original
             ].astype(np.float32)
-            spectrum_sample["ionmode_1"] = self.ionization_mode_precursor[
+            spectrum_sample["adduct_mass_1"] = self.adduct_mass[
                 idx_1_original
             ].astype(np.float32)
 
-            spectrum_sample["adduct_mass_0"] = self.adduct_mass_precursor[
-                idx_0_original
-            ].astype(np.float32)
-            spectrum_sample["adduct_mass_1"] = self.adduct_mass_precursor[
-                idx_1_original
-            ].astype(np.float32)
+        if self.use_ce:
+            spectrum_sample["ce_0"] = self.ce[idx_0_original].astype(
+                np.float32
+            )
+            spectrum_sample["ce_1"] = self.ce[idx_1_original].astype(
+                np.float32
+            )
 
         if self.training:
             if random.random() < self.prob_aug:

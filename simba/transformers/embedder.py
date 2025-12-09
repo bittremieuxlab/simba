@@ -14,10 +14,10 @@ from depthcharge.data import AnnotatedSpectrumDataset
 from depthcharge.tokenizers import PeptideTokenizer
 from depthcharge.transformers import (
     SpectrumTransformerEncoder,
-    # PeptideTransformerEncoder,
-)
+)  # PeptideTransformerEncoder,
 
 from simba.config import Config
+from simba.logger_setup import logger
 from simba.transformers.spectrum_transformer_encoder_custom import (
     SpectrumTransformerEncoderCustom,
 )
@@ -55,9 +55,12 @@ class Embedder(pl.LightningModule):
         lr=None,
         use_element_wise=True,
         use_cosine_distance=True,  # element wise instead of concat for mixing info between embeddings
-        use_extra_metadata=False,
-        use_categorical_adducts=False,
-        adduct_info_csv= "",
+        use_adduct=False,
+        categorical_adducts=False,
+        adduct_mass_map="",
+        use_ce=False,
+        use_ion_activation=False,
+        use_ion_method=False,
     ):
         """Initialize the CCSPredictor"""
         super().__init__()
@@ -70,14 +73,21 @@ class Embedder(pl.LightningModule):
         self.fixed_linear_regression = FixedLinearRegression(d_model)
 
         self.relu = nn.ReLU()
-        self.use_extra_metadata = use_extra_metadata
+        self.use_adduct = use_adduct
+        self.use_ce = use_ce
+        self.use_ion_activation = use_ion_activation
+        self.use_ion_method = use_ion_method
+
         self.spectrum_encoder = SpectrumTransformerEncoderCustom(
             d_model=d_model,
             n_layers=n_layers,
             dropout=dropout,
-            use_extra_metadata=use_extra_metadata,
-            use_categorical_adducts=use_categorical_adducts,
-            adduct_info_csv =adduct_info_csv,
+            use_adduct=use_adduct,
+            categorical_adducts=categorical_adducts,
+            adduct_mass_map=adduct_mass_map,
+            use_ce=use_ce,
+            use_ion_activation=use_ion_activation,
+            use_ion_method=use_ion_method,
         )
 
         self.regression_loss = nn.MSELoss()
@@ -109,20 +119,32 @@ class Embedder(pl.LightningModule):
         """The inference pass"""
 
         kwargs_0 = {
-                "precursor_mass": batch["precursor_mass_0"].float(),
-                "precursor_charge": batch["precursor_charge_0"].float(),
-            }
+            "precursor_mass": batch["precursor_mass_0"].float(),
+            "precursor_charge": batch["precursor_charge_0"].float(),
+        }
         kwargs_1 = {
             "precursor_mass": batch["precursor_mass_1"].float(),
             "precursor_charge": batch["precursor_charge_1"].float(),
         }
         # extra data
-        if self.use_extra_metadata:
-
+        if self.use_adduct:
             kwargs_0["ionmode"] = batch["ionmode_0"].float()
             kwargs_1["ionmode"] = batch["ionmode_1"].float()
             kwargs_0["adduct_mass"] = batch["adduct_mass_0"].float()
             kwargs_1["adduct_mass"] = batch["adduct_mass_1"].float()
+
+        if self.use_ce:
+            logger.info("Using CE in the model")
+            kwargs_0["ce"] = batch["ce_0"].float()
+            kwargs_1["ce"] = batch["ce_1"].float()
+
+        if self.use_ion_activation:
+            kwargs_0["ion_activation"] = batch["ion_activation_0"].float()
+            kwargs_1["ion_activation"] = batch["ion_activation_1"].float()
+
+        if self.use_ion_method:
+            kwargs_0["ion_method"] = batch["ion_method_0"].float()
+            kwargs_1["ion_method"] = batch["ion_method_1"].float()
 
         emb0, _ = self.spectrum_encoder(
             mz_array=batch["mz_0"].float(),
@@ -175,7 +197,9 @@ class Embedder(pl.LightningModule):
 
         # adjust scale
         # target = 2*(target-0.5)
-        loss = self.regression_loss(spec.float(), target.view(-1, 1).float()).float()
+        loss = self.regression_loss(
+            spec.float(), target.view(-1, 1).float()
+        ).float()
 
         return loss.float()
 
@@ -183,14 +207,18 @@ class Embedder(pl.LightningModule):
         """A training step"""
         loss = self.step(batch, batch_idx)
         # self.train_loss_list.append(loss.item())
-        self.log("train_loss", loss, on_step=True, on_epoch=True, prog_bar=True)
+        self.log(
+            "train_loss", loss, on_step=True, on_epoch=True, prog_bar=True
+        )
         return loss
 
     def validation_step(self, batch, batch_idx):
         """A validation step"""
         loss = self.step(batch, batch_idx)
         # self.val_loss_list.append(loss.item())
-        self.log("validation_loss", loss, on_step=True, on_epoch=True, prog_bar=True)
+        self.log(
+            "validation_loss", loss, on_step=True, on_epoch=True, prog_bar=True
+        )
         return loss
 
     def predict_step(self, batch, batch_idx):
@@ -249,7 +277,9 @@ class Embedder(pl.LightningModule):
         new_weights,
         layer_test="spectrum_encoder.transformer_encoder.layers.0.norm2.bias",
     ):
-        return np.array_equal(original_weights[layer_test], new_weights[layer_test])
+        return np.array_equal(
+            original_weights[layer_test], new_weights[layer_test]
+        )
 
     def set_freeze_layers(self, layer_names_to_freeze, freeze):
         # Freeze specified layers

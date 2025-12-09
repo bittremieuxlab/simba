@@ -205,6 +205,62 @@ To test the SIMBA model use the following command:
 * PREPROCESSING_PICKLE_FILE: Mapping file.
 * UNIFORMIZE_DURING_TESTING: If to balance the edit distance classes or not.
 
+---
+
+## 🛠️ Development & Contributing
+
+### Setting Up Development Environment
+
+```bash
+# Clone and install with dev dependencies
+git clone https://github.com/bittremieux-lab/simba.git
+cd simba
+uv sync --all-extras
+
+# Install pre-commit hooks
+uv run pre-commit install
+```
+
+### Running Tests
+
+```bash
+# Run all tests
+uv run pytest tests/ -v
+
+# Run with coverage report
+uv run pytest tests/ --cov=simba --cov-report=html --cov-report=term-missing
+
+# View coverage report
+open htmlcov/index.html
+```
+
+### Code Quality
+
+The project uses:
+- **Ruff** for linting and formatting
+- **pytest** for testing
+- **pre-commit hooks** for automated checks
+
+```bash
+# Run linter
+uv run ruff check simba/
+
+# Format code
+uv run ruff format simba/
+
+# Run pre-commit on all files
+uv run pre-commit run --all-files
+```
+
+Pre-commit hooks automatically run on every commit and check:
+- Code formatting (Ruff)
+- Linting (Ruff)
+- Tests (pytest)
+- File formatting (trailing whitespace, line endings)
+- YAML/TOML syntax
+
+---
+
 ## 📬 Contact & Support
 
 - **Code repository**: [SIMBA GitHub](https://github.com/bittremieux-lab/simba)

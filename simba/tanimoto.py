@@ -90,7 +90,7 @@ class Tanimoto:
             fp = None
 
         return fp
-    
+
 
     @functools.lru_cache
     def compute_tanimoto_from_smiles(smiles0, smiles1):

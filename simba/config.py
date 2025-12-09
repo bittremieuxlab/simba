@@ -51,6 +51,9 @@ class Config:
         # Input adduct info as categorical variables
         self.CATEGORICAL_ADDUCTS = False
         self.ADDUCT_MASS_MAP_CSV = None
+        self.USE_CE = False
+        self.USE_ION_ACTIVATION = False
+        self.USE_ION_METHOD = False
 
         ## FOR COMPUTING EDIT DISTANCE LOCALLY
         self.USE_FINGERPRINT = False

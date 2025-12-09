@@ -1,17 +1,24 @@
-
 import pandas as pd
 
-class AdductHandling:
+ION_ACTIVATION = ["HCD", "CID"]
+IONIZATION_METHODS = ["NSI", "ESI", "APCI"]
+
+
+class OneHotEncoding:
 
     def __init__(self, adduct_file_path):
         self.df_adduct = self.load_adduct_info(adduct_file_path)
 
-
+    # TODO: adduct to mass dict also in simba/chem_utils.py
     def load_adduct_info(self, path_adduct_csv):
-        return pd.read_csv(path_adduct_csv, delimiter=';')
+        return pd.read_csv(path_adduct_csv, delimiter=";")
 
     ### obtain information for adduct handling based on adduct mass
-    def get_categorical_adduct(self, adduct_mass, ion_mode, ):
+    def encode_adduct(
+        self,
+        adduct_mass,
+        ion_mode,
+    ):
         """
         adduct_mass : float
             Target adduct mass (mass shift).
@@ -42,9 +49,26 @@ class AdductHandling:
         best_row = df_mode.loc[idx_closest]
 
         # All columns that encode adduct composition (including adduct_M)
-        adduct_cols = [c for c in self.df_adduct.columns if c.startswith("adduct_")]
+        adduct_cols = [
+            c for c in self.df_adduct.columns if c.startswith("adduct_")
+        ]
 
         # Extract their values as a list (you can cast to int if you prefer)
         list_adduct_elements = best_row[adduct_cols].tolist()
 
         return list_adduct_elements
+
+    def encode_ion_activation(self, ion_activation):
+        ion_activation_upper = ion_activation.upper() if ion_activation else ""
+        return [
+            1 if ion_activation_upper == ia else 0 for ia in ION_ACTIVATION
+        ]
+
+    def encode_ionization_method(self, ionization_method):
+        ionization_method_upper = (
+            ionization_method.upper() if ionization_method else ""
+        )
+        return [
+            1 if ionization_method_upper == im else 0
+            for im in IONIZATION_METHODS
+        ]

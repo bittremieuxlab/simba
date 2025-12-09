@@ -1,4 +1,4 @@
-from typing import Iterable, Union
+from typing import Dict, Iterable, Union
 
 import numpy as np
 from spectrum_utils.spectrum import MsmsSpectrum
@@ -24,18 +24,21 @@ class SpectrumExt(MsmsSpectrum):
         mz: Union[np.ndarray, Iterable],
         intensity: Union[np.ndarray, Iterable],
         retention_time: float,
-        params,
-        library,
-        inchi,
-        smiles,
-        ionmode,
+        params: Dict,
+        library: str,
+        inchi: str,
+        smiles: str,
+        ionmode: str,
         adduct_mass: float,
-        bms,
-        superclass,
-        classe,
-        subclass,
-        inchi_key=None,
-        spectrum_hash=None,
+        ce: float,
+        ion_activation: str,
+        ionization_method: str,
+        bms: str,
+        superclass: str,
+        classe: str,
+        subclass: str,
+        inchi_key: str = None,
+        spectrum_hash: str = None,
     ):
 
         super().__init__(
@@ -49,8 +52,9 @@ class SpectrumExt(MsmsSpectrum):
 
         # extra variables
         self.params = params
-        self.intensity_array = None
         self.mz_array = None
+        self.intensity_array = None
+        self.retention_time = retention_time
         self.spectrum_vector = ""
         self.smiles = smiles
         self.max_peak = ""
@@ -58,7 +62,9 @@ class SpectrumExt(MsmsSpectrum):
         self.inchi = inchi
         self.ionmode = ionmode
         self.adduct_mass = adduct_mass
-        self.retention_time = retention_time
+        self.ce = ce
+        self.ion_activation = ion_activation
+        self.ionization_method = ionization_method
         # classes
         self.superclass = superclass
         self.classe = classe
@@ -92,6 +98,9 @@ class SpectrumExt(MsmsSpectrum):
                 "inchi": self.inchi,
                 "ionmode": self.ionmode,
                 "adduct_mass": self.adduct_mass,
+                "ce": self.ce,
+                "ion_activation": self.ion_activation,
+                "ionization_method": self.ionization_method,
                 "retention_time": self.retention_time,
                 "superclass": self.superclass,
                 "classe": self.classe,
@@ -118,6 +127,18 @@ class SpectrumExt(MsmsSpectrum):
         self.inchi = state["inchi"]
         self.ionmode = state["ionmode"]
         self.adduct_mass = state["adduct_mass"]
+        try:
+            self.ce = state["ce"]
+        except KeyError:
+            self.ce = 0.0
+        try:
+            self.ion_activation = state["ion_activation"]
+        except KeyError:
+            self.ion_activation = ""
+        try:
+            self.ionization_method = state["ionization_method"]
+        except KeyError:
+            self.ionization_method = ""
         self.retention_time = state["retention_time"]
         self.superclass = state["superclass"]
         self.classe = state["classe"]

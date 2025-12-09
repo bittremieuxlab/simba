@@ -1,18 +1,21 @@
 from rdkit import Chem
 from rdkit.Chem.Scaffolds.MurckoScaffold import MakeScaffoldGeneric
 
+from simba.logger_setup import logger
+
 
 class MurckoScaffold:
     """
     code for computing murcko scaffold for dividing train, val and test sets
     """
 
+    @staticmethod
     def get_bm_scaffold(smiles):
         try:
             scaffold = Chem.MolToSmiles(
                 MakeScaffoldGeneric(mol=Chem.MolFromSmiles(smiles))
             )
         except Exception:
-            # print("Raise AtomValenceException, return basic Murcko Scaffold")
+            logger.warning(f"No scaffold for given SMILES ({smiles})")
             scaffold = ""
         return scaffold

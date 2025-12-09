@@ -24,7 +24,6 @@ from simba.parser import Parser
 from simba.train_utils import TrainUtils
 from simba.transformers.postprocessing import Postprocessing
 
-
 sys.modules["src"] = simba
 
 
@@ -78,28 +77,34 @@ def prepare_data(
 
     molecule_pairs_ed.pair_distances = pair_distances[:, 0:3]
     molecule_pairs_ed.extra_distances = pair_distances[:, 3]
-    logger.info(f"{len(molecule_pairs_ed)} pairs remain after removing duplicates")
+    logger.info(
+        f"{len(molecule_pairs_ed)} pairs remain after removing duplicates"
+    )
 
     molecule_pairs_mces.pair_distances = pair_distances[:, [0, 1, 3]]
     molecule_pairs_mces.extra_distances = pair_distances[:, 3]
 
     if config.UNIFORMIZE_DURING_TESTING:
         logger.info("Uniformize pairs across bins...")
-        molecule_pairs_ed_uniform, binned_molecule_pairs_ed = TrainUtils.uniformise(
-            molecule_pairs_ed,
-            number_bins=config.bins_uniformise_INFERENCE,
-            return_binned_list=True,
-            bin_sim_1=True,
-            # bin_sim_1=False,
-            ordinal_classification=True,
+        molecule_pairs_ed_uniform, binned_molecule_pairs_ed = (
+            TrainUtils.uniformise(
+                molecule_pairs_ed,
+                number_bins=config.bins_uniformise_INFERENCE,
+                return_binned_list=True,
+                bin_sim_1=True,
+                # bin_sim_1=False,
+                ordinal_classification=True,
+            )
         )  # do not treat sim==1 as another bin
-        molecule_pairs_mces_uniform, binned_molecule_pairs_mces = TrainUtils.uniformise(
-            molecule_pairs_mces,
-            number_bins=config.bins_uniformise_INFERENCE,
-            return_binned_list=True,
-            bin_sim_1=False,
-            # bin_sim_1=False,
-            # ordinal_classification=True,
+        molecule_pairs_mces_uniform, binned_molecule_pairs_mces = (
+            TrainUtils.uniformise(
+                molecule_pairs_mces,
+                number_bins=config.bins_uniformise_INFERENCE,
+                return_binned_list=True,
+                bin_sim_1=False,
+                # bin_sim_1=False,
+                # ordinal_classification=True,
+            )
         )  # do not treat sim==1 as another bin
     else:
         molecule_pairs_ed_uniform = molecule_pairs_ed
@@ -133,7 +138,9 @@ def create_dataloaders(
         max_num_peaks=int(config.TRANSFORMER_CONTEXT),
         use_adduct=config.USE_ADDUCT,
     )
-    dataloader_ed = DataLoader(dataset_ed, batch_size=config.BATCH_SIZE, shuffle=False)
+    dataloader_ed = DataLoader(
+        dataset_ed, batch_size=config.BATCH_SIZE, shuffle=False
+    )
 
     dataset_mces = LoadDataMultitasking.from_molecule_pairs_to_dataset(
         molecule_pairs_mces_uniform,
@@ -163,16 +170,17 @@ def setup_model(config: Config):
         "use_cosine_distance": config.use_cosine_distance,
         "use_edit_distance_regresion": config.USE_EDIT_DISTANCE_REGRESSION,
         "strict": False,
+        "use_adduct": config.USE_ADDUCT,
+        "categorical_adducts": config.CATEGORICAL_ADDUCTS,
+        "adduct_mass_map": config.ADDUCT_MASS_MAP_CSV,
+        "use_ce": config.USE_CE,
+        "use_ion_activation": config.USE_ION_ACTIVATION,
+        "use_ion_method": config.USE_ION_METHOD,
     }
-    
-    if config.USE_ADDUCT:
-        load_kwargs.update({
-            "use_adduct": config.USE_ADDUCT,
-            "categorical_adducts": config.USE_CATEGORICAL_ADDUCTS,
-            "adduct_mass_map": config.ADDUCT_MASS_MAP_CSV,
-        })
-    
-    best_model = EmbedderMultitask.load_from_checkpoint(best_model_path, **load_kwargs)
+
+    best_model = EmbedderMultitask.load_from_checkpoint(
+        best_model_path, **load_kwargs
+    )
     return best_model
 
 
@@ -202,23 +210,33 @@ def inference(dataloader_ed, dataloader_mces, model, config: Config):
 def evaluate_predictions(
     dataloader_ed, dataloader_mces, pred_ed, pred_mces, config: Config
 ):
-    ed_true, mces_true = Postprocessing.get_similarities_multitasking(dataloader_ed)
-    _, mces_true = Postprocessing.get_similarities_multitasking(dataloader_mces)
+    ed_true, mces_true = Postprocessing.get_similarities_multitasking(
+        dataloader_ed
+    )
+    _, mces_true = Postprocessing.get_similarities_multitasking(
+        dataloader_mces
+    )
 
     # flat the results
     pred_mces_mces_flat = []
     pred_mces_mces_flat = [[p.item() for p in pred[1]] for pred in pred_mces]
-    pred_mces_mces_flat = [item for sublist in pred_mces_mces_flat for item in sublist]
+    pred_mces_mces_flat = [
+        item for sublist in pred_mces_mces_flat for item in sublist
+    ]
     pred_mces_mces_flat = np.array(pred_mces_mces_flat)
 
     pred_ed_mces_flat = []
     pred_ed_mces_flat = [[p.item() for p in pred[1]] for pred in pred_ed]
-    pred_ed_mces_flat = [item for sublist in pred_ed_mces_flat for item in sublist]
+    pred_ed_mces_flat = [
+        item for sublist in pred_ed_mces_flat for item in sublist
+    ]
     pred_ed_mces_flat = np.array(pred_ed_mces_flat)
 
     pred_ed_ed_flat = []
     pred_ed_ed_flat = [p[0] for p in pred_ed]
-    pred_ed_ed_flat = [[which_index(p) for p in p_list] for p_list in pred_ed_ed_flat]
+    pred_ed_ed_flat = [
+        [which_index(p) for p in p_list] for p_list in pred_ed_ed_flat
+    ]
     pred_ed_ed_flat = [item for sublist in pred_ed_ed_flat for item in sublist]
     pred_ed_ed_flat = np.array(pred_ed_ed_flat, dtype=float)
 
@@ -272,7 +290,9 @@ def evaluate_predictions(
     if not config.USE_TANIMOTO:
         # if using mces20, apply de-normalization to obtain scalar value sof MCES20
         mces_true = config.MCES20_MAX_VALUE * (1 - mces_true)
-        pred_mces_mces_flat = config.MCES20_MAX_VALUE * (1 - pred_mces_mces_flat)
+        pred_mces_mces_flat = config.MCES20_MAX_VALUE * (
+            1 - pred_mces_mces_flat
+        )
         # pred_ed_mces_flat = config.MCES20_MAX_VALUE * (1 - pred_ed_mces_flat)
 
     plot_performance(mces_true, pred_mces_mces_flat, config)
@@ -338,7 +358,9 @@ def plot_cm(true, preds, config, file_name="cm.png", reverse_labels=True):
     # Annotate each cell with the percentage, using white text if the background is dark
     for i in range(cm_normalized.shape[0]):
         for j in range(cm_normalized.shape[1]):
-            text_color = "white" if cm_normalized[i, j] > threshold else "black"
+            text_color = (
+                "white" if cm_normalized[i, j] > threshold else "black"
+            )
             plt.text(
                 j,
                 i,
@@ -403,7 +425,9 @@ def divide_predictions_in_bins(
         # randomize the arrays
         if len(list_elements1_temp) > 0:
             np.random.seed(42)
-            random_indexes = np.random.randint(0, list_elements1_temp.shape[0], min_bin)
+            random_indexes = np.random.randint(
+                0, list_elements1_temp.shape[0], min_bin
+            )
             output_elements1 = np.concatenate(
                 (output_elements1, list_elements1_temp[random_indexes])
             )
@@ -438,7 +462,9 @@ def plot_performance(mces_true, mces_pred, config: Config):
     plt.ylabel("prediction")
     plt.grid()
     plt.tight_layout()
-    plt.savefig(config.CHECKPOINT_DIR + f"scatter_plot_{config.MODEL_CODE}.png")
+    plt.savefig(
+        config.CHECKPOINT_DIR + f"scatter_plot_{config.MODEL_CODE}.png"
+    )
 
 
 if __name__ == "__main__":
@@ -453,5 +479,9 @@ if __name__ == "__main__":
         molecule_pairs_ed_uniform, molecule_pairs_mces_uniform, config
     )
     model = setup_model(config)
-    pred_ed, pred_mces = inference(dataloader_ed, dataloader_mces, model, config)
-    evaluate_predictions(dataloader_ed, dataloader_mces, pred_ed, pred_mces, config)
+    pred_ed, pred_mces = inference(
+        dataloader_ed, dataloader_mces, model, config
+    )
+    evaluate_predictions(
+        dataloader_ed, dataloader_mces, pred_ed, pred_mces, config
+    )
