@@ -1,6 +1,5 @@
 """Train command for SIMBA CLI."""
 
-import sys
 from pathlib import Path
 
 import click
@@ -217,15 +216,15 @@ def train(
         # Get weights for MCES from first 100 batches (same as original script)
         click.echo("Computing MCES weights from training data...")
 
+        import itertools
+
         import numpy as np
 
         from simba.train_utils import TrainUtils
 
         mces_sampled = []
-        for i, batch in enumerate(dataloader_train):
+        for batch in itertools.islice(dataloader_train, 100):
             mces_sampled = mces_sampled + list(batch["mces"].reshape(-1))
-            if i == 100:
-                break
 
         mces_sampled = np.array(mces_sampled)
         counting_mces, bins_mces = TrainUtils.count_ranges(
@@ -287,10 +286,10 @@ def _setup_config(
     config.epochs = epochs
     config.ACCELERATOR = accelerator
     config.VAL_CHECK_INTERVAL = val_check_interval
-    config.TRAINING_BATCH_SIZE = batch_size
-    config.VALIDATION_BATCH_SIZE = batch_size
-    config.TRAINING_NUM_WORKERS = num_workers
-    config.VALIDATION_NUM_WORKERS = num_workers
+    config.BATCH_SIZE = batch_size  # Used by both training and validation dataloaders
+    config.TRAINING_NUM_WORKERS = (
+        num_workers  # Used by both training and validation dataloaders
+    )
     config.LR = learning_rate
 
     # Inference settings
@@ -302,8 +301,6 @@ def _setup_config(
 
 def _load_dataset(mapping_path: Path, simba, dill):
     """Load training dataset from pickle file."""
-    sys.modules["src"] = simba
-
     with open(mapping_path, "rb") as file:
         mapping = dill.load(file)
 

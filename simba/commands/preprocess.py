@@ -211,26 +211,37 @@ def preprocess(
             split_name = type_data.replace("_", "").capitalize()
             click.echo(f"Computing distances for {split_name} set...")
 
-            # Compute both edit distance and MCES
-            for use_edit_distance in [False, True]:
-                distance_type = "Edit Distance" if use_edit_distance else "MCES"
-                click.echo(f"  Computing {distance_type}...")
+            # First compute MCES, then compute Edit Distance reusing the same molecule pairs
+            # This ensures both distance types are calculated and saved to files
+            click.echo("  Computing MCES...")
+            MCES.compute_all_mces_results_unique(
+                spectra,
+                max_combinations=10000000000000,
+                num_workers=config.PREPROCESSING_NUM_WORKERS,
+                random_sampling=config.RANDOM_MCES_SAMPLING,
+                config=config,
+                identifier=type_data,
+                use_edit_distance=False,
+                loaded_molecule_pairs=None,
+            )
 
-                molecule_pairs[type_data] = MCES.compute_all_mces_results_unique(
-                    spectra,
-                    max_combinations=10000000000000,
-                    num_workers=config.PREPROCESSING_NUM_WORKERS,
-                    random_sampling=config.RANDOM_MCES_SAMPLING,
-                    config=config,
-                    identifier=type_data,
-                    use_edit_distance=use_edit_distance,
-                    loaded_molecule_pairs=None,
-                )
+            click.echo("  Computing Edit Distance...")
+            molecule_pairs[type_data] = MCES.compute_all_mces_results_unique(
+                spectra,
+                max_combinations=10000000000000,
+                num_workers=config.PREPROCESSING_NUM_WORKERS,
+                random_sampling=config.RANDOM_MCES_SAMPLING,
+                config=config,
+                identifier=type_data,
+                use_edit_distance=True,
+                loaded_molecule_pairs=None,
+            )
 
         # Combine edit distance and MCES files
         click.echo("Combining edit distance and MCES files...")
-        import numpy as np
         import os
+
+        import numpy as np
 
         all_files = os.listdir(str(workspace))
         for partition in ["train", "val", "test"]:
