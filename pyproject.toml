@@ -85,6 +85,9 @@ Homepage = "https://github.com/bittremieux-lab/simba"
 Repository = "https://github.com/bittremieux-lab/simba"
 "Bug Tracker" = "https://github.com/bittremieux-lab/simba/issues"
 
+[project.scripts]
+simba = "simba.cli:cli"
+
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["simba*"]

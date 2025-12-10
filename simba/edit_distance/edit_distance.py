@@ -7,7 +7,7 @@ import numpy as np
 import pandas as pd
 from myopic_mces.myopic_mces import MCES as MCES2
 from rdkit import Chem, DataStructs, Geometry
-from rdkit.Chem import AllChem, Draw, PandasTools, rdFMCS
+from rdkit.Chem import AllChem, Draw, rdFMCS
 from rdkit.Chem.Fingerprints import FingerprintMols
 from rdkit.Chem.rdchem import Mol
 from rdkit.DataStructs.cDataStructs import ExplicitBitVect

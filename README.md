@@ -164,10 +164,37 @@ The dataframe df_smiles contains the mapping from indexes of unique compounds to
 
 ### Step 2: Model Training
 
-Train your SIMBA model using the following commnad:
+Train your SIMBA model using one of the following methods:
+
+#### Option 1: CLI Command (Recommended)
 
 ```bash
+simba train \
+  --checkpoint-dir /path/to/checkpoints/ \
+  --preprocessing-dir /path/to/preprocessed_data/ \
+  --preprocessing-pickle mapping_unique_smiles.pkl \
+  --epochs 10 \
+  --accelerator cpu \
+  --batch-size 32 \
+  --num-workers 0 \
+  --learning-rate 0.0001 \
+  --val-check-interval 10000
+```
 
+**Parameters:**
+* `--checkpoint-dir`: Directory where the trained model will be saved
+* `--preprocessing-dir`: Directory where preprocessing files are stored
+* `--preprocessing-pickle`: Filename of the mapping pickle file
+* `--epochs`: Number of training epochs (default: 10)
+* `--accelerator`: Hardware accelerator: `cpu` or `gpu` (default: cpu)
+* `--batch-size`: Batch size for training and validation (default: 32)
+* `--num-workers`: Number of data loading workers (default: 0)
+* `--learning-rate`: Learning rate for the optimizer (default: 0.0001)
+* `--val-check-interval`: Validation check frequency in training steps (default: 10000)
+
+#### Option 2: Python Script (Legacy)
+
+```bash
 python training_scripts/final_training.py  \
   --CHECKPOINT_DIR=/path/to/checkpoints/ \
   --PREPROCESSING_PICKLE_FILE=mapping_unique_smiles.pkl \
@@ -177,14 +204,18 @@ python training_scripts/final_training.py  \
   --epochs=10 \
   --VAL_CHECK_INTERVAL=10000
 ```
-* CHECKPOINT_DIR: Place where the trained model will be saved.
-* PREPROCESSING_DIR_TRAIN: Folder where the preprocessing files are saved.
-* PREPROCESSING_PICKLE_FILE: File name with the mapping.
-* ACCELERATOR: cpu or gpu.
-* epochs: Number of epochs to be trained.
-* VAL_CHECK_INTERVAL: Used to check validation performance every N steps.
 
-The code uses the mapping file produced in the last step and the preprocessing dir folder `PREPROCESSING_DIR_TRAIN` must be the same where the preprocessing files are generated. The best-performing model (lowest validation loss) is saved in `CHECKPOINT_DIR`.
+**Parameters:**
+* `CHECKPOINT_DIR`: Place where the trained model will be saved
+* `PREPROCESSING_DIR_TRAIN`: Folder where the preprocessing files are saved
+* `PREPROCESSING_PICKLE_FILE`: File name with the mapping
+* `ACCELERATOR`: cpu or gpu
+* `epochs`: Number of epochs to be trained
+* `VAL_CHECK_INTERVAL`: Used to check validation performance every N steps
+
+---
+
+**Note:** Both methods produce identical results and use the mapping file produced in Step 1. The preprocessing directory `PREPROCESSING_DIR_TRAIN` / `--preprocessing-dir` must be the same where the preprocessing files were generated. The best-performing model (lowest validation loss) is saved in `CHECKPOINT_DIR` / `--checkpoint-dir`.
 
 ---
 
