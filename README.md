@@ -127,7 +127,32 @@ SIMBA supports training custom models using your own MS/MS datasets in `.mgf` fo
 
 ### Step 1: Generate Training Data
 
-Run the script below to generate training data:
+Preprocess your MS/MS spectral data using one of the following methods:
+
+#### Option 1: CLI Command (Recommended)
+
+```bash
+simba preprocess \
+  --spectra-path /path/to/your/spectra.mgf \
+  --workspace /path/to/preprocessed_data \
+  --max-spectra-train 10000 \
+  --mapping-file-name mapping_unique_smiles.pkl \
+  --num-workers 0
+```
+
+**Parameters:**
+* `--spectra-path`: Path to input spectra file (.mgf format)
+* `--workspace`: Directory where preprocessed data will be saved
+* `--max-spectra-train`: Maximum number of spectra to process for training (default: 10000). Set to large number to process all
+* `--max-spectra-val`: Maximum number of spectra for validation (default: 1000000)
+* `--max-spectra-test`: Maximum number of spectra for testing (default: 1000000)
+* `--mapping-file-name`: Filename for the mapping file (default: mapping_unique_smiles.pkl)
+* `--num-workers`: Number of worker processes for parallel computation (default: 0)
+* `--val-split`: Fraction of data for validation (default: 0.1)
+* `--test-split`: Fraction of data for testing (default: 0.1)
+* `--overwrite`: Overwrite existing preprocessing files
+
+#### Option 2: Python Script (Legacy)
 
 ```bash
 python preprocessing_scripts/final_generation_data.py  \
@@ -136,15 +161,23 @@ python preprocessing_scripts/final_generation_data.py  \
    --MAX_SPECTRA_TRAIN=10000 \
    --mapping_file_name=mapping_unique_smiles.pkl  \
    --PREPROCESSING_NUM_WORKERS=0
-
 ```
-* spectra_path: Location of spectra
-* workspace: Location where the calculated distances are going to be saved
-* MAX_SPECTRA_TRAIN: 10000 the maximum number of spectra to be processed. Set to a large number to avoid removing spectra
-* Mapping_file_name: name of the file that saves the mapping of the spectra from spectra to unique compounds.
-* PROCESSING_NUM_WORKERS: Number of processors to be used. By default 0.
 
-This script will generate a file 'mapping_unique_smiles.pkl' with the specific mapping information between unique compounds and corresponding spectra. As known, each compound can have several spectra and this file saves information about this mapping.
+**Parameters:**
+* `spectra_path`: Location of spectra
+* `workspace`: Location where the calculated distances are going to be saved
+* `MAX_SPECTRA_TRAIN`: Maximum number of spectra to be processed. Set to large number to avoid removing spectra
+* `mapping_file_name`: Name of the file that saves the mapping of the spectra from spectra to unique compounds
+* `PREPROCESSING_NUM_WORKERS`: Number of processors to be used (default: 0)
+
+---
+
+**Note:** Both methods produce identical results. The preprocessing computes:
+- Edit distance between molecular structures
+- MCES (Maximum Common Edge Substructure) distance
+- Train/validation/test splits
+
+The output includes a file `mapping_unique_smiles.pkl` with mapping information between unique compounds and corresponding spectra. Each compound can have several spectra and this file saves information about this mapping.
 
 ### Output
 - Numpy arrays with indexes and structural similarity metrics
