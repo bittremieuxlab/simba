@@ -182,7 +182,7 @@ class TestEmbedderMultitask:
 
     def test_ordinal_loss(self, embedder):
         logits = torch.randn(4, 6)
-        target = torch.tensor([0.8, 0.6, 0.4, 0.2])
+        target = torch.tensor([0.0, 1.0, 2.0, 3.0])
 
         loss = embedder.ordinal_loss(logits, target)
 
@@ -291,7 +291,6 @@ class TestEmbedderMultitask:
         loss = embedder.training_step(sample_batch, batch_idx=0)
 
         assert isinstance(loss, torch.Tensor)
-        assert loss.item() >= 0.0
         assert not torch.isnan(loss)
 
     def test_training_step_with_gumbel(self, embedder_config, sample_batch):
@@ -305,7 +304,8 @@ class TestEmbedderMultitask:
         loss = embedder.training_step(sample_batch, batch_idx=0)
 
         assert isinstance(loss, torch.Tensor)
-        assert loss.item() >= 0.0
+        # Note: loss can be negative when USE_LEARNABLE_MULTITASK=True due to learnable weights
+        assert not torch.isnan(loss)
 
     def test_training_step_with_edit_distance_regression(
         self, embedder_config, sample_batch
@@ -320,7 +320,8 @@ class TestEmbedderMultitask:
         loss = embedder.training_step(sample_batch, batch_idx=0)
 
         assert isinstance(loss, torch.Tensor)
-        assert loss.item() >= 0.0
+        # Note: loss can be negative when USE_LEARNABLE_MULTITASK=True due to learnable weights
+        assert not torch.isnan(loss)
 
     def test_validation_step(self, embedder, sample_batch):
         # Add required fields
@@ -332,7 +333,8 @@ class TestEmbedderMultitask:
             loss = embedder.validation_step(sample_batch, batch_idx=0)
 
         assert isinstance(loss, torch.Tensor)
-        assert loss.item() >= 0.0
+        # Note: loss can be negative when USE_LEARNABLE_MULTITASK=True due to learnable weights
+        assert not torch.isnan(loss)
 
     def test_test_step(self, embedder, sample_batch):
         # Add required fields
@@ -347,4 +349,5 @@ class TestEmbedderMultitask:
         # If it is defined, it should return a tensor
         if result is not None:
             assert isinstance(result, torch.Tensor)
-            assert result.item() >= 0.0
+            # Note: loss can be negative when USE_LEARNABLE_MULTITASK=True due to learnable weights
+            assert not torch.isnan(result)

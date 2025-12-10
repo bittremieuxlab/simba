@@ -115,23 +115,26 @@ def train(
     import simba
     from simba.config import Config
 
-    # Add project root to path to import training scripts
-    _project_root = Path(__file__).parent.parent.parent
-    if str(_project_root) not in sys.path:
-        sys.path.insert(0, str(_project_root))
-
     # Import training functions from existing script
     # TODO: Refactor these into simba.training module to make CLI independent
-    # ruff: noqa: E402
-    from training_scripts.final_training import (
-        create_dataloaders,
-        prepare_data,
-        setup_callbacks,
-        setup_model,
-    )
-    from training_scripts.final_training import (
-        train as run_training,
-    )
+    try:
+        from training_scripts.final_training import (
+            create_dataloaders,
+            prepare_data,
+            setup_callbacks,
+            setup_model,
+        )
+        from training_scripts.final_training import (
+            train as run_training,
+        )
+    except ImportError as e:
+        raise click.ClickException(
+            "Failed to import training_scripts module. "
+            "Please ensure you are running from the project root directory, "
+            "or add the project root to your PYTHONPATH:\n"
+            "  export PYTHONPATH=/path/to/simba:$PYTHONPATH\n"
+            f"Import error: {e}"
+        ) from e
 
     try:
         # Setup configuration
@@ -184,14 +187,26 @@ def train(
             config, dataset_train, train_sampler, dataset_val, val_sampler
         )
 
-        # Adjust val_check_interval if dataset is too small
+        # Check training dataset size and adjust val_check_interval if needed
         num_train_batches = len(dataloader_train)
+
+        if num_train_batches == 0:
+            raise click.ClickException(
+                "No training batches found in the preprocessed dataset. "
+                "The dataset may be empty or all samples were filtered out. "
+                "Please check your preprocessing outputs and ensure the dataset contains valid training pairs."
+            )
+
         if num_train_batches < config.VAL_CHECK_INTERVAL:
             click.echo(
-                f"Warning: val_check_interval ({config.VAL_CHECK_INTERVAL}) is larger than number of training batches ({num_train_batches})"
+                f"Debug: Original val_check_interval={config.VAL_CHECK_INTERVAL}, "
+                f"num_train_batches={num_train_batches}"
             )
             config.VAL_CHECK_INTERVAL = max(1, num_train_batches // 2)
-            click.echo(f"Adjusted val_check_interval to: {config.VAL_CHECK_INTERVAL}")
+            click.echo(
+                f"Adjusted val_check_interval to {config.VAL_CHECK_INTERVAL} "
+                f"(training dataset has only {num_train_batches} batches)"
+            )
 
         # Setup model and callbacks
         click.echo("Initializing model...")
