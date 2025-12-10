@@ -4,27 +4,6 @@ import sys
 from pathlib import Path
 
 import click
-import dill
-
-import simba
-from simba.config import Config
-
-
-# Add project root to path to import training scripts
-_project_root = Path(__file__).parent.parent.parent
-if str(_project_root) not in sys.path:
-    sys.path.insert(0, str(_project_root))
-
-# Import training functions from existing script
-# TODO: Refactor these into simba.training module to make CLI independent
-# ruff: noqa: E402, I001
-from training_scripts.final_training import (
-    create_dataloaders,
-    prepare_data,
-    setup_callbacks,
-    setup_model,
-    train as run_training,
-)
 
 
 @click.command()
@@ -129,6 +108,31 @@ def train(
     click.echo(f"Accelerator: {accelerator}")
     click.echo(f"Batch size: {batch_size}")
 
+    # Lazy imports - only import heavy dependencies when actually training
+    # This speeds up CLI help commands and reduces import time
+    import dill
+
+    import simba
+    from simba.config import Config
+
+    # Add project root to path to import training scripts
+    _project_root = Path(__file__).parent.parent.parent
+    if str(_project_root) not in sys.path:
+        sys.path.insert(0, str(_project_root))
+
+    # Import training functions from existing script
+    # TODO: Refactor these into simba.training module to make CLI independent
+    # ruff: noqa: E402
+    from training_scripts.final_training import (
+        create_dataloaders,
+        prepare_data,
+        setup_callbacks,
+        setup_model,
+    )
+    from training_scripts.final_training import (
+        train as run_training,
+    )
+
     try:
         # Setup configuration
         config = _setup_config(
@@ -141,6 +145,7 @@ def train(
             batch_size=batch_size,
             num_workers=num_workers,
             learning_rate=learning_rate,
+            Config=Config,
         )
 
         # Create checkpoint directory
@@ -154,7 +159,7 @@ def train(
             molecule_pairs_val,
             molecule_pairs_test,
             uniformed_molecule_pairs_test,
-        ) = _load_dataset(mapping_path)
+        ) = _load_dataset(mapping_path, simba, dill)
 
         # Prepare training data
         click.echo("Preparing training data...")
@@ -198,6 +203,7 @@ def train(
         click.echo("Computing MCES weights from training data...")
 
         import numpy as np
+
         from simba.train_utils import TrainUtils
 
         mces_sampled = []
@@ -252,7 +258,8 @@ def _setup_config(
     batch_size: int,
     num_workers: int,
     learning_rate: float,
-) -> Config:
+    Config,
+):
     """Setup configuration for training."""
     config = Config()
 
@@ -278,7 +285,7 @@ def _setup_config(
     return config
 
 
-def _load_dataset(mapping_path: Path):
+def _load_dataset(mapping_path: Path, simba, dill):
     """Load training dataset from pickle file."""
     sys.modules["src"] = simba
 
