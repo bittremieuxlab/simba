@@ -2,6 +2,7 @@
 
 import click
 
+from simba.commands.inference import inference
 from simba.commands.preprocess import preprocess
 from simba.commands.train import train
 
@@ -18,6 +19,7 @@ def cli():
 
 
 # Register commands
+cli.add_command(inference)
 cli.add_command(preprocess)
 cli.add_command(train)
 

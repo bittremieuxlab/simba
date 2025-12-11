@@ -127,6 +127,55 @@ class TestCLI:
         assert result.exit_code == 0
         assert option in result.output
 
+    def test_inference_command_help(self):
+        """Test that the inference command shows help message."""
+        runner = CliRunner()
+        result = runner.invoke(cli, ["inference", "--help"])
+        assert result.exit_code == 0
+        assert "inference" in result.output.lower()
+        assert "--checkpoint-dir" in result.output
+        assert "--preprocessing-dir" in result.output
+        assert "--preprocessing-pickle" in result.output
+
+    def test_inference_command_missing_required_args(self):
+        """Test that inference command fails without required arguments."""
+        runner = CliRunner()
+        result = runner.invoke(cli, ["inference"])
+        assert result.exit_code != 0
+        assert "Error" in result.output or "Missing" in result.output
+
+    def test_inference_command_invalid_checkpoint_dir(self):
+        """Test that inference command fails with invalid checkpoint directory."""
+        runner = CliRunner()
+        result = runner.invoke(
+            cli,
+            [
+                "inference",
+                "--checkpoint-dir",
+                "/nonexistent/checkpoints",
+                "--preprocessing-dir",
+                "/tmp/test_preprocessing",
+            ],
+        )
+        assert result.exit_code != 0
+
+    @pytest.mark.parametrize(
+        "option",
+        [
+            "--batch-size",
+            "--accelerator",
+            "--use-last-model",
+            "--uniformize-testing",
+            "--output-dir",
+        ],
+    )
+    def test_inference_command_has_expected_options(self, option):
+        """Test that inference command has expected options."""
+        runner = CliRunner()
+        result = runner.invoke(cli, ["inference", "--help"])
+        assert result.exit_code == 0
+        assert option in result.output
+
 
 class TestCLIEntryPoint:
     """Test suite for CLI entry point (simba command).
@@ -189,3 +238,18 @@ class TestCLIEntryPoint:
             assert "train" in result.stdout.lower()
         except subprocess.TimeoutExpired:
             pytest.fail("simba train --help command timed out after 10 seconds")
+
+    def test_cli_inference_entry_point_help(self):
+        """Test that simba inference entry point shows help."""
+        try:
+            result = subprocess.run(
+                ["simba", "inference", "--help"],
+                capture_output=True,
+                text=True,
+                timeout=10,
+                check=False,
+            )
+            assert result.returncode == 0, f"Command failed: {result.stderr}"
+            assert "inference" in result.stdout.lower()
+        except subprocess.TimeoutExpired:
+            pytest.fail("simba inference --help command timed out after 10 seconds")

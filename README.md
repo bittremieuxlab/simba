@@ -252,22 +252,60 @@ python training_scripts/final_training.py  \
 
 ---
 
-### Step 3: Testing
+### Step 3: Model Inference & Evaluation
 
-To test the SIMBA model use the following command:
+Run inference on test data using your trained model with one of the following methods:
+
+#### Option 1: CLI Command (Recommended)
 
 ```bash
- python inference_scripts/inference_multitasking.py \
-   --CHECKPOINT_DIR=/path/to/checkpoints/  \
-   --PREPROCESSING_DIR=/path/to/preprocessed_data/ \
-   --PREPROCESSING_DIR_TRAIN=/path/to/preprocessed_data/  \
-   --PREPROCESSING_PICKLE_FILE=mapping_unique_smiles.pkl \
-   --UNIFORMIZE_DURING_TESTING=1
+simba inference \
+  --checkpoint-dir /path/to/checkpoints/ \
+  --preprocessing-dir /path/to/preprocessed_data/ \
+  --preprocessing-pickle mapping_unique_smiles.pkl \
+  --batch-size 64 \
+  --accelerator cpu \
+  --use-last-model
 ```
-* CHECKPOINT_DIR: Folder where the trained model is saved an testing results will be saved.
-* PREPROCESSING_DIR and PREPROCESSING_DIR_TRAIN: Location where the preprocessing files are saved.
-* PREPROCESSING_PICKLE_FILE: Mapping file.
-* UNIFORMIZE_DURING_TESTING: If to balance the edit distance classes or not.
+
+**Parameters:**
+* `--checkpoint-dir`: Directory containing the trained model checkpoint
+* `--preprocessing-dir`: Directory where preprocessed data is stored
+* `--preprocessing-pickle`: Filename of the mapping pickle file
+* `--batch-size`: Batch size for inference (default: 64)
+* `--accelerator`: Hardware accelerator: `cpu`, `gpu`, or `auto` (default: auto)
+* `--use-last-model`: Use last.ckpt instead of best_model.ckpt (optional flag)
+* `--uniformize-testing` / `--no-uniformize-testing`: Balance edit distance classes (default: True)
+* `--output-dir`: Directory to save plots and results (default: checkpoint-dir)
+
+**Output:**
+The command generates evaluation metrics and visualization plots:
+- Edit distance correlation (Spearman)
+- MCES/Tanimoto correlation (Spearman)
+- Confusion matrix for edit distance predictions (`cm.png`)
+- Hexbin plot showing prediction accuracy (`hexbin_plot_*.png`)
+- Scatter plot of predictions vs. ground truth (`scatter_plot_*.png`)
+
+#### Option 2: Python Script (Legacy)
+
+```bash
+python inference_scripts/inference_multitasking.py \
+  --CHECKPOINT_DIR=/path/to/checkpoints/ \
+  --PREPROCESSING_DIR=/path/to/preprocessed_data/ \
+  --PREPROCESSING_DIR_TRAIN=/path/to/preprocessed_data/ \
+  --PREPROCESSING_PICKLE_FILE=mapping_unique_smiles.pkl \
+  --UNIFORMIZE_DURING_TESTING=1
+```
+
+**Parameters:**
+* `CHECKPOINT_DIR`: Folder where the trained model is saved and testing results will be saved
+* `PREPROCESSING_DIR` and `PREPROCESSING_DIR_TRAIN`: Location where the preprocessing files are saved
+* `PREPROCESSING_PICKLE_FILE`: Mapping file
+* `UNIFORMIZE_DURING_TESTING`: Whether to balance the edit distance classes (1=True, 0=False)
+
+---
+
+**Note:** Both methods produce identical results.
 
 ---
 
