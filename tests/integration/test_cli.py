@@ -176,6 +176,63 @@ class TestCLI:
         assert result.exit_code == 0
         assert option in result.output
 
+    def test_analog_discovery_command_help(self):
+        """Test that the analog-discovery command shows help message."""
+        runner = CliRunner()
+        result = runner.invoke(cli, ["analog-discovery", "--help"])
+        assert result.exit_code == 0
+        assert "analog" in result.output.lower()
+        assert "--model-path" in result.output
+        assert "--query-spectra" in result.output
+        assert "--reference-spectra" in result.output
+        assert "--output-dir" in result.output
+
+    def test_analog_discovery_command_missing_required_args(self):
+        """Test that analog-discovery command fails without required arguments."""
+        runner = CliRunner()
+        result = runner.invoke(cli, ["analog-discovery"])
+        assert result.exit_code != 0
+        assert "Error" in result.output or "Missing" in result.output
+
+    def test_analog_discovery_command_invalid_model_path(self):
+        """Test that analog-discovery command fails with invalid model path."""
+        runner = CliRunner()
+        result = runner.invoke(
+            cli,
+            [
+                "analog-discovery",
+                "--model-path",
+                "/nonexistent/model.ckpt",
+                "--query-spectra",
+                "/tmp/query.mgf",
+                "--reference-spectra",
+                "/tmp/reference.mgf",
+                "--output-dir",
+                "/tmp/output",
+            ],
+        )
+        assert result.exit_code != 0
+
+    @pytest.mark.parametrize(
+        "option",
+        [
+            "--query-index",
+            "--top-k",
+            "--device",
+            "--batch-size",
+            "--cache-embeddings",
+            "--use-gnps-format",
+            "--compute-ground-truth",
+            "--save-rankings",
+        ],
+    )
+    def test_analog_discovery_command_has_expected_options(self, option):
+        """Test that analog-discovery command has expected options."""
+        runner = CliRunner()
+        result = runner.invoke(cli, ["analog-discovery", "--help"])
+        assert result.exit_code == 0
+        assert option in result.output
+
 
 class TestCLIEntryPoint:
     """Test suite for CLI entry point (simba command).
@@ -253,3 +310,20 @@ class TestCLIEntryPoint:
             assert "inference" in result.stdout.lower()
         except subprocess.TimeoutExpired:
             pytest.fail("simba inference --help command timed out after 10 seconds")
+
+    def test_cli_analog_discovery_entry_point_help(self):
+        """Test that simba analog-discovery entry point shows help."""
+        try:
+            result = subprocess.run(
+                ["simba", "analog-discovery", "--help"],
+                capture_output=True,
+                text=True,
+                timeout=10,
+                check=False,
+            )
+            assert result.returncode == 0, f"Command failed: {result.stderr}"
+            assert "analog" in result.stdout.lower()
+        except subprocess.TimeoutExpired:
+            pytest.fail(
+                "simba analog-discovery --help command timed out after 10 seconds"
+            )

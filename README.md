@@ -105,21 +105,81 @@ SIMBA caches computed embeddings, significantly speeding repeated library search
 </p>
 
 ---
-## Analog discovery using SIMBA
+
+## 🔬 Analog Discovery Using SIMBA
 
 Modern metabolomics relies on tandem mass spectrometry (MS/MS) to identify unknown compounds by comparing their spectra against large reference libraries. SIMBA enables analog discovery—finding structurally related molecules—by predicting the 2 complementary, interpretable metrics directly from spectra.
 
-The notebook [Run Analog Discovery Notebook](https://github.com/bittremieux-lab/simba/tree/main/notebooks/final_tutorials/run_analog_discovery.ipynb) presents an analog discovery task based on the MassSpecGym dataset and CASMI2022 dataset.
+### Usage Example
 
-The notebook shows how to:
+Perform analog discovery to find structurally similar molecules using one of the following methods:
 
-* Load a pretrained SIMBA model and MS/MS data.
+#### Option 1: CLI Command (Recommended)
 
-* Compute distance matrices between query and reference spectra.
+```bash
+simba analog-discovery \
+  --model-path /path/to/model.ckpt \
+  --query-spectra /path/to/query.mgf \
+  --reference-spectra /path/to/reference_library.mgf \
+  --output-dir /path/to/output \
+  --query-index 0 \
+  --top-k 10 \
+  --device cpu \
+  --compute-ground-truth
+```
 
-* Extract top analogs for a given query.
+**Parameters:**
+* `--model-path`: Path to trained SIMBA model checkpoint (.ckpt file)
+* `--query-spectra`: Path to query spectra file (.mgf or .pkl format)
+* `--reference-spectra`: Path to reference library spectra file (.mgf or .pkl format)
+* `--output-dir`: Directory where results will be saved
+* `--query-index`: Index of the query spectrum to analyze (default: 0)
+* `--top-k`: Number of top matches to return (default: 10)
+* `--device`: Hardware device: `cpu` or `gpu` (default: cpu)
+* `--batch-size`: Batch size for processing (default: 32)
+* `--cache-embeddings` / `--no-cache-embeddings`: Cache embeddings for faster repeated searches (default: True)
+* `--use-gnps-format` / `--no-use-gnps-format`: Whether spectra files use GNPS format (default: False)
+* `--compute-ground-truth`: Compute ground truth edit distance and MCES for validation
+* `--save-rankings`: Save complete ranking matrix to file
 
-* Compare predictions against ground truth and visualize the best match.
+**Output:**
+The command generates several files in the output directory:
+- `results.json`: Summary of top matches with predictions and ground truth
+- `matches.csv`: Detailed table of all matches
+- `query_molecule.png`: Structure of the query molecule
+- `match_N_molecule.png`: Structures of matched molecules
+- `mirror_plot_match_N.png`: Mirror plots comparing query and matched spectra
+- `rankings.npy`: Complete ranking matrix (if `--save-rankings` is used)
+
+**Example workflow:**
+
+```bash
+# Find analogs for spectrum #5 in your query file
+simba analog-discovery \
+  --model-path ~/models/best_model.ckpt \
+  --query-spectra ~/data/casmi2022.mgf \
+  --reference-spectra ~/data/massspecgym_library.mgf \
+  --output-dir ~/results/analog_discovery \
+  --query-index 5 \
+  --top-k 20 \
+  --compute-ground-truth
+```
+
+#### Option 2: Jupyter Notebook (Interactive)
+
+For interactive exploration, use the [Run Analog Discovery Notebook](https://github.com/bittremieux-lab/simba/tree/main/notebooks/final_tutorials/run_analog_discovery.ipynb).
+
+The notebook demonstrates:
+* Loading a pretrained SIMBA model and MS/MS data
+* Computing distance matrices between query and reference spectra
+* Extracting top analogs for a given query
+* Comparing predictions against ground truth and visualizing matches
+
+---
+
+**Note:** Both methods produce equivalent results. The CLI command is recommended for automated workflows and batch processing, while the notebook is better for interactive analysis and visualization.
+
+---
 
 ## 📚 Training Your Custom SIMBA Model
 
