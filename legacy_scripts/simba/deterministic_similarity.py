@@ -13,7 +13,7 @@ from simba.ml_model import MlModel
 from simba.molecule_pair import MoleculePair
 from simba.plotting import Plotting
 from simba.similarity import cosine, modified_cosine, neutral_loss
-from simba.tanimoto import Tanimoto
+from simba.core.chemistry.tanimoto import Tanimoto
 from simba.transformers.embedder import Embedder
 from simba.transformers.load_data_unique import LoadDataUnique
 

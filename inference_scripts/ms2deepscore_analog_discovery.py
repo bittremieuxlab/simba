@@ -347,7 +347,7 @@ smiles_janssen = [
 ]
 
 # %%
-from simba.tanimoto import Tanimoto
+from simba.core.chemistry.tanimoto import Tanimoto
 
 # %%
 tanimoto_retrieved = [

@@ -9,7 +9,7 @@ from simba.ordinal_classification.ordinal_classification import (
     OrdinalClassification,
 )
 from simba.preprocessor import Preprocessor
-from simba.tanimoto import Tanimoto
+from simba.core.chemistry.tanimoto import Tanimoto
 from simba.transformers.CustomDatasetMultitasking import (
     CustomDatasetMultitasking,
 )

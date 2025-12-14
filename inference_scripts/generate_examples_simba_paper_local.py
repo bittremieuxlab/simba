@@ -44,7 +44,7 @@ from simba.ordinal_classification.load_data_multitasking import (
 from simba.parser import Parser
 from simba.performance_metrics.performance_metrics import PerformanceMetrics
 from simba.sanity_checks import SanityChecks
-from simba.tanimoto import Tanimoto
+from simba.core.chemistry.tanimoto import Tanimoto
 from simba.train_utils import TrainUtils
 from simba.transformers.postprocessing import Postprocessing
 from simba.weight_sampling import WeightSampling

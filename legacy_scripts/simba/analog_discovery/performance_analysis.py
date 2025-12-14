@@ -6,7 +6,7 @@ from rdkit import Chem
 from rdkit.Chem import Descriptors
 from rdkit.Chem import Draw
 
-from simba.tanimoto import Tanimoto
+from simba.core.chemistry.tanimoto import Tanimoto
 from simba.mces.mces_computation import MCES
 
 

@@ -1,5 +1,3 @@
-from typing import List, Optional
-
 import numpy as np
 import pandas as pd
 
@@ -15,11 +13,11 @@ class MoleculePairsOpt(MolecularPairsSet):
 
     def __init__(
         self,
-        original_spectra: List[SpectrumExt],
-        unique_spectra: List[SpectrumExt],
+        original_spectra: list[SpectrumExt],
+        unique_spectra: list[SpectrumExt],
         df_smiles: pd.DataFrame,
         pair_distances: np.ndarray,
-        extra_distances: Optional[np.ndarray] = None,
+        extra_distances: np.ndarray | None = None,
     ):
         """
         Initialize the optimized molecule pairs.
@@ -73,9 +71,7 @@ class MoleculePairsOpt(MolecularPairsSet):
                 extra_distances=extra_distances,
             )
         else:
-            print(
-                "ERROR: Attempting to add 2 set of spectrums with different content"
-            )
+            print("ERROR: Attempting to add 2 set of spectrums with different content")
             return 0
 
     def get_molecular_pair(self, index: int) -> MoleculePair:
@@ -95,24 +91,14 @@ class MoleculePairsOpt(MolecularPairsSet):
             smiles_0=self.spectra[i].smiles,
             smiles_1=self.spectra[j].smiles,
             similarity=dist,
-            global_feats_0=MolecularPairsSet.get_global_variables(
-                self.spectra[i]
-            ),
-            global_feats_1=MolecularPairsSet.get_global_variables(
-                self.spectra[j]
-            ),
+            global_feats_0=MolecularPairsSet.get_global_variables(self.spectra[i]),
+            global_feats_1=MolecularPairsSet.get_global_variables(self.spectra[j]),
             index_in_spectrum_0=self.get_original_index_from_unique_index(
                 i, 0
             ),  # index in the spectrum list used as input
-            index_in_spectrum_1=self.get_original_index_from_unique_index(
-                j, 1
-            ),
-            spectrum_object_0=self.get_original_spectrum_from_unique_index(
-                i, 0
-            ),
-            spectrum_object_1=self.get_original_spectrum_from_unique_index(
-                j, 1
-            ),
+            index_in_spectrum_1=self.get_original_index_from_unique_index(j, 1),
+            spectrum_object_0=self.get_original_spectrum_from_unique_index(i, 0),
+            spectrum_object_1=self.get_original_spectrum_from_unique_index(j, 1),
             params_0=self.get_original_spectrum_from_unique_index(i, 0).params,
             params_1=self.get_original_spectrum_from_unique_index(j, 1).params,
         )
@@ -120,7 +106,6 @@ class MoleculePairsOpt(MolecularPairsSet):
         return molecule_pair
 
     def get_original_spectrum_from_unique_index(self, unique_index, pair):
-
         return self.original_spectra[
             self.get_original_index_from_unique_index(unique_index, pair)
         ]

@@ -1,6 +1,6 @@
 import numpy as np
 
-from simba.tanimoto import Tanimoto
+from simba.core.chemistry.tanimoto import Tanimoto
 
 
 class AnalogDiscovery:

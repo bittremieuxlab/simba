@@ -1,23 +1,9 @@
-import random
-
-import lightning.pytorch as pl
-import matplotlib.pyplot as plt
 import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from depthcharge.data import AnnotatedSpectrumDataset
-from depthcharge.tokenizers import PeptideTokenizer
-from depthcharge.transformers import SpectrumTransformerEncoder
 
-from simba.config import Config
-from simba.ordinal_classification.ordinal_classification import (
-    OrdinalClassification,
-)
 from simba.transformers.embedder import Embedder
-from simba.transformers.spectrum_transformer_encoder_custom import (
-    SpectrumTransformerEncoderCustom,
-)
 from simba.weight_sampling import WeightSampling
 
 
@@ -39,15 +25,13 @@ class CustomizedCrossEntropyLoss(nn.Module):
         penalty_matrix = penalty_matrix / row_sums
 
         self.n_classes = n_classes
-        self.device = torch.device(
-            "cuda" if torch.cuda.is_available() else "cpu"
-        )
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
         # Normalize the penalty matrix so that the maximum penalty (for the farthest misclassification)
         # becomes 1; this keeps the values in a controlled range.
-        self.penalty_matrix = torch.tensor(
-            penalty_matrix, dtype=torch.float
-        ).to(self.device)
+        self.penalty_matrix = torch.tensor(penalty_matrix, dtype=torch.float).to(
+            self.device
+        )
 
         max_value = np.max(penalty_matrix)
         if max_value > 0:
@@ -64,9 +48,7 @@ class CustomizedCrossEntropyLoss(nn.Module):
         new_hot_target = self.penalty_matrix[target]
         # Compute the weighted loss by multiplying the log_probs with the penalty weights,
         # and averaging over the batch.
-        cross_entropy_loss = (
-            -torch.sum(new_hot_target * log_probs) / batch_size
-        )
+        cross_entropy_loss = -torch.sum(new_hot_target * log_probs) / batch_size
         return cross_entropy_loss
 
 
@@ -161,7 +143,6 @@ class EmbedderMultitask(Embedder):
         # Initialize learnable log variance parameters for each loss
         self.USE_LEARNABLE_MULTITASK = USE_LEARNABLE_MULTITASK
         if USE_LEARNABLE_MULTITASK:
-
             initial_log_sigma1 = 1.2490483522415161
             initial_log_sigma2 = -7.0018157958984375
             # self.log_sigma1 = nn.Parameter(torch.tensor(initial_log_sigma1))
@@ -228,15 +209,9 @@ class EmbedderMultitask(Embedder):
 
         if self.use_fingerprints:
             fp0 = batch["fingerprint_0"].float()  # (B, 2048)
-            fp_proj = self.dropout(
-                self.relu(self.linear_fp0(fp0))
-            )  # (B, d_model//2)
-            joint = torch.cat(
-                [emb0, fp_proj], dim=-1
-            )  # (B, d_model + d_model//2)
-            emb0 = self.dropout(
-                self.norm_mix(self.relu(self.linear_mix(joint)))
-            )
+            fp_proj = self.dropout(self.relu(self.linear_fp0(fp0)))  # (B, d_model//2)
+            joint = torch.cat([emb0, fp_proj], dim=-1)  # (B, d_model + d_model//2)
+            emb0 = self.dropout(self.norm_mix(self.relu(self.linear_mix(joint))))
 
         if return_spectrum_output:
             emb, emb_sim_2 = self.compute_from_embeddings(emb0, emb1)
@@ -268,9 +243,7 @@ class EmbedderMultitask(Embedder):
     def ordinal_loss(self, logits, target):
         batch_size, num_classes = logits.size()
         prob = torch.sigmoid(logits)
-        target_matrix = torch.zeros((batch_size, num_classes)).to(
-            logits.device
-        )
+        target_matrix = torch.zeros((batch_size, num_classes)).to(logits.device)
         for i in range(batch_size):
             target_class = target[i].long()
             target_matrix[i, : target_class + 1] = 1.0
@@ -297,20 +270,12 @@ class EmbedderMultitask(Embedder):
                 gumbel_probs_1 = F.gumbel_softmax(
                     logits1, tau=self.tau_gumbel_softmax, hard=False
                 )
-                expected_classes = torch.arange(gumbel_probs_1.size(1)).to(
-                    self.device
-                )
-                predicted_value = torch.sum(
-                    gumbel_probs_1 * expected_classes, dim=1
-                )
-                loss1 = self.regression_loss(
-                    predicted_value.float(), target1.float()
-                )
+                expected_classes = torch.arange(gumbel_probs_1.size(1)).to(self.device)
+                predicted_value = torch.sum(gumbel_probs_1 * expected_classes, dim=1)
+                loss1 = self.regression_loss(predicted_value.float(), target1.float())
                 batch_size = batch["ed"].size(0)
                 diff_penalty = (
-                    torch.sum(
-                        (gumbel_probs_1[:, 2:] - gumbel_probs_1[:, 1:-1]) ** 2
-                    )
+                    torch.sum((gumbel_probs_1[:, 2:] - gumbel_probs_1[:, 1:-1]) ** 2)
                     / batch_size
                 )
                 reg_weight = self.gumbel_reg_weight
@@ -344,9 +309,7 @@ class EmbedderMultitask(Embedder):
                 normalize=False,
             )
             weight_mask = torch.tensor(weight_mask).to(self.device)
-            loss2 = (
-                squared_diff.view(-1, 1) * weight_mask.view(-1, 1).float()
-            ).mean()
+            loss2 = (squared_diff.view(-1, 1) * weight_mask.view(-1, 1).float()).mean()
         else:
             squared_diff = (
                 logits2.view(-1, 1).float() - target2.view(-1, 1).float()
@@ -396,9 +359,7 @@ class EmbedderMultitask(Embedder):
         target_matrix = torch.zeros_like(pred, dtype=torch.float)
         for i in range(batch_size):
             target_matrix[i, : target[i] + 1] = 1.0
-        loss = -torch.sum(
-            target_matrix * F.log_softmax(pred, dim=1), dim=1
-        ).mean()
+        loss = -torch.sum(target_matrix * F.log_softmax(pred, dim=1), dim=1).mean()
         return loss
 
     def configure_optimizers(self):

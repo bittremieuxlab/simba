@@ -22,7 +22,7 @@ from simba.ordinal_classification.ordinal_classification import (
 from simba.preprocessing_utils import PreprocessingUtils
 from simba.preprocessor import Preprocessor
 from simba.spectrum_ext import SpectrumExt
-from simba.tanimoto import Tanimoto
+from simba.core.chemistry.tanimoto import Tanimoto
 
 
 class TrainUtils:

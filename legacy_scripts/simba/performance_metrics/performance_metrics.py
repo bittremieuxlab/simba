@@ -10,7 +10,7 @@ from rdkit.Chem import Draw
 from PIL import Image, ImageDraw, ImageFont
 
 from simba.analog_discovery.mces import MCES
-from simba.tanimoto import Tanimoto
+from simba.core.chemistry.tanimoto import Tanimoto
 
 
 class PerformanceMetrics:

@@ -1,16 +1,11 @@
 import functools
-from functools import lru_cache
 
-import numpy as np
 import rdkit.rdBase as rkrb
 import rdkit.RDLogger as rkl
-from numba import njit
 from rdkit import Chem
-from rdkit.Chem import AllChem
 from rdkit.Chem import DataStructs
-from rdkit.Chem.inchi import MolFromInchi
-from rdkit.DataStructs import ConvertToNumpyArray
 from rdkit.DataStructs.cDataStructs import ExplicitBitVect
+
 
 # disable logging info
 logger = rkl.logger()
@@ -23,7 +18,6 @@ FP_SIZE = _example.GetNumBits()
 
 
 class Tanimoto:
-
     @functools.lru_cache
     def compute_tanimoto(fp1, fp2, nbits=2048, use_inchi=False):
         if (fp1 is not None) and (fp2 is not None):
@@ -55,7 +49,7 @@ class Tanimoto:
     """
 
     @staticmethod
-    @lru_cache(maxsize=None)
+    @functools.cache
     def compute_fingerprint(smiles: str) -> ExplicitBitVect:
         """Return an RDKit ExplicitBitVect for a canonical SMILES."""
         try:
@@ -68,7 +62,7 @@ class Tanimoto:
         return ExplicitBitVect(FP_SIZE)
 
     @staticmethod
-    @lru_cache(maxsize=None)
+    @functools.cache
     def compute_tanimoto_from_smiles(smiles0: str, smiles1: str) -> float:
         """Compute and cache the Tanimoto between two SMILES."""
         fp0 = Tanimoto.compute_fingerprint(smiles0)
