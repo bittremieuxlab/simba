@@ -7,7 +7,7 @@ from tqdm import tqdm
 
 import simba
 from simba.config import Config
-from simba.load_mces.load_mces import LoadMCES
+from simba.core.chemistry.mces_loader.load_mces import LoadMCES
 
 
 class FilteringMassSpecGym:

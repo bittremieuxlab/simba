@@ -13,7 +13,7 @@ from torch.utils.data import DataLoader, WeightedRandomSampler
 from pytorch_lightning.callbacks import ProgressBar
 
 from simba.config import Config
-from simba.load_mces.load_mces import LoadMCES
+from simba.core.chemistry.mces_loader.load_mces import LoadMCES
 from simba.losscallback import LossCallback
 from simba.molecular_pairs_set import MolecularPairsSet
 from simba.ordinal_classification.embedder_multitask import EmbedderMultitask

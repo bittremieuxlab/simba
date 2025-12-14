@@ -1,21 +1,17 @@
-import argparse
-import os
 from functools import lru_cache
-from typing import List
 
 import numpy as np
 import pandas as pd
 from myopic_mces.myopic_mces import MCES as MCES2
-from rdkit import Chem, DataStructs, Geometry
-from rdkit.Chem import AllChem, Draw, rdFMCS
-from rdkit.Chem.Fingerprints import FingerprintMols
+from rdkit import Chem, DataStructs
+from rdkit.Chem import rdFMCS
 from rdkit.Chem.rdchem import Mol
 from rdkit.DataStructs.cDataStructs import ExplicitBitVect
-from tqdm import tqdm
 
-import simba.edit_distance.mol_utils as mu
+import simba.core.chemistry.edit_distance.mol_utils as mu
 from simba.config import Config
 from simba.logger_setup import logger
+
 
 # Sentinel value indicating very dissimilar molecules (Tanimoto < 0.2)
 VERY_HIGH_DISTANCE = 666
@@ -32,14 +28,14 @@ def create_input_df(smiles, indexes_0, indexes_1):
 
 
 def compute_ed_or_mces(
-    smiles: List[str],
+    smiles: list[str],
     sampled_index: np.int64,
     batch_size: int,
     identifier: int,
     random_sampling: bool,
     config: Config,
-    fps: List[ExplicitBitVect],
-    mols: List[Mol],
+    fps: list[ExplicitBitVect],
+    mols: list[Mol],
     use_edit_distance: bool,
 ) -> np.ndarray:
     """
@@ -78,12 +74,8 @@ def compute_ed_or_mces(
     # initialize randomness
     if random_sampling:
         np.random.seed(identifier)
-        pair_distances[:, 0] = np.random.randint(
-            0, len(smiles), int(batch_size)
-        )
-        pair_distances[:, 1] = np.random.randint(
-            0, len(smiles), int(batch_size)
-        )
+        pair_distances[:, 0] = np.random.randint(0, len(smiles), int(batch_size))
+        pair_distances[:, 1] = np.random.randint(0, len(smiles), int(batch_size))
     else:
         if batch_size > len(smiles):
             raise ValueError(
@@ -104,9 +96,7 @@ def compute_ed_or_mces(
         mol0 = mols[int(pair[0])]
         mol1 = mols[int(pair[1])]
         if use_edit_distance:
-            dist, _ = simba_solve_pair_edit_distance(
-                s0, s1, fp0, fp1, mol0, mol1
-            )
+            dist, _ = simba_solve_pair_edit_distance(s0, s1, fp0, fp1, mol0, mol1)
         else:
             dist, _ = simba_solve_pair_mces(
                 s0, s1, fp0, fp1, mol0, mol1, config.THRESHOLD_MCES
@@ -125,15 +115,9 @@ def get_number_of_modification_edges(mol, substructure):
     intersect = set(matches)
     modification_edges = []
     for bond in mol.GetBonds():
-        if (
-            bond.GetBeginAtomIdx() in intersect
-            and bond.GetEndAtomIdx() in intersect
-        ):
+        if bond.GetBeginAtomIdx() in intersect and bond.GetEndAtomIdx() in intersect:
             continue
-        if (
-            bond.GetBeginAtomIdx() in intersect
-            or bond.GetEndAtomIdx() in intersect
-        ):
+        if bond.GetBeginAtomIdx() in intersect or bond.GetEndAtomIdx() in intersect:
             modification_edges.append(bond.GetIdx())
 
     return modification_edges
@@ -164,7 +148,6 @@ def simba_get_edit_distance(mol1, mol2, return_nans=True):
         ):
             return np.nan
         if mcs_mol.GetNumAtoms() < 2:
-
             return np.nan
 
     dist1, dist2 = mu.get_edit_distance_detailed(mol1, mol2, mcs_mol)
@@ -182,7 +165,6 @@ def return_mol(smiles):
 
 
 def simba_solve_pair_edit_distance(s0, s1, fp0, fp1, mol0, mol1):
-
     tanimoto = DataStructs.TanimotoSimilarity(fp0, fp1)
 
     if tanimoto < 0.2:
@@ -206,7 +188,6 @@ def simba_solve_pair_mces(
     threshold,
     TIME_LIMIT=2,  # 2 seconds
 ):
-
     tanimoto = DataStructs.TanimotoSimilarity(fp0, fp1)
 
     if tanimoto < 0.2:

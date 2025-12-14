@@ -1,7 +1,7 @@
 import numpy as np
 from myopic_mces.myopic_mces import MCES as MCES2
 
-from simba.edit_distance import edit_distance
+from simba.core.chemistry.edit_distance import edit_distance
 from simba.core.chemistry.tanimoto import Tanimoto
 
 

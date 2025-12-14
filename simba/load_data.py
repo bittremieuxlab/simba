@@ -6,8 +6,8 @@ import numpy as np
 from pyteomics import mgf
 from tqdm import tqdm
 
-from simba import chem_utils
 from simba.config import Config
+from simba.core.chemistry import chem_utils
 from simba.logger_setup import logger
 from simba.murcko_scaffold import MurckoScaffold
 from simba.nist_loader import NistLoader

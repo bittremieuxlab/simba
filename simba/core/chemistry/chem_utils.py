@@ -65,4 +65,4 @@ def ion_to_mass(adduct: str) -> float:
     float
         The mass corresponding to the adduct. Returns None if the adduct is not found.
     """
-    return ADDUCT_TO_MASS.get(adduct, None)
+    return ADDUCT_TO_MASS.get(adduct)

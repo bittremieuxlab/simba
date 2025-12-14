@@ -13,7 +13,7 @@ from torch.utils.data import DataLoader
 
 import simba
 from simba.config import Config
-from simba.load_mces.load_mces import LoadMCES
+from simba.core.chemistry.mces_loader.load_mces import LoadMCES
 from simba.logger_setup import logger
 from simba.molecule_pairs_opt import MoleculePairsOpt
 from simba.ordinal_classification.embedder_multitask import EmbedderMultitask

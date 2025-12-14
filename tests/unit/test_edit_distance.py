@@ -7,7 +7,7 @@ from rdkit import Chem
 from rdkit.Chem.Fingerprints import FingerprintMols
 
 from simba.config import Config
-from simba.edit_distance.edit_distance import (
+from simba.core.chemistry.edit_distance.edit_distance import (
     VERY_HIGH_DISTANCE,
     compute_ed_or_mces,
     create_input_df,

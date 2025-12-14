@@ -7,7 +7,7 @@ from rdkit.Chem import Descriptors
 from rdkit.Chem import Draw
 
 from simba.core.chemistry.tanimoto import Tanimoto
-from simba.mces.mces_computation import MCES
+from simba.core.chemistry.mces.mces_computation import MCES
 
 
 class PerformanceAnalysis:

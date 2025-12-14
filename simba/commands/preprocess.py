@@ -139,7 +139,7 @@ def preprocess(
     from simba.config import Config
     from simba.core.data.preprocessing_simba import PreprocessingSimba
     from simba.logger_setup import logger
-    from simba.mces.mces_computation import MCES
+    from simba.core.chemistry.mces.mces_computation import MCES
     from simba.train_utils import TrainUtils
 
     try:

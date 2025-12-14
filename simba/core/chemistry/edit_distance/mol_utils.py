@@ -170,9 +170,7 @@ def get_transition(input1, input2):
     editable_mol = Chem.EditableMol(copy_mol1)
     ## adding the atoms from mol2
     n = mol1.GetNumAtoms()
-    map_old_mol2_to_added = (
-        dict()
-    )  # mapping from the old mol2 indices to the new indices in the merged molecule (for the added atoms)
+    map_old_mol2_to_added = dict()  # mapping from the old mol2 indices to the new indices in the merged molecule (for the added atoms)
     for atom in added_atoms:
         editable_mol.AddAtom(mol2.GetAtomWithIdx(atom))
         map_old_mol2_to_added[atom] = n
