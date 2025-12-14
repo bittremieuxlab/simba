@@ -105,21 +105,81 @@ SIMBA caches computed embeddings, significantly speeding repeated library search
 </p>
 
 ---
-## Analog discovery using SIMBA
+
+## 🔬 Analog Discovery Using SIMBA
 
 Modern metabolomics relies on tandem mass spectrometry (MS/MS) to identify unknown compounds by comparing their spectra against large reference libraries. SIMBA enables analog discovery—finding structurally related molecules—by predicting the 2 complementary, interpretable metrics directly from spectra.
 
-The notebook [Run Analog Discovery Notebook](https://github.com/bittremieux-lab/simba/tree/main/notebooks/final_tutorials/run_analog_discovery.ipynb) presents an analog discovery task based on the MassSpecGym dataset and CASMI2022 dataset.
+### Usage Example
 
-The notebook shows how to:
+Perform analog discovery to find structurally similar molecules using one of the following methods:
 
-* Load a pretrained SIMBA model and MS/MS data.
+#### Option 1: CLI Command (Recommended)
 
-* Compute distance matrices between query and reference spectra.
+```bash
+simba analog-discovery \
+  --model-path /path/to/model.ckpt \
+  --query-spectra /path/to/query.mgf \
+  --reference-spectra /path/to/reference_library.mgf \
+  --output-dir /path/to/output \
+  --query-index 0 \
+  --top-k 10 \
+  --device cpu \
+  --compute-ground-truth
+```
 
-* Extract top analogs for a given query.
+**Parameters:**
+* `--model-path`: Path to trained SIMBA model checkpoint (.ckpt file)
+* `--query-spectra`: Path to query spectra file (.mgf or .pkl format)
+* `--reference-spectra`: Path to reference library spectra file (.mgf or .pkl format)
+* `--output-dir`: Directory where results will be saved
+* `--query-index`: Index of the query spectrum to analyze (default: 0)
+* `--top-k`: Number of top matches to return (default: 10)
+* `--device`: Hardware device: `cpu` or `gpu` (default: cpu)
+* `--batch-size`: Batch size for processing (default: 32)
+* `--cache-embeddings` / `--no-cache-embeddings`: Cache embeddings for faster repeated searches (default: True)
+* `--use-gnps-format` / `--no-use-gnps-format`: Whether spectra files use GNPS format (default: False)
+* `--compute-ground-truth`: Compute ground truth edit distance and MCES for validation
+* `--save-rankings`: Save complete ranking matrix to file
 
-* Compare predictions against ground truth and visualize the best match.
+**Output:**
+The command generates several files in the output directory:
+- `results.json`: Summary of top matches with predictions and ground truth
+- `matches.csv`: Detailed table of all matches
+- `query_molecule.png`: Structure of the query molecule
+- `match_N_molecule.png`: Structures of matched molecules
+- `mirror_plot_match_N.png`: Mirror plots comparing query and matched spectra
+- `rankings.npy`: Complete ranking matrix (if `--save-rankings` is used)
+
+**Example workflow:**
+
+```bash
+# Find analogs for spectrum #5 in your query file
+simba analog-discovery \
+  --model-path ~/models/best_model.ckpt \
+  --query-spectra ~/data/casmi2022.mgf \
+  --reference-spectra ~/data/massspecgym_library.mgf \
+  --output-dir ~/results/analog_discovery \
+  --query-index 5 \
+  --top-k 20 \
+  --compute-ground-truth
+```
+
+#### Option 2: Jupyter Notebook (Interactive)
+
+For interactive exploration, use the [Run Analog Discovery Notebook](https://github.com/bittremieux-lab/simba/tree/main/notebooks/final_tutorials/run_analog_discovery.ipynb).
+
+The notebook demonstrates:
+* Loading a pretrained SIMBA model and MS/MS data
+* Computing distance matrices between query and reference spectra
+* Extracting top analogs for a given query
+* Comparing predictions against ground truth and visualizing matches
+
+---
+
+**Note:** Both methods produce equivalent results. The CLI command is recommended for automated workflows and batch processing, while the notebook is better for interactive analysis and visualization.
+
+---
 
 ## 📚 Training Your Custom SIMBA Model
 
@@ -127,7 +187,32 @@ SIMBA supports training custom models using your own MS/MS datasets in `.mgf` fo
 
 ### Step 1: Generate Training Data
 
-Run the script below to generate training data:
+Preprocess your MS/MS spectral data using one of the following methods:
+
+#### Option 1: CLI Command (Recommended)
+
+```bash
+simba preprocess \
+  --spectra-path /path/to/your/spectra.mgf \
+  --workspace /path/to/preprocessed_data \
+  --max-spectra-train 10000 \
+  --mapping-file-name mapping_unique_smiles.pkl \
+  --num-workers 0
+```
+
+**Parameters:**
+* `--spectra-path`: Path to input spectra file (.mgf format)
+* `--workspace`: Directory where preprocessed data will be saved
+* `--max-spectra-train`: Maximum number of spectra to process for training (default: 10000). Set to large number to process all
+* `--max-spectra-val`: Maximum number of spectra for validation (default: 1000000)
+* `--max-spectra-test`: Maximum number of spectra for testing (default: 1000000)
+* `--mapping-file-name`: Filename for the mapping file (default: mapping_unique_smiles.pkl)
+* `--num-workers`: Number of worker processes for parallel computation (default: 0)
+* `--val-split`: Fraction of data for validation (default: 0.1)
+* `--test-split`: Fraction of data for testing (default: 0.1)
+* `--overwrite`: Overwrite existing preprocessing files
+
+#### Option 2: Python Script (Legacy)
 
 ```bash
 python preprocessing_scripts/final_generation_data.py  \
@@ -136,15 +221,23 @@ python preprocessing_scripts/final_generation_data.py  \
    --MAX_SPECTRA_TRAIN=10000 \
    --mapping_file_name=mapping_unique_smiles.pkl  \
    --PREPROCESSING_NUM_WORKERS=0
-
 ```
-* spectra_path: Location of spectra
-* workspace: Location where the calculated distances are going to be saved
-* MAX_SPECTRA_TRAIN: 10000 the maximum number of spectra to be processed. Set to a large number to avoid removing spectra
-* Mapping_file_name: name of the file that saves the mapping of the spectra from spectra to unique compounds.
-* PROCESSING_NUM_WORKERS: Number of processors to be used. By default 0.
 
-This script will generate a file 'mapping_unique_smiles.pkl' with the specific mapping information between unique compounds and corresponding spectra. As known, each compound can have several spectra and this file saves information about this mapping.
+**Parameters:**
+* `spectra_path`: Location of spectra
+* `workspace`: Location where the calculated distances are going to be saved
+* `MAX_SPECTRA_TRAIN`: Maximum number of spectra to be processed. Set to large number to avoid removing spectra
+* `mapping_file_name`: Name of the file that saves the mapping of the spectra from spectra to unique compounds
+* `PREPROCESSING_NUM_WORKERS`: Number of processors to be used (default: 0)
+
+---
+
+**Note:** Both methods produce identical results. The preprocessing computes:
+- Edit distance between molecular structures
+- MCES (Maximum Common Edge Substructure) distance
+- Train/validation/test splits
+
+The output includes a file `mapping_unique_smiles.pkl` with mapping information between unique compounds and corresponding spectra. Each compound can have several spectra and this file saves information about this mapping.
 
 ### Output
 - Numpy arrays with indexes and structural similarity metrics
@@ -164,10 +257,37 @@ The dataframe df_smiles contains the mapping from indexes of unique compounds to
 
 ### Step 2: Model Training
 
-Train your SIMBA model using the following commnad:
+Train your SIMBA model using one of the following methods:
+
+#### Option 1: CLI Command (Recommended)
 
 ```bash
+simba train \
+  --checkpoint-dir /path/to/checkpoints/ \
+  --preprocessing-dir /path/to/preprocessed_data/ \
+  --preprocessing-pickle mapping_unique_smiles.pkl \
+  --epochs 10 \
+  --accelerator cpu \
+  --batch-size 32 \
+  --num-workers 0 \
+  --learning-rate 0.0001 \
+  --val-check-interval 10000
+```
 
+**Parameters:**
+* `--checkpoint-dir`: Directory where the trained model will be saved
+* `--preprocessing-dir`: Directory where preprocessing files are stored
+* `--preprocessing-pickle`: Filename of the mapping pickle file
+* `--epochs`: Number of training epochs (default: 10)
+* `--accelerator`: Hardware accelerator: `cpu` or `gpu` (default: cpu)
+* `--batch-size`: Batch size for training and validation (default: 32)
+* `--num-workers`: Number of data loading workers (default: 0)
+* `--learning-rate`: Learning rate for the optimizer (default: 0.0001)
+* `--val-check-interval`: Validation check frequency in training steps (default: 10000)
+
+#### Option 2: Python Script (Legacy)
+
+```bash
 python training_scripts/final_training.py  \
   --CHECKPOINT_DIR=/path/to/checkpoints/ \
   --PREPROCESSING_PICKLE_FILE=mapping_unique_smiles.pkl \
@@ -177,33 +297,75 @@ python training_scripts/final_training.py  \
   --epochs=10 \
   --VAL_CHECK_INTERVAL=10000
 ```
-* CHECKPOINT_DIR: Place where the trained model will be saved.
-* PREPROCESSING_DIR_TRAIN: Folder where the preprocessing files are saved.
-* PREPROCESSING_PICKLE_FILE: File name with the mapping.
-* ACCELERATOR: cpu or gpu.
-* epochs: Number of epochs to be trained.
-* VAL_CHECK_INTERVAL: Used to check validation performance every N steps.
 
-The code uses the mapping file produced in the last step and the preprocessing dir folder `PREPROCESSING_DIR_TRAIN` must be the same where the preprocessing files are generated. The best-performing model (lowest validation loss) is saved in `CHECKPOINT_DIR`.
+**Parameters:**
+* `CHECKPOINT_DIR`: Place where the trained model will be saved
+* `PREPROCESSING_DIR_TRAIN`: Folder where the preprocessing files are saved
+* `PREPROCESSING_PICKLE_FILE`: File name with the mapping
+* `ACCELERATOR`: cpu or gpu
+* `epochs`: Number of epochs to be trained
+* `VAL_CHECK_INTERVAL`: Used to check validation performance every N steps
 
 ---
 
-### Step 3: Testing
+**Note:** Both methods produce identical results and use the mapping file produced in Step 1. The preprocessing directory `PREPROCESSING_DIR_TRAIN` / `--preprocessing-dir` must be the same where the preprocessing files were generated. The best-performing model (lowest validation loss) is saved in `CHECKPOINT_DIR` / `--checkpoint-dir`.
 
-To test the SIMBA model use the following command:
+---
+
+### Step 3: Model Inference & Evaluation
+
+Run inference on test data using your trained model with one of the following methods:
+
+#### Option 1: CLI Command (Recommended)
 
 ```bash
- python inference_scripts/inference_multitasking.py \
-   --CHECKPOINT_DIR=/path/to/checkpoints/  \
-   --PREPROCESSING_DIR=/path/to/preprocessed_data/ \
-   --PREPROCESSING_DIR_TRAIN=/path/to/preprocessed_data/  \
-   --PREPROCESSING_PICKLE_FILE=mapping_unique_smiles.pkl \
-   --UNIFORMIZE_DURING_TESTING=1
+simba inference \
+  --checkpoint-dir /path/to/checkpoints/ \
+  --preprocessing-dir /path/to/preprocessed_data/ \
+  --preprocessing-pickle mapping_unique_smiles.pkl \
+  --batch-size 64 \
+  --accelerator cpu \
+  --use-last-model
 ```
-* CHECKPOINT_DIR: Folder where the trained model is saved an testing results will be saved.
-* PREPROCESSING_DIR and PREPROCESSING_DIR_TRAIN: Location where the preprocessing files are saved.
-* PREPROCESSING_PICKLE_FILE: Mapping file.
-* UNIFORMIZE_DURING_TESTING: If to balance the edit distance classes or not.
+
+**Parameters:**
+* `--checkpoint-dir`: Directory containing the trained model checkpoint
+* `--preprocessing-dir`: Directory where preprocessed data is stored
+* `--preprocessing-pickle`: Filename of the mapping pickle file
+* `--batch-size`: Batch size for inference (default: 64)
+* `--accelerator`: Hardware accelerator: `cpu`, `gpu`, or `auto` (default: auto)
+* `--use-last-model`: Use last.ckpt instead of best_model.ckpt (optional flag)
+* `--uniformize-testing` / `--no-uniformize-testing`: Balance edit distance classes (default: True)
+* `--output-dir`: Directory to save plots and results (default: checkpoint-dir)
+
+**Output:**
+The command generates evaluation metrics and visualization plots:
+- Edit distance correlation (Spearman)
+- MCES/Tanimoto correlation (Spearman)
+- Confusion matrix for edit distance predictions (`cm.png`)
+- Hexbin plot showing prediction accuracy (`hexbin_plot_*.png`)
+- Scatter plot of predictions vs. ground truth (`scatter_plot_*.png`)
+
+#### Option 2: Python Script (Legacy)
+
+```bash
+python inference_scripts/inference_multitasking.py \
+  --CHECKPOINT_DIR=/path/to/checkpoints/ \
+  --PREPROCESSING_DIR=/path/to/preprocessed_data/ \
+  --PREPROCESSING_DIR_TRAIN=/path/to/preprocessed_data/ \
+  --PREPROCESSING_PICKLE_FILE=mapping_unique_smiles.pkl \
+  --UNIFORMIZE_DURING_TESTING=1
+```
+
+**Parameters:**
+* `CHECKPOINT_DIR`: Folder where the trained model is saved and testing results will be saved
+* `PREPROCESSING_DIR` and `PREPROCESSING_DIR_TRAIN`: Location where the preprocessing files are saved
+* `PREPROCESSING_PICKLE_FILE`: Mapping file
+* `UNIFORMIZE_DURING_TESTING`: Whether to balance the edit distance classes (1=True, 0=False)
+
+---
+
+**Note:** Both methods produce identical results.
 
 ---
 
