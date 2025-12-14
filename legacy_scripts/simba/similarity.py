@@ -6,7 +6,7 @@ import scipy.optimize
 import scipy.sparse
 import spectrum_utils.spectrum as sus
 
-from simba.utils import spec_to_neutral_loss
+from simba.spectrum_utils import spec_to_neutral_loss
 
 SpectrumTuple = collections.namedtuple(
     "SpectrumTuple", ["precursor_mz", "precursor_charge", "mz", "intensity"]

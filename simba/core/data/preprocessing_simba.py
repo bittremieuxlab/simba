@@ -1,5 +1,4 @@
 import copy
-from typing import List, Optional
 
 from simba.config import Config
 from simba.load_data import LoadData
@@ -10,7 +9,6 @@ from simba.spectrum_ext import SpectrumExt
 
 
 class PreprocessingSimba:
-
     def load_spectra(
         file_name: str,
         config: Config,
@@ -18,7 +16,7 @@ class PreprocessingSimba:
         n_samples: int = 500000,
         use_gnps_format: bool = False,
         use_only_protonized_adducts: bool = True,
-    ) -> List[SpectrumExt]:
+    ) -> list[SpectrumExt]:
         """Load and preprocess spectra from a file.
         Parameters
         ----------
@@ -83,13 +81,9 @@ class PreprocessingSimba:
         # remove spectra that does not have at least min peaks
         filtered_spectra = [
             s_original
-            for s_original, s_processed in zip(
-                all_spectra, all_spectra_processed
-            )
+            for s_original, s_processed in zip(all_spectra, all_spectra_processed)
             if len(s_processed.mz) >= min_peaks
         ]
-        logger.info(
-            f"{len(filtered_spectra)} spectra remaining after filtering."
-        )
+        logger.info(f"{len(filtered_spectra)} spectra remaining after filtering.")
 
         return filtered_spectra

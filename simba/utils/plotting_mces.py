@@ -1,18 +1,16 @@
 import matplotlib.pyplot as plt
 import numpy as np
 import seaborn as sns
-from sklearn.metrics import confusion_matrix, accuracy_score
+from sklearn.metrics import accuracy_score, confusion_matrix
 
 
 class Plotting:
-
     def plot_mces(
         similarities_test2,
         flat_pred_test2,
         remove_threshold_values=True,
         threshold_mces=20,
     ):
-
         flat_pred_test2 = np.round(flat_pred_test2)
         if remove_threshold_values:
             x = similarities_test2[similarities_test2 != threshold_mces]
@@ -26,7 +24,7 @@ class Plotting:
         )
         # Set x and y labels
         plot.set_axis_labels("Ground truth Similarity", "Prediction", fontsize=12)
-        plot.fig.suptitle(f"MCES prediction", fontsize=16)
+        plot.fig.suptitle("MCES prediction", fontsize=16)
         # Set x-axis limits
         plot.ax_joint.set_xlim(0, 40)
         # Set x-axis limits
@@ -41,7 +39,6 @@ class Plotting:
         inverse_labels=True,
         save_fig=False,
     ):
-
         # reverse the labels only for displaying:
         true = np.array(true)
         preds = np.array(preds)

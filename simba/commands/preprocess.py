@@ -137,9 +137,9 @@ def preprocess(
     import pickle
 
     from simba.config import Config
+    from simba.core.data.preprocessing_simba import PreprocessingSimba
     from simba.logger_setup import logger
     from simba.mces.mces_computation import MCES
-    from simba.simba.preprocessing_simba import PreprocessingSimba
     from simba.train_utils import TrainUtils
 
     try:

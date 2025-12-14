@@ -1,5 +1,6 @@
 import pickle
-from typing import IO, Dict, Iterator, List, Sequence, Union
+from collections.abc import Iterator, Sequence
+from typing import IO
 
 import numpy as np
 from pyteomics import mgf
@@ -13,13 +14,12 @@ from simba.nist_loader import NistLoader
 from simba.preprocessing_utils import PreprocessingUtils
 from simba.preprocessor import Preprocessor
 from simba.spectrum_ext import SpectrumExt
-from simba.utils import spectrum_hash
+from simba.spectrum_utils import spectrum_hash
 
 
 class LoadData:
-
     def get_spectra(
-        source: Union[IO, str],
+        source: IO | str,
         scan_nrs: Sequence[int] = None,
         compute_classes=False,
         config=None,
@@ -118,9 +118,7 @@ class LoadData:
         cond_ion_mode = True
         cond_name = True
         cond_inchi_smiles = True
-        cond_centroid = PreprocessingUtils.is_centroid(
-            spectrum["intensity array"]
-        )
+        cond_centroid = PreprocessingUtils.is_centroid(spectrum["intensity array"])
 
         ##cond_name=True
         ##cond_name=True
@@ -152,12 +150,9 @@ class LoadData:
 
     @staticmethod
     def is_valid_spectrum_janssen(spectrum: SpectrumExt, config: Config):
-
         cond_library = True  # all the library is good
         if "charge" in spectrum["params"]:
-            cond_charge = (
-                int(spectrum["params"]["charge"][0]) in config.CHARGES
-            )
+            cond_charge = int(spectrum["params"]["charge"][0]) in config.CHARGES
         else:
             cond_charge = True
 
@@ -189,16 +184,13 @@ class LoadData:
         if "smiles" in spectrum["params"]:
             cond_inchi_smiles = (
                 # spectrum['params']["inchi"] != "N/A" or
-                spectrum["params"]["smiles"]
-                != "N/A"
+                spectrum["params"]["smiles"] != "N/A"
             )
         else:
             logger.warning("Smiles not found in spectrum.")
             cond_inchi_smiles = True
 
-        cond_centroid = PreprocessingUtils.is_centroid(
-            spectrum["intensity array"]
-        )
+        cond_centroid = PreprocessingUtils.is_centroid(spectrum["intensity array"])
 
         ##cond_name=True
         ##cond_name=True
@@ -236,9 +228,7 @@ class LoadData:
             cond_library = True
 
         if "charge" in spectrum["params"]:
-            cond_charge = (
-                int(spectrum["params"]["charge"][0]) in config.CHARGES
-            )
+            cond_charge = int(spectrum["params"]["charge"][0]) in config.CHARGES
         else:
             cond_charge = True
         # try to convert to float the pep mass
@@ -254,9 +244,7 @@ class LoadData:
         else:
             cond_ion_mode = True
         cond_name = spectrum["params"]["name"].rstrip().endswith(" M+H")
-        cond_centroid = PreprocessingUtils.is_centroid(
-            spectrum["intensity array"]
-        )
+        cond_centroid = PreprocessingUtils.is_centroid(spectrum["intensity array"])
         cond_inchi_smiles = (
             # spectrum['params']["inchi"] != "N/A" or
             (spectrum["params"]["smiles"] != "N/A")
@@ -289,7 +277,7 @@ class LoadData:
         return total_condition, dict_results
 
     def _parse_spectrum(
-        spectrum_dict: Dict,
+        spectrum_dict: dict,
         compute_classes: bool = False,
         use_gnps_format: bool = True,
     ) -> SpectrumExt:
@@ -357,11 +345,7 @@ class LoadData:
 
         ce = params["ce"] if "ce" in params else None
         ia = params["ion_activation"] if "ion_activation" in params else None
-        im = (
-            params["ionization_method"]
-            if "ionization_method" in params
-            else None
-        )
+        im = params["ionization_method"] if "ionization_method" in params else None
 
         # compute hash id value
         spectrum_hash_result = spectrum_hash(
@@ -414,14 +398,14 @@ class LoadData:
         return spec
 
     def get_all_spectra_mgf(
-        file: Union[IO, str],
+        file: IO | str,
         num_samples: int = -1,
         compute_classes: bool = False,
         use_tqdm: bool = True,
         config=None,
         use_gnps_format: bool = True,
         use_only_protonized_adducts=True,
-    ) -> List[SpectrumExt]:
+    ) -> list[SpectrumExt]:
         """
         Get the MS/MS spectra from the given MGF file, optionally filtering by
         scan number.
@@ -475,9 +459,7 @@ class LoadData:
                 spectrum = next(spectra_to_process)
                 # spectrum = pp.preprocess_spectrum(spectrum)
                 spectra.append(spectrum)
-            except (
-                StopIteration
-            ):  # in case it is not possible to get more samples
+            except StopIteration:  # in case it is not possible to get more samples
                 logger.info(f"Only {i} spectra found.")
                 break
             # go to next iteration
@@ -528,9 +510,7 @@ class LoadData:
 
         for spectrum in spectra:
             # use the validation from gnps format since it is the format we are parsing
-            condition, res = LoadData.is_valid_spectrum_gnps(
-                spectrum, config=config
-            )
+            condition, res = LoadData.is_valid_spectrum_gnps(spectrum, config=config)
             # print(res)
             if condition:
                 # yield spectrum['params']['name']
@@ -557,7 +537,6 @@ class LoadData:
         all_spectra_parsed = []
 
         for index, spectra_row in spectra_df.iterrows():
-
             # initialize
             spectrum_dict = {}
             spectrum_dict["params"] = {}
@@ -571,16 +550,12 @@ class LoadData:
             spectrum_dict["params"]["spectrumid"] = (
                 str(spectra_row["casmi_id"]) + adduct
             )
-            spectrum_dict["params"]["name"] = (
-                str(spectra_row["casmi_id"]) + adduct
-            )
+            spectrum_dict["params"]["name"] = str(spectra_row["casmi_id"]) + adduct
             spectrum_dict["params"]["inchi"] = ""
             spectrum_dict["params"]["organism"] = "casmi"
             spectrum_dict["params"]["id"] = spectra_row["casmi_id"]
             spectrum_dict["params"]["smiles"] = spectra_row["smiles"]
-            ionmode = (
-                "Positive" if spectra_row["ion_mode"] == "P" else "Negative"
-            )
+            ionmode = "Positive" if spectra_row["ion_mode"] == "P" else "Negative"
             spectrum_dict["params"]["ionmode"] = ionmode
             spectrum_dict["params"]["pepmass"] = [spectra_row["prec_mz"]]
             spectrum_dict["params"]["charge"] = [1]
@@ -601,9 +576,7 @@ class LoadData:
 
         for spectrum in all_spectra_parsed:
             # use the validation from gnps format since it is the format we are parsing
-            condition, res = LoadData.is_valid_spectrum_gnps(
-                spectrum, config=config
-            )
+            condition, res = LoadData.is_valid_spectrum_gnps(spectrum, config=config)
             # print(res)
             if condition:
                 # yield spectrum['params']['name']
@@ -617,14 +590,14 @@ class LoadData:
         return all_spectra
 
     def get_all_spectra(
-        file: Union[IO, str],
+        file: IO | str,
         num_samples: int = 10,
         compute_classes: bool = False,
         use_tqdm: bool = True,
         use_nist: bool = False,
         config: Config = None,
         use_janssen: bool = False,
-    ) -> List[SpectrumExt]:
+    ) -> list[SpectrumExt]:
         """
         Get the MS/MS spectra from the given MGF or NIST file, optionally filtering by
         scan number.

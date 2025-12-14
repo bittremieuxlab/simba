@@ -7,9 +7,9 @@ import numpy as np
 import pytest
 
 from simba.config import Config
+from simba.core.data.preprocessing_simba import PreprocessingSimba
+from simba.core.models.simba_model import Simba
 from simba.ordinal_classification.embedder_multitask import EmbedderMultitask
-from simba.simba.preprocessing_simba import PreprocessingSimba
-from simba.simba.simba import Simba
 
 
 pytestmark = pytest.mark.integration

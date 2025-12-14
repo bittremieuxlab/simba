@@ -13,7 +13,6 @@ from simba.transformers.load_data_encoder import LoadDataEncoder
 
 
 class Simba:
-
     def __init__(self, file_path, config, device="gpu", cache_embeddings=True):
         self.file_path = file_path
         self.config = config
@@ -58,7 +57,6 @@ class Simba:
         return model
 
     def get_dataloader_key(self, dataloader):
-
         # Example: based on dataset size and transform config
         dataset = dataloader.dataset
 
@@ -91,9 +89,7 @@ class Simba:
             print("Using CACHE embeddings")
         else:
             print("Processing embeddings ...")
-            embeddings = self.encoder.get_embeddings(
-                dataloader, device=self.device
-            )
+            embeddings = self.encoder.get_embeddings(dataloader, device=self.device)
             self._embedding_cache[cache_key] = embeddings
         return embeddings
 
@@ -102,7 +98,6 @@ class Simba:
         spectra0,
         spectra1,
     ):
-
         # create the dataloaders
         dataloader0 = self.generate_data_loader(spectra0)
         dataloader1 = self.generate_data_loader(spectra1)
@@ -120,13 +115,11 @@ class Simba:
         elapsed_time = end - start
         print(f"Elapsed time: {elapsed_time:.2f} seconds")
         # denormilize
-        similarities_ed = (
-            self.config.EDIT_DISTANCE_N_CLASSES - 1
-        ) - np.argmax(similarities_ed, axis=-1)
-
-        similarities_mces = self.config.MCES20_MAX_VALUE * (
-            1 - similarities_mces
+        similarities_ed = (self.config.EDIT_DISTANCE_N_CLASSES - 1) - np.argmax(
+            similarities_ed, axis=-1
         )
+
+        similarities_mces = self.config.MCES20_MAX_VALUE * (1 - similarities_mces)
         # similarities_mces = np.round(similarities_mces)
         return similarities_ed, similarities_mces
 

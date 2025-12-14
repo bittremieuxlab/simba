@@ -2,23 +2,14 @@ import argparse
 import logging
 import os
 import pickle
-import random
-import sys
-from datetime import datetime
 
-import dill
 import numpy as np
 
 # from simba.load_data import LoadData
-from sklearn.model_selection import train_test_split
-
 from simba.config import Config
-from simba.loader_saver import LoaderSaver
+from simba.core.data.preprocessing_simba import PreprocessingSimba
 from simba.logger_setup import logger
 from simba.mces.mces_computation import MCES
-from simba.parser import Parser
-from simba.preprocessor import Preprocessor
-from simba.simba.preprocessing_simba import PreprocessingSimba
 from simba.train_utils import TrainUtils
 
 
@@ -31,17 +22,15 @@ def setup_config():
     Config
         Updated configuration object.
     """
-    parser = argparse.ArgumentParser(
-        description="distance computation script."
-    )
+    parser = argparse.ArgumentParser(description="distance computation script.")
     parser.add_argument(
-        f"--spectra_path",
+        "--spectra_path",
         type=str,
         default=None,
         help="Path to the spectra file.",
     )
     parser.add_argument(
-        f"--workspace",
+        "--workspace",
         type=str,
         default=None,
         help="Directory where distances will be saved.",
@@ -52,31 +41,31 @@ def setup_config():
         help="Whether to overwrite existing preprocessing files.",
     )
     parser.add_argument(
-        f"--MAX_SPECTRA_TRAIN",
+        "--MAX_SPECTRA_TRAIN",
         type=int,
         default=10000000000,
         help="Maximum number of training spectra.",
     )
     parser.add_argument(
-        f"--MAX_SPECTRA_VAL",
+        "--MAX_SPECTRA_VAL",
         type=int,
         default=1000000000000,
         help="Maximum number of validation spectra.",
     )
     parser.add_argument(
-        f"--MAX_SPECTRA_TEST",
+        "--MAX_SPECTRA_TEST",
         type=int,
         default=100000000000,
         help="Maximum number of test spectra.",
     )
     parser.add_argument(
-        f"--mapping_file_name",
+        "--mapping_file_name",
         type=str,
         default=None,
         help="Name of the mapping file that maps SMILES to spectra (will be saved in <workspace>/).",
     )
     parser.add_argument(
-        f"--PREPROCESSING_NUM_WORKERS",
+        "--PREPROCESSING_NUM_WORKERS",
         type=int,
         default=None,
         help="Number of workers for preprocessing.",
@@ -94,10 +83,10 @@ def setup_config():
         help="Current node for preprocessing (0-indexed).",
     )
     parser.add_argument(
-        f"--VAL_SPLIT", type=float, default=0.1, help="Validation split ratio."
+        "--VAL_SPLIT", type=float, default=0.1, help="Validation split ratio."
     )
     parser.add_argument(
-        f"--TEST_SPLIT", type=float, default=0.1, help="Test split ratio."
+        "--TEST_SPLIT", type=float, default=0.1, help="Test split ratio."
     )
     args = parser.parse_args()
 
@@ -150,12 +139,10 @@ def setup_paths(config: Config):
     output_np_indexes_test = (
         config.PREPROCESSING_DIR + f"indexes_tani_mces_test{subfix}.npy"
     )
-    output_nist_file = config.PREPROCESSING_DIR + f"all_spectrums_nist.pkl"
-    output_neurips_file = (
-        config.PREPROCESSING_DIR + f"all_spectrums_neurips.pkl"
-    )
+    output_nist_file = config.PREPROCESSING_DIR + "all_spectrums_nist.pkl"
+    output_neurips_file = config.PREPROCESSING_DIR + "all_spectrums_neurips.pkl"
     output_spectrums_file = (
-        config.PREPROCESSING_DIR + f"all_spectrums_neurips_nist_20240814.pkl"
+        config.PREPROCESSING_DIR + "all_spectrums_neurips_nist_20240814.pkl"
     )
     logging.info(f"Pairs will be saved to {output_pairs_file}")
 
@@ -208,16 +195,15 @@ def compute_distances(config: Config, pairs_filename: str):
 
     molecule_pairs = {}
     for type_data in ["_train", "_val", "_test"]:
-
         if type_data == "_train":
             spectra = all_spectra_train
-            logger.info(f"Computing distances for training set...")
+            logger.info("Computing distances for training set...")
         elif type_data == "_val":
             spectra = all_spectra_val
-            logger.info(f"Computing distances for validation set...")
+            logger.info("Computing distances for validation set...")
         elif type_data == "_test":
             spectra = all_spectra_test
-            logger.info(f"Computing distances for test set...")
+            logger.info("Computing distances for test set...")
 
         for use_edit_distance in [False, True]:
             molecule_pairs[type_data] = MCES.compute_all_mces_results_unique(
@@ -323,19 +309,9 @@ def combine_distances(config: Config):
                 + str(index)
                 + ".npy"
             )
-            file_mces = (
-                config.PREPROCESSING_DIR
-                + "mces_"
-                + sufix
-                + str(index)
-                + ".npy"
-            )
+            file_mces = config.PREPROCESSING_DIR + "mces_" + sufix + str(index) + ".npy"
             file_output = (
-                config.PREPROCESSING_DIR
-                + "ed_mces_"
-                + sufix
-                + str(index)
-                + ".npy"
+                config.PREPROCESSING_DIR + "ed_mces_" + sufix + str(index) + ".npy"
             )
 
             # load data
@@ -350,22 +326,16 @@ def combine_distances(config: Config):
             if np.all(ed_data[:, 0] == mces_data[:, 0]) and np.all(
                 ed_data[:, 1] == mces_data[:, 1]
             ):
-                logger.info(
-                    "The MCES and ED data corresponds to the same pairs"
-                )
+                logger.info("The MCES and ED data corresponds to the same pairs")
 
                 all_distance_data = np.column_stack((ed_data, mces_data[:, 2]))
-                all_distance_data = preprocess_distances(
-                    all_distance_data, config
-                )
+                all_distance_data = preprocess_distances(all_distance_data, config)
                 np.save(
                     file_output,
                     all_distance_data,
                 )
             else:
-                logger.error(
-                    "The data loaded does not correspond to the same pairs"
-                )
+                logger.error("The data loaded does not correspond to the same pairs")
 
 
 def preprocess_distances(array: np.ndarray, config: Config) -> np.ndarray:
@@ -399,7 +369,6 @@ def preprocess_distances(array: np.ndarray, config: Config) -> np.ndarray:
 
 
 if __name__ == "__main__":
-
     config = setup_config()
     output_paths = setup_paths(config)
 

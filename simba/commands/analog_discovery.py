@@ -111,10 +111,10 @@ def analog_discovery(
 
     import numpy as np
 
+    from simba.analog_discovery.simba_analog_discovery import AnalogDiscovery
     from simba.config import Config
-    from simba.simba.analog_discovery import AnalogDiscovery
-    from simba.simba.preprocessing_simba import PreprocessingSimba
-    from simba.simba.simba import Simba
+    from simba.core.data.preprocessing_simba import PreprocessingSimba
+    from simba.core.models.simba_model import Simba
 
     # Create output directory
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -267,7 +267,7 @@ def _process_single_query(
     """Process a single query spectrum and find its top matches."""
     import numpy as np
 
-    from simba.simba.ground_truth import GroundTruth
+    from simba.core.data.ground_truth import GroundTruth
 
     spectra_query = all_spectrums_query[query_index]
 
