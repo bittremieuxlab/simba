@@ -8,12 +8,12 @@ from tqdm import tqdm
 
 from simba.config import Config
 from simba.core.chemistry import chem_utils
+from simba.core.data.nist_loader import NistLoader
+from simba.core.data.preprocessing import PreprocessingUtils
+from simba.core.data.spectrum import SpectrumExt
 from simba.logger_setup import logger
 from simba.murcko_scaffold import MurckoScaffold
-from simba.nist_loader import NistLoader
-from simba.preprocessing_utils import PreprocessingUtils
 from simba.preprocessor import Preprocessor
-from simba.spectrum_ext import SpectrumExt
 from simba.spectrum_utils import spectrum_hash
 
 

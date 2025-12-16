@@ -1,6 +1,6 @@
 import numpy as np
 
-from simba.molecule_pair import MoleculePair
+from simba.core.data.molecule_pair import MoleculePair
 
 
 class MolecularPairsSet:
@@ -35,7 +35,7 @@ class MolecularPairsSet:
         spectra_hash_0 = [s.spectrum_hash for s in spectra_0]
         spectra_hash_1 = [s.spectrum_hash for s in spectra_1]
         return all(
-            [s0 == s1 for s0, s1 in zip(spectra_hash_0, spectra_hash_1)]
+            [s0 == s1 for s0, s1 in zip(spectra_hash_0, spectra_hash_1, strict=False)]
         )
 
     def __add__(self, other):

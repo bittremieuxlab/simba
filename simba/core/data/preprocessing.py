@@ -2,14 +2,13 @@ import copy
 import functools
 import json
 from itertools import groupby
-from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
 import requests
-from rdkit import Chem, DataStructs, RDLogger
+from rdkit import Chem
 
-from simba.spectrum_ext import SpectrumExt
+from simba.core.data.spectrum import SpectrumExt
 
 
 class PreprocessingUtils:
@@ -20,8 +19,8 @@ class PreprocessingUtils:
 
     @staticmethod
     def order_by_charge(
-        spectra: List[SpectrumExt],
-    ) -> Dict[int, List[SpectrumExt]]:
+        spectra: list[SpectrumExt],
+    ) -> dict[int, list[SpectrumExt]]:
         """
         Order spectra by their precursor charge.
 
@@ -47,7 +46,7 @@ class PreprocessingUtils:
         return spectra_by_charge
 
     @staticmethod
-    def order_spectra_by_mz(spectra: List[SpectrumExt]) -> List[SpectrumExt]:
+    def order_spectra_by_mz(spectra: list[SpectrumExt]) -> list[SpectrumExt]:
         """
         Order spectra by their precursor m/z.
 
@@ -82,7 +81,7 @@ class PreprocessingUtils:
     @functools.lru_cache
     def get_class(
         inchi: str, smiles: str
-    ) -> Tuple[Optional[str], Optional[str], Optional[str]]:
+    ) -> tuple[str | None, str | None, str | None]:
         """
         Get the superclass, class and subclass of a molecule using Classyfire.
         Either InChI or SMILES can be used as input.
@@ -117,7 +116,7 @@ class PreprocessingUtils:
     @functools.lru_cache
     def _get_class(
         mol_type: str, mol_val: str
-    ) -> Optional[Tuple[str, str, str]]:
+    ) -> tuple[str, str, str] | None:
         """
         Get the superclass, class and subclass of a molecule using Classyfire.
         Either InChI or SMILES can be used as input.

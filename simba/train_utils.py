@@ -1,28 +1,21 @@
-import concurrent.futures
-import functools
 import random
 from datetime import datetime
-from itertools import combinations, product
-from typing import List, Tuple
+from itertools import combinations
 
 import numpy as np
 import pandas as pd
-from numba import njit
 from rdkit import Chem
 from tqdm import tqdm
 
-from simba.config import Config
+from simba.core.chemistry.tanimoto import Tanimoto
+from simba.core.data.molecular_pairs import MolecularPairsSet
+from simba.core.data.preprocessing import PreprocessingUtils
+from simba.core.data.spectrum import SpectrumExt
 from simba.logger_setup import logger
-from simba.molecular_pairs_set import MolecularPairsSet
-from simba.molecule_pair import MoleculePair
 from simba.molecule_pairs_opt import MoleculePairsOpt
 from simba.ordinal_classification.ordinal_classification import (
     OrdinalClassification,
 )
-from simba.preprocessing_utils import PreprocessingUtils
-from simba.preprocessor import Preprocessor
-from simba.spectrum_ext import SpectrumExt
-from simba.core.chemistry.tanimoto import Tanimoto
 
 
 class TrainUtils:
@@ -55,11 +48,11 @@ class TrainUtils:
 
     @staticmethod
     def train_val_test_split_bms(
-        spectra: List[SpectrumExt],
+        spectra: list[SpectrumExt],
         val_split: float = 0.1,
         test_split: float = 0.1,
         seed: int = 42,
-    ) -> Tuple[List[SpectrumExt], List[SpectrumExt], List[SpectrumExt]]:
+    ) -> tuple[list[SpectrumExt], list[SpectrumExt], list[SpectrumExt]]:
         """
         Split data into train, validation, and test sets based on Murcko scaffolds
         ensuring that scaffolds do not overlap between sets.
@@ -170,8 +163,8 @@ class TrainUtils:
             diff_total_min = total_mz - (
                 all_spectrums[i].precursor_mz + min_mass_diff
             )
-            min_mz_index = np.where((diff_total_min > 0))[0]
-            max_mz_index = np.where((diff_total_max > 0))[0]  # get list
+            min_mz_index = np.where(diff_total_min > 0)[0]
+            max_mz_index = np.where(diff_total_max > 0)[0]  # get list
 
             min_mz_index = min_mz_index[0] if len(min_mz_index) > 0 else 0
             max_mz_index = (
@@ -261,7 +254,7 @@ class TrainUtils:
         return spectra_unique_ordered, df_smiles
 
     @staticmethod
-    def create_dummy_spectra(df_smiles: pd.DataFrame) -> List[SpectrumExt]:
+    def create_dummy_spectra(df_smiles: pd.DataFrame) -> list[SpectrumExt]:
         """
         Create dummy spectra based on the smiles information and associated metadata.
         The spectra will have empty mz and intensity arrays.
@@ -566,7 +559,7 @@ class TrainUtils:
         number_bins: int = 5,
         bin_sim_1: bool = False,
         max_value: float = 1,
-    ) -> Tuple[List[int], List[float]]:
+    ) -> tuple[list[int], list[float]]:
         """
         count the number of elements in the different bins
 

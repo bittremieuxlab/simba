@@ -30,7 +30,7 @@ from tqdm import tqdm
 
 from simba.analog_discovery.cosine_similarity import CosineSimilarity
 from simba.config import Config
-from simba.load_data import LoadData
+from simba.core.data.loaders import LoadData
 from simba.loader_saver import LoaderSaver
 from simba.molecular_pairs_set import MolecularPairsSet
 from simba.molecule_pairs_opt import MoleculePairsOpt

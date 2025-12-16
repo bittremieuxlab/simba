@@ -1,9 +1,9 @@
 import numpy as np
 import pandas as pd
 
-from simba.molecular_pairs_set import MolecularPairsSet
-from simba.molecule_pair import MoleculePair
-from simba.spectrum_ext import SpectrumExt
+from simba.core.data.molecular_pairs import MolecularPairsSet
+from simba.core.data.molecule_pair import MoleculePair
+from simba.core.data.spectrum import SpectrumExt
 
 
 class MoleculePairsOpt(MolecularPairsSet):

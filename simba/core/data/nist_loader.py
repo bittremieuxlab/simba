@@ -1,15 +1,9 @@
-import re
-import requests
 from itertools import islice
-from typing import Dict, IO, Sequence, Union
+from typing import IO
 
 import numpy as np
-from rdkit import Chem
-from rdkit.Chem import inchi
+import requests
 from tqdm import tqdm
-
-from simba.config import Config
-from simba.spectrum_ext import SpectrumExt
 
 
 class NistLoader:
@@ -64,8 +58,8 @@ class NistLoader:
         return int(charge)
 
     @staticmethod
-    def parse_file(source: Union[IO, str], num_samples=None, initial_line_number=0):
-        with open(source, "r") as file:
+    def parse_file(source: IO | str, num_samples=None, initial_line_number=0):
+        with open(source) as file:
             spectra = []
             iterator = iter(file)
 
@@ -194,7 +188,7 @@ class NistLoader:
             # print(f"inchi_key: {inchi_key} SMILES: {smiles}")
             return smiles
 
-        except requests.exceptions.RequestException as e:
+        except requests.exceptions.RequestException:
             self._smiles_cache[inchi_key] = "N/A"
             # print(f"Error fetching data for smiles {inchi_key}")
             return "N/A"

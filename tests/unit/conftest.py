@@ -3,7 +3,7 @@
 import numpy as np
 import pytest
 
-from simba.spectrum_ext import SpectrumExt
+from simba.core.data.spectrum import SpectrumExt
 
 
 @pytest.fixture

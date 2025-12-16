@@ -1,14 +1,10 @@
 import copy
 import random
-from typing import Optional
 
 import numpy as np
-from scipy.signal import find_peaks
 from tqdm import tqdm
 
-from simba.config import Config
-from simba.preprocessing_utils import PreprocessingUtils
-from simba.spectrum_ext import SpectrumExt
+from simba.core.data.spectrum import SpectrumExt
 
 
 class Preprocessor:
@@ -111,7 +107,7 @@ class Preprocessor:
         min_intensity: float = 0.01,
         max_num_peaks: int = 100,
         # max_num_peaks: int =40,
-        scale_intensity: Optional[str] = None,
+        scale_intensity: str | None = None,
         # scale_intensity="root",
     ) -> SpectrumExt:
         """
@@ -157,7 +153,7 @@ class Preprocessor:
         binned_spectrum = np.zeros(self.num_bins, dtype=np.float64)
 
         # Iterate through the data and assign intensities to bins
-        for mz, intensity in zip(spectrum.mz, spectrum.intensity):
+        for mz, intensity in zip(spectrum.mz, spectrum.intensity, strict=False):
             if (mz > self.min_mz) and (mz < self.max_mz):
                 bin_index = int((mz - self.min_mz) / self.bin_width)
                 if intensity > binned_spectrum[bin_index]:

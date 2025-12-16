@@ -1,4 +1,4 @@
-from typing import Dict, Iterable, Union
+from collections.abc import Iterable
 
 import numpy as np
 from spectrum_utils.spectrum import MsmsSpectrum
@@ -21,10 +21,10 @@ class SpectrumExt(MsmsSpectrum):
         identifier: str,
         precursor_mz: float,
         precursor_charge: int,
-        mz: Union[np.ndarray, Iterable],
-        intensity: Union[np.ndarray, Iterable],
+        mz: np.ndarray | Iterable,
+        intensity: np.ndarray | Iterable,
         retention_time: float,
-        params: Dict,
+        params: dict,
         library: str,
         inchi: str,
         smiles: str,
