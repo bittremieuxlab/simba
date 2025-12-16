@@ -61,7 +61,10 @@ class MCES:
             An object containing the spectra and their computed pair distances.
         """
 
-        logger.info("Computing MCES results based on unique smiles")
+        if use_edit_distance:
+            logger.info("Computing ED results based on unique smiles")
+        else:
+            logger.info("Computing MCES results based on unique smiles")
 
         if loaded_molecule_pairs is None:
             # get dummy spectra for unique smiles and associated metadata

@@ -171,8 +171,6 @@ def setup_model(config: Config):
         "use_edit_distance_regresion": config.USE_EDIT_DISTANCE_REGRESSION,
         "strict": False,
         "use_adduct": config.USE_ADDUCT,
-        "categorical_adducts": config.CATEGORICAL_ADDUCTS,
-        "adduct_mass_map": config.ADDUCT_MASS_MAP_CSV,
         "use_ce": config.USE_CE,
         "use_ion_activation": config.USE_ION_ACTIVATION,
         "use_ionization_method": config.USE_ION_METHOD,

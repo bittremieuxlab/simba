@@ -48,24 +48,21 @@ class Config:
         # Metadata
         self.USE_ONLY_PROTONIZED_ADDUCTS = False
         self.USE_ADDUCT = False
-        # Input adduct info as categorical variables
-        self.CATEGORICAL_ADDUCTS = False
-        self.ADDUCT_MASS_MAP_CSV = None
         self.USE_CE = False
         self.USE_ION_ACTIVATION = False
         self.USE_ION_METHOD = False
 
         ## FOR COMPUTING EDIT DISTANCE LOCALLY
         self.USE_FINGERPRINT = False
-        self.USE_EDIT_DISTANCE = (
-            True  ## If using edit distance for generating data, not for training!!!
-        )
+        self.USE_EDIT_DISTANCE = True  ## If using edit distance for generating data, not for training!!!
         self.COMPUTE_SPECIFIC_PAIRS = False
 
         # training
         self.TRAINING_NUM_WORKERS = 10
         self.USE_RESAMPLING = False
-        self.TRANSFORMER_CONTEXT = 100  ##number of input peaks to the transformer
+        self.TRANSFORMER_CONTEXT = (
+            100  ##number of input peaks to the transformer
+        )
         self.ADD_HIGH_SIMILARITY_PAIRS = False
         self.USE_MOLECULAR_FINGERPRINTS = False
         self.USE_MCES20_LOG_LOSS = False  ### apply log function to increase the weight of the differences in the low range
@@ -78,9 +75,7 @@ class Config:
         self.USE_TANIMOTO = False  # using Tanimoto or MCES20 for training
         self.EDIT_DISTANCE_MAX_VALUE = 666
         self.MCES20_MAX_VALUE = 40  # value used as midpoint for normalization. 19 it is chosen to make NORMALIZED_MCES to be in the range below 0.49 and make it consider a low similarity pair
-        self.USE_LOSS_WEIGHTS_SECOND_SIMILARITY = (
-            False  # use weights for training the second similarity of multitasking
-        )
+        self.USE_LOSS_WEIGHTS_SECOND_SIMILARITY = False  # use weights for training the second similarity of multitasking
         self.N_LAYERS = 5  # transformer parameters
         self.D_MODEL = 256  # transformer parameters
         self.EMBEDDING_DIM = 512
@@ -107,7 +102,9 @@ class Config:
         self.PREPROCESSING_DIR = None
         self.PREPROCESSING_DIR_TRAIN = None
         self.PREPROCESSING_DIR_VAL_TEST = None
-        self.MOL_SPEC_MAPPING_FILE = "edit_distance_neurips_nist_exhaustive.pkl"
+        self.MOL_SPEC_MAPPING_FILE = (
+            "edit_distance_neurips_nist_exhaustive.pkl"
+        )
         self.CHECKPOINT_DIR = None
         self.pretrained_path = None
         self.BEST_MODEL_NAME = "best_model.ckpt"
@@ -123,7 +120,9 @@ class Config:
         if self.CHECKPOINT_DIR is None:
             # Use environment variable or fallback to current working directory
             # Set CHECKPOINT_BASE env var to customize (e.g., for cluster: /scratch/antwerpen/209/vsc20939/data/model_checkpoints)
-            checkpoint_base = os.environ.get("CHECKPOINT_BASE", "./checkpoints")
+            checkpoint_base = os.environ.get(
+                "CHECKPOINT_BASE", "./checkpoints"
+            )
             self.CHECKPOINT_DIR = os.path.join(
                 checkpoint_base, f"model_checkpoints_{self.MODEL_CODE}"
             )
@@ -132,4 +131,6 @@ class Config:
             self.pretrained_path = os.path.join(
                 self.CHECKPOINT_DIR, self.PRETRAINED_MODEL_NAME
             )
-        self.best_model_path = os.path.join(self.CHECKPOINT_DIR, self.BEST_MODEL_NAME)
+        self.best_model_path = os.path.join(
+            self.CHECKPOINT_DIR, self.BEST_MODEL_NAME
+        )
