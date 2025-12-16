@@ -3,7 +3,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from simba.transformers.embedder import Embedder
+from simba.core.models.transformers.embedder import Embedder
 from simba.weight_sampling import WeightSampling
 
 

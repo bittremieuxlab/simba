@@ -1,15 +1,12 @@
 import lightning.pytorch as pl
-import numpy as np
 import torch
 import torch.nn as nn
 
-from simba.transformers.embedder import Embedder
-from simba.ordinal_classification.embedder_multitask import EmbedderMultitask
-from simba.config import Config
+from simba.core.models.ordinal.embedder_multitask import EmbedderMultitask
+from simba.core.models.transformers.embedder import Embedder
 
 
 class Encoder(pl.LightningModule):
-
     def __init__(self, model_path, D_MODEL, N_LAYERS, multitasking=False, config=None):
         super().__init__()
         self.multitasking = multitasking

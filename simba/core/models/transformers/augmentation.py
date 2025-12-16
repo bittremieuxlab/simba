@@ -1,10 +1,10 @@
 import copy
-import numpy as np
 import random
+
+import numpy as np
 
 
 class Augmentation:
-
     @staticmethod
     def augment(data_sample, training=False, max_num_peaks=None):
         new_sample = copy.deepcopy(data_sample)
@@ -85,7 +85,6 @@ class Augmentation:
     def peak_augmentation_removal_noise(
         data_sample, max_percentage=0.01, p_augmentation=1.0
     ):
-
         if random.random() < p_augmentation:
             # first normalize to maximum
             for sufix in ["_0", "_1"]:
@@ -175,12 +174,14 @@ class Augmentation:
             added_noise_factor_0 = random.uniform(-max_noise, max_noise)
             added_noise_factor_1 = random.uniform(-max_noise, max_noise)
 
-            sample["precursor_mass_0"] = sample[
-                "precursor_mass_0"
-            ] + added_noise_factor_0 * (sample["precursor_mass_0"])
-            sample["precursor_mass_1"] = sample[
-                "precursor_mass_1"
-            ] + added_noise_factor_1 * (sample["precursor_mass_1"])
+            sample["precursor_mass_0"] = (
+                sample["precursor_mass_0"]
+                + added_noise_factor_0 * (sample["precursor_mass_0"])
+            )
+            sample["precursor_mass_1"] = (
+                sample["precursor_mass_1"]
+                + added_noise_factor_1 * (sample["precursor_mass_1"])
+            )
             return sample
         else:
             return sample

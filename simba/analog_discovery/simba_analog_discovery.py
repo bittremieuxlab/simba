@@ -13,7 +13,7 @@ class AnalogDiscovery:
 
         # Process each row (or each set of values) individually.
         for row_index, (row_sim, row_int, row_int2) in enumerate(
-            zip(similarities_mces, similarities_mces_integer, similarities_ed)
+            zip(similarities_mces, similarities_mces_integer, similarities_ed, strict=False)
         ):
             # Use lexsort with a composite key:
             #   - Primary: similarities1_integer (ascending)

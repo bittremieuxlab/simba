@@ -1,11 +1,10 @@
 import random
 
 import numpy as np
-import torch
 from torch.utils.data import Dataset
 from tqdm import tqdm
 
-from simba.transformers.augmentation import Augmentation
+from simba.core.models.transformers.augmentation import Augmentation
 
 
 class CustomDatasetMultitasking(Dataset):
@@ -114,7 +113,7 @@ class CustomDatasetMultitasking(Dataset):
                 (len_data, 2048), dtype=np.int32
             )
 
-        for idx in tqdm((range(0, len_data))):
+        for idx in tqdm(range(0, len_data)):
             sample_unique = {k: self.data[k][idx] for k in self.keys}
 
             indexes_unique_0 = sample_unique["index_unique_0"]

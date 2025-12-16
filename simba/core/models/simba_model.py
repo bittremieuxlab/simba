@@ -7,9 +7,9 @@ from torch.utils.data import DataLoader
 from simba.analog_discovery.fc_layers_analog_discovery import (
     FcLayerAnalogDiscovery,
 )
-from simba.ordinal_classification.embedder_multitask import EmbedderMultitask
-from simba.transformers.encoder import Encoder
-from simba.transformers.load_data_encoder import LoadDataEncoder
+from simba.core.models.ordinal.embedder_multitask import EmbedderMultitask
+from simba.core.models.transformers.encoder import Encoder
+from simba.core.models.transformers.load_data_encoder import LoadDataEncoder
 
 
 class Simba:

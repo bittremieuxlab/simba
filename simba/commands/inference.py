@@ -86,13 +86,13 @@ def inference(
     import simba
     from simba.config import Config
     from simba.core.chemistry.mces_loader.load_mces import LoadMCES
-    from simba.logger_setup import logger
-    from simba.ordinal_classification.embedder_multitask import EmbedderMultitask
-    from simba.ordinal_classification.load_data_multitasking import (
+    from simba.core.models.ordinal.embedder_multitask import EmbedderMultitask
+    from simba.core.models.ordinal.load_data_multitasking import (
         LoadDataMultitasking,
     )
+    from simba.core.models.transformers.postprocessing import Postprocessing
+    from simba.logger_setup import logger
     from simba.train_utils import TrainUtils
-    from simba.transformers.postprocessing import Postprocessing
 
     sys.modules["src"] = simba
 

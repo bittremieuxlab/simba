@@ -8,8 +8,8 @@ import pytest
 
 from simba.config import Config
 from simba.core.data.preprocessing_simba import PreprocessingSimba
+from simba.core.models.ordinal.embedder_multitask import EmbedderMultitask
 from simba.core.models.simba_model import Simba
-from simba.ordinal_classification.embedder_multitask import EmbedderMultitask
 
 
 pytestmark = pytest.mark.integration
@@ -84,7 +84,7 @@ class TestInferencePipeline:
         model.eval()
 
         mocker.patch(
-            "simba.ordinal_classification.embedder_multitask.EmbedderMultitask.load_from_checkpoint",
+            "simba.core.models.ordinal.embedder_multitask.EmbedderMultitask.load_from_checkpoint",
             return_value=model,
         )
 
@@ -119,7 +119,7 @@ class TestInferencePipeline:
         model.eval()
 
         mocker.patch(
-            "simba.ordinal_classification.embedder_multitask.EmbedderMultitask.load_from_checkpoint",
+            "simba.core.models.ordinal.embedder_multitask.EmbedderMultitask.load_from_checkpoint",
             return_value=model,
         )
 

@@ -57,9 +57,7 @@ class SpectrumTransformerEncoderCustom(SpectrumTransformerEncoder):
         placeholder = torch.zeros(
             (batch_size, self.d_model), dtype=dtype, device=device
         )
-        precursor_mass = (
-            kwargs["precursor_mass"].float().to(device).view(batch_size)
-        )
+        precursor_mass = kwargs["precursor_mass"].float().to(device).view(batch_size)
         placeholder[:, 0] = precursor_mass
 
         precursor_charge = (
@@ -81,9 +79,7 @@ class SpectrumTransformerEncoderCustom(SpectrumTransformerEncoder):
             placeholder[:, current_idx] = ionmode
             current_idx += 1
 
-            adduct_mass = (
-                kwargs["adduct_mass"].float().to(device).view(batch_size)
-            )
+            adduct_mass = kwargs["adduct_mass"].float().to(device).view(batch_size)
             placeholder[:, current_idx] = adduct_mass
             current_idx += 1
 
@@ -100,9 +96,7 @@ class SpectrumTransformerEncoderCustom(SpectrumTransformerEncoder):
                     )
                     adduct_vectors.append(adduct_list)
                 # Convert list[list] → tensor B × F
-                adduct_tensor = torch.tensor(
-                    adduct_vectors, dtype=dtype, device=device
-                )
+                adduct_tensor = torch.tensor(adduct_vectors, dtype=dtype, device=device)
                 stop_idx = current_idx + adduct_tensor.shape[1]
                 placeholder[:, current_idx:stop_idx] = adduct_tensor
                 current_idx = stop_idx

@@ -1,4 +1,3 @@
-from typing import List, Tuple
 
 import torch.nn.functional as F
 
@@ -32,7 +31,7 @@ class Postprocessing:
     @staticmethod
     def get_similarities_multitasking(
         dataloader,
-    ) -> Tuple[List[float], List[float]]:
+    ) -> tuple[list[float], list[float]]:
         # calculate similarity
         # similarities1 = []
         # similarities2 = []

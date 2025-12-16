@@ -1,7 +1,4 @@
-import random
-
 import lightning.pytorch as pl
-import matplotlib.pyplot as plt
 import numpy as np
 
 # import pandas as pd
@@ -9,18 +6,11 @@ import numpy as np
 # import seaborn as sns
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
-from depthcharge.data import AnnotatedSpectrumDataset
-from depthcharge.tokenizers import PeptideTokenizer
-from depthcharge.transformers import (
-    SpectrumTransformerEncoder,
-)  # PeptideTransformerEncoder,
 
-from simba.config import Config
-from simba.logger_setup import logger
-from simba.transformers.spectrum_transformer_encoder_custom import (
+from simba.core.models.transformers.spectrum_transformer_encoder_custom import (
     SpectrumTransformerEncoderCustom,
 )
+from simba.logger_setup import logger
 
 
 class FixedLinearRegression(nn.Module):
@@ -164,7 +154,6 @@ class Embedder(pl.LightningModule):
         emb1 = self.relu(emb1)
 
         if self.use_cosine_distance:
-
             if self.use_cosine_library:
                 emb = self.cosine_similarity(emb0, emb1)
 
@@ -197,9 +186,7 @@ class Embedder(pl.LightningModule):
 
         # adjust scale
         # target = 2*(target-0.5)
-        loss = self.regression_loss(
-            spec.float(), target.view(-1, 1).float()
-        ).float()
+        loss = self.regression_loss(spec.float(), target.view(-1, 1).float()).float()
 
         return loss.float()
 
@@ -207,18 +194,14 @@ class Embedder(pl.LightningModule):
         """A training step"""
         loss = self.step(batch, batch_idx)
         # self.train_loss_list.append(loss.item())
-        self.log(
-            "train_loss", loss, on_step=True, on_epoch=True, prog_bar=True
-        )
+        self.log("train_loss", loss, on_step=True, on_epoch=True, prog_bar=True)
         return loss
 
     def validation_step(self, batch, batch_idx):
         """A validation step"""
         loss = self.step(batch, batch_idx)
         # self.val_loss_list.append(loss.item())
-        self.log(
-            "validation_loss", loss, on_step=True, on_epoch=True, prog_bar=True
-        )
+        self.log("validation_loss", loss, on_step=True, on_epoch=True, prog_bar=True)
         return loss
 
     def predict_step(self, batch, batch_idx):
@@ -277,9 +260,7 @@ class Embedder(pl.LightningModule):
         new_weights,
         layer_test="spectrum_encoder.transformer_encoder.layers.0.norm2.bias",
     ):
-        return np.array_equal(
-            original_weights[layer_test], new_weights[layer_test]
-        )
+        return np.array_equal(original_weights[layer_test], new_weights[layer_test])
 
     def set_freeze_layers(self, layer_names_to_freeze, freeze):
         # Freeze specified layers

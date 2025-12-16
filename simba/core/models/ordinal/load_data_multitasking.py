@@ -1,18 +1,17 @@
 import copy
 
 import numpy as np
-from tqdm import tqdm
 
-from simba.logger_setup import logger
-from simba.molecule_pairs_opt import MoleculePairsOpt
-from simba.ordinal_classification.ordinal_classification import (
+from simba.core.chemistry.tanimoto import Tanimoto
+from simba.core.models.ordinal.ordinal_classification import (
     OrdinalClassification,
 )
-from simba.preprocessor import Preprocessor
-from simba.core.chemistry.tanimoto import Tanimoto
-from simba.transformers.CustomDatasetMultitasking import (
+from simba.core.models.transformers.CustomDatasetMultitasking import (
     CustomDatasetMultitasking,
 )
+from simba.logger_setup import logger
+from simba.molecule_pairs_opt import MoleculePairsOpt
+from simba.preprocessor import Preprocessor
 
 
 class LoadDataMultitasking:
@@ -101,18 +100,12 @@ class LoadDataMultitasking:
                 (len(molecule_pairs.original_spectra), 1), dtype=np.float32
             )
         if use_ce:
-            ce = np.zeros(
-                (len(molecule_pairs.original_spectra), 1), dtype=np.int32
-            )
+            ce = np.zeros((len(molecule_pairs.original_spectra), 1), dtype=np.int32)
 
         logger.info("Loading mz, intensity and precursor data ...")
         for i, spec in enumerate(molecule_pairs.original_spectra):
             # check for maximum length
-            length = (
-                len(spec.mz)
-                if len(spec.mz) <= max_num_peaks
-                else max_num_peaks
-            )
+            length = len(spec.mz) if len(spec.mz) <= max_num_peaks else max_num_peaks
 
             # assign the values to the array
             mz[i, 0:length] = np.array(spec.mz[0:length])
@@ -142,9 +135,7 @@ class LoadDataMultitasking:
         )
 
         if molecule_pairs.extra_distances is None:
-            raise ValueError(
-                "extra_distances must be provided for multitask training."
-            )
+            raise ValueError("extra_distances must be provided for multitask training.")
         mces = molecule_pairs.extra_distances.reshape(-1, 1)
 
         if use_fingerprints:
@@ -159,12 +150,8 @@ class LoadDataMultitasking:
             fingerprint_0 = np.array([0 for m in molecule_pairs_input.spectra])
 
         dictionary_data = {
-            "index_unique_0": molecule_pairs_input.pair_distances[
-                :, 0
-            ].reshape(-1, 1),
-            "index_unique_1": molecule_pairs_input.pair_distances[
-                :, 1
-            ].reshape(-1, 1),
+            "index_unique_0": molecule_pairs_input.pair_distances[:, 0].reshape(-1, 1),
+            "index_unique_1": molecule_pairs_input.pair_distances[:, 1].reshape(-1, 1),
             "ed": ed,
             "mces": mces,
             # "fingerprint_0": fingerprint_0,

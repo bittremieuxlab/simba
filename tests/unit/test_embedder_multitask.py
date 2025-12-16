@@ -4,7 +4,7 @@ import pytest
 import torch
 import torch.nn as nn
 
-from simba.ordinal_classification.embedder_multitask import (
+from simba.core.models.ordinal.embedder_multitask import (
     CustomizedCrossEntropyLoss,
     EmbedderMultitask,
 )
