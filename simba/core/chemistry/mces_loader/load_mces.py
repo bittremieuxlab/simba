@@ -6,6 +6,7 @@ from simba.config import Config
 
 
 class LoadMCES:
+    @staticmethod
     def find_file(directory_path, prefix):
         """
         Searches for a .pkl file in the given directory and returns the path of the first one found.
@@ -23,6 +24,7 @@ class LoadMCES:
                     pickle_files.append(os.path.join(root, file))
         return pickle_files
 
+    @staticmethod
     def load_raw_data(directory_path, prefix, partitions=10000000):
         """
         load data for inspection purposes
@@ -48,7 +50,8 @@ class LoadMCES:
         else:
             return np.array([])
 
-    def merge_numpy_arrays_mces(directory_path, prefix):
+    @staticmethod
+    def merge_numpy_arrays_mces(directory_path, prefix, remove_percentage=0.90):
         """
         load np arrays containing data as well as apply normalization for training
         """
@@ -92,6 +95,7 @@ class LoadMCES:
         print(f"Size of data loaded: {merged_array.shape[0]}")
         return merged_array
 
+    @staticmethod
     def add_high_similarity_pairs_edit_distance(merged_array):
         max_index_spectrum = int(np.max(merged_array[:, 0]))
         indexes_tani_high = np.zeros((max_index_spectrum, merged_array.shape[1]))
@@ -105,6 +109,7 @@ class LoadMCES:
         merged_array = np.concatenate([merged_array, indexes_tani_high])
         return merged_array
 
+    @staticmethod
     def merge_numpy_arrays_edit_distance(
         directory_path, prefix, remove_percentage=0.90
     ):
@@ -146,6 +151,7 @@ class LoadMCES:
 
         return merged_array
 
+    @staticmethod
     def merge_numpy_arrays_multitask(
         directory_path,
         prefix,
@@ -183,7 +189,7 @@ class LoadMCES:
         # merge
         print("Merging")
         all_pair_distances = np.concatenate(
-            [l for l in pair_distances_chunks if len(l) > 0], axis=0
+            [chunk for chunk in pair_distances_chunks if len(chunk) > 0], axis=0
         )
 
         print("Normalizing")
@@ -193,15 +199,13 @@ class LoadMCES:
                 all_pair_distances[:, config.COLUMN_EDIT_DISTANCE],
             )
 
-        if normalize_mces:
-            if not (
-                config.USE_TANIMOTO
-            ):  # if not using tanimoto normalize between 0 and 1
-                all_pair_distances[:, config.COLUMN_MCES20] = LoadMCES.normalize_mces20(
-                    all_pair_distances[:, config.COLUMN_MCES20],
-                    max_value=config.MCES20_MAX_VALUE,
-                    remove_negative_values=True,
-                )
+        if normalize_mces and not config.USE_TANIMOTO:
+            # if not using tanimoto normalize between 0 and 1
+            all_pair_distances[:, config.COLUMN_MCES20] = LoadMCES.normalize_mces20(
+                all_pair_distances[:, config.COLUMN_MCES20],
+                max_value=config.MCES20_MAX_VALUE,
+                remove_negative_values=True,
+            )
 
         # add the high similarity pairs
         if add_high_similarity_pairs:
@@ -215,6 +219,7 @@ class LoadMCES:
         print(f"Number of pairs loaded: {all_pair_distances.shape[0]}  ")
         return all_pair_distances
 
+    @staticmethod
     def merge_numpy_arrays(
         directory_path,
         prefix,
@@ -249,6 +254,7 @@ class LoadMCES:
                     prefix,
                 )
 
+    @staticmethod
     def remove_excess_low_pairs(
         indexes_tani, remove_percentage=0.95, max_value=5, target_column=2
     ):
@@ -307,6 +313,7 @@ class LoadMCES:
 
         return mcs20_normalized
 
+    @staticmethod
     def load_mces_20_data(directory_path, prefix, number_folders):
         """
         loads the mces with threshold 20 across different folders
@@ -319,5 +326,5 @@ class LoadMCES:
             list_arrays.append(array)
 
         # drop the lists that are empty
-        list_arrays = [l for l in list_arrays if l.shape[0] > 0]
+        list_arrays = [arr for arr in list_arrays if arr.shape[0] > 0]
         return np.concatenate(list_arrays, axis=0)

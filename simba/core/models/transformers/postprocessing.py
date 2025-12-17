@@ -1,9 +1,7 @@
-
 import torch.nn.functional as F
 
 
 class Postprocessing:
-
     # calculate loss
     @staticmethod
     def compute_cosine_similarity(predictions):

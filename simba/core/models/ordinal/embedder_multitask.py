@@ -9,7 +9,7 @@ from simba.weight_sampling import WeightSampling
 
 class CustomizedCrossEntropyLoss(nn.Module):
     def __init__(self, n_classes=6):
-        super(CustomizedCrossEntropyLoss, self).__init__()
+        super().__init__()
         # Construct the penalty matrix using absolute differences.
         # With this design, a correct prediction (i == j) gets a penalty of 0,
         # and misclassifications incur a penalty proportional to their distance |i - j|.
@@ -355,7 +355,6 @@ class EmbedderMultitask(Embedder):
 
     def ordinal_cross_entropy(self, pred, target):
         batch_size = pred.size(0)
-        num_classes = pred.size(1)
         target_matrix = torch.zeros_like(pred, dtype=torch.float)
         for i in range(batch_size):
             target_matrix[i, : target[i] + 1] = 1.0

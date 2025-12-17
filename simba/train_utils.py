@@ -24,7 +24,7 @@ class TrainUtils:
         lenght_total = len(molecule_pairs.spectra)
         indexes_np = np.zeros((lenght_total, 3))
         print(f"number of pairs: {lenght_total}")
-        for index, l in enumerate(molecule_pairs.spectra):
+        for index, _ in enumerate(molecule_pairs.spectra):
             indexes_np[index, 0] = index
             indexes_np[index, 1] = index
             indexes_np[index, 2] = high_sim
@@ -113,6 +113,7 @@ class TrainUtils:
         # Define the number of elements in each combination (e.g., 2 for pairs of indexes)
         return list(combinations(range(num_samples), combination_length))
 
+    @staticmethod
     def generate_random_combinations(num_samples, num_combinations):
         all_indices = list(range(num_samples))
 
@@ -149,7 +150,7 @@ class TrainUtils:
         # get mz
         total_mz = np.array([s.precursor_mz for s in all_spectrums])
         df["index"] = [i for i, s in enumerate(all_spectrums)]
-        for i, s in tqdm(enumerate(all_spectrums)):
+        for i, _ in tqdm(enumerate(all_spectrums)):
             # compute max and min
             diff_total_max = total_mz - (all_spectrums[i].precursor_mz + max_mass_diff)
             diff_total_min = total_mz - (all_spectrums[i].precursor_mz + min_mass_diff)
@@ -399,17 +400,16 @@ class TrainUtils:
                 fingerprints[j],
             )
 
-            if tani is not None:
-                # if tani>MIN_SIM and tani<MAX_SIM:
-                if (counter_indexes < (max_low_pairs * max_combinations)) or (
-                    tani > high_tanimoto_range
-                ):
-                    indexes_np[counter_indexes, 0] = i
-                    indexes_np[counter_indexes, 1] = j
-                    indexes_np[counter_indexes, 2] = tani
-                    counter_indexes = counter_indexes + 1
-                    if use_tqdm:
-                        progress_bar.update(1)
+            if (tani is not None) and (
+                (counter_indexes < (max_low_pairs * max_combinations))
+                or (tani > high_tanimoto_range)
+            ):
+                indexes_np[counter_indexes, 0] = i
+                indexes_np[counter_indexes, 1] = j
+                indexes_np[counter_indexes, 2] = tani
+                counter_indexes = counter_indexes + 1
+                if use_tqdm:
+                    progress_bar.update(1)
 
         # avoid duplicates:
         print(f"Number of effective pairs originally computed: {indexes_np.shape[0]} ")
@@ -474,7 +474,7 @@ class TrainUtils:
         counter_indexes = 0
 
         # precompute min and max index
-        df_precomputed_indexes = TrainUtils.precompute_min_max_indexes(
+        _ = TrainUtils.precompute_min_max_indexes(
             all_spectrums,
             min_mass_diff=min_mass_diff,
             max_mass_diff=max_mass_diff,
@@ -557,16 +557,10 @@ class TrainUtils:
         # normalize the elements of list_elements based on max_value
         list_elements_norm = list_elements / max_value
 
-        if bin_sim_1:
-            number_bins_effective = number_bins + 1
-        else:
-            number_bins_effective = number_bins
+        number_bins_effective = number_bins + 1 if bin_sim_1 else number_bins
 
         for p in range(int(number_bins_effective)):
-            if p == 0:
-                low = -np.inf
-            else:
-                low = p * (1 / number_bins)
+            low = -np.inf if p == 0 else p * (1 / number_bins)
 
             if bin_sim_1:
                 high = (p + 1) * (1 / number_bins)
@@ -593,10 +587,7 @@ class TrainUtils:
         binned_molecule_pairs = []
 
         # Group the values into the corresponding bins, adding one for sim=1
-        if bin_sim_1:
-            number_bins_effective = number_bins + 1
-        else:
-            number_bins_effective = number_bins
+        number_bins_effective = number_bins + 1 if bin_sim_1 else number_bins
 
         for p in range(int(number_bins_effective)):
             low = p * (1 / number_bins)
@@ -651,10 +642,7 @@ class TrainUtils:
         binned_molecule_pairs = []
 
         # Group the values into the corresponding bins, adding one for sim=1
-        if bin_sim_1:
-            number_bins_effective = number_bins + 1
-        else:
-            number_bins_effective = number_bins
+        number_bins_effective = number_bins + 1 if bin_sim_1 else number_bins
 
         # convert it to an integer
         bin_size = 1 / number_bins
@@ -707,10 +695,6 @@ class TrainUtils:
         """
         get a uniform distribution of labels between 0 and 1
         """
-
-        # get spectrums and indexes
-        spectra = molecule_pairs.spectra
-        pair_distances = molecule_pairs.pair_distances
 
         # initialize random seed
         random.seed(seed)

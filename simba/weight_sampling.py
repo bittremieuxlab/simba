@@ -86,10 +86,7 @@ class WeightSampling:
             sim = targets
 
         # Calculate the index using vectorized operations
-        if bining_sim1:
-            effective_range = len(weights) - 1
-        else:
-            effective_range = len(weights)
+        effective_range = len(weights) - 1 if bining_sim1 else len(weights)
 
         # print(f'sim: {sim}')
         # print(f'effective range: {effective_range}')

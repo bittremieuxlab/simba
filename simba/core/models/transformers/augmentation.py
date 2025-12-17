@@ -112,9 +112,9 @@ class Augmentation:
             return data_sample
 
     @staticmethod
-    def normalize_intensities(
-        data_sample, intensity_labels=["intensity_0", "intensity_1"]
-    ):
+    def normalize_intensities(data_sample, intensity_labels=None):
+        if intensity_labels is None:
+            intensity_labels = ["intensity_0", "intensity_1"]
         # sqrt root
         for intensity_column in intensity_labels:
             intensity = data_sample[intensity_column]

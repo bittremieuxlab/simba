@@ -5,6 +5,7 @@ from sklearn.metrics import accuracy_score, confusion_matrix
 
 
 class Plotting:
+    @staticmethod
     def plot_mces(
         similarities_test2,
         flat_pred_test2,
@@ -20,7 +21,11 @@ class Plotting:
             y = flat_pred_test2
         sns.set_theme(style="ticks")
         plot = sns.jointplot(
-            x=x, y=y, kind="hex", color="#4CB391", joint_kws=dict(alpha=1, gridsize=20)
+            x=x,
+            y=y,
+            kind="hex",
+            color="#4CB391",
+            joint_kws={"alpha": 1, "gridsize": 20},
         )
         # Set x and y labels
         plot.set_axis_labels("Ground truth Similarity", "Prediction", fontsize=12)
@@ -30,6 +35,7 @@ class Plotting:
         # Set x-axis limits
         plot.ax_joint.set_ylim(0, 40)
 
+    @staticmethod
     def plot_cm(
         true,
         preds,

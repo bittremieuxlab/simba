@@ -122,7 +122,7 @@ class MoleculePairsOpt(MolecularPairsSet):
 
     def get_spectrums_from_indexes(self, pair_index):
         # pair index refers if it is 0 or 1 in the pair
-        indexes = [index for index in self.pair_distances[:, pair_index]]
+        indexes = list(self.pair_distances[:, pair_index])
         original_indexes = [
             self.get_original_index_from_unique_index(index, pair_index)
             for index in indexes

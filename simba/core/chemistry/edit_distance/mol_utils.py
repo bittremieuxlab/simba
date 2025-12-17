@@ -33,9 +33,9 @@ def get_modification_nodes(mol1, mol2, in_mol1=True):
     copy_mol1, copy_mol2 = _get_molecules(mol1, mol2)
 
     if copy_mol1.HasSubstructMatch(copy_mol2):
-        return _calculateModificationSites(copy_mol1, copy_mol2, in_mol1)
+        return _calculate_modification_sites(copy_mol1, copy_mol2, in_mol1)
     elif copy_mol2.HasSubstructMatch(copy_mol1):
-        return _calculateModificationSites(copy_mol2, copy_mol1, not in_mol1)
+        return _calculate_modification_sites(copy_mol2, copy_mol1, not in_mol1)
     else:
         raise ValueError("One molecule should be a substructure of the other molecule")
 
@@ -148,8 +148,8 @@ def get_transition(input1, input2):
     mol1_indices = _find_minimal_modification_edges_match(mol1, mcs_mol)
     mol2_indices = _find_minimal_modification_edges_match(mol2, mcs_mol)
 
-    map_mcs_from_mol1_to_mol2 = dict()
-    map_mcs_from_mol2_to_mol1 = dict()
+    map_mcs_from_mol1_to_mol2 = {}
+    map_mcs_from_mol2_to_mol1 = {}
     for i in range(mcs_mol.GetNumAtoms()):
         map_mcs_from_mol1_to_mol2[mol1_indices[i]] = mol2_indices[i]
         map_mcs_from_mol2_to_mol1[mol2_indices[i]] = mol1_indices[i]
@@ -170,7 +170,7 @@ def get_transition(input1, input2):
     editable_mol = Chem.EditableMol(copy_mol1)
     ## adding the atoms from mol2
     n = mol1.GetNumAtoms()
-    map_old_mol2_to_added = dict()  # mapping from the old mol2 indices to the new indices in the merged molecule (for the added atoms)
+    map_old_mol2_to_added = {}  # mapping from the old mol2 indices to the new indices in the merged molecule (for the added atoms)
     for atom in added_atoms:
         editable_mol.AddAtom(mol2.GetAtomWithIdx(atom))
         map_old_mol2_to_added[atom] = n
@@ -316,7 +316,7 @@ def get_modification_graph(main_struct, sub_struct):
 
     all_modifications = []
     for modification in range(color):
-        true_map = dict()
+        true_map = {}
         edit_mol = Chem.RWMol(main_struct)
         # delete any atom that is not in the modification
         for atom in range(main_struct.GetNumAtoms() - 1, -1, -1):
@@ -331,7 +331,7 @@ def get_modification_graph(main_struct, sub_struct):
         for atom in edit_mol.GetAtoms():
             try:
                 note = atom.GetProp("atomNote")
-            except:
+            except Exception:
                 note = None
             if note is not None and note.startswith("substructure"):
                 new_edit_mol.AddAtom(Chem.Atom(0))
@@ -561,7 +561,7 @@ def _get_edge_modifications(mol, substructure, match):
     )
 
 
-def _calculateModificationSites(mol, substructure, inParent=True):
+def _calculate_modification_sites(mol, substructure, inParent=True):
     """
     Calculates the number of modification sites to get mol from substructure (works when one moleculte is a substructure of the other molecule)
     if multiple matches are found, the modification sites that result in the minimum number of modifications are returned

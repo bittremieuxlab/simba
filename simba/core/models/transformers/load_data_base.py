@@ -6,7 +6,7 @@ from simba.preprocessor import Preprocessor
 
 
 class LoadDataBase:
-
+    @staticmethod
     def load_spectrum_data(
         input_spectra,
         max_num_peaks=100,
@@ -14,9 +14,7 @@ class LoadDataBase:
         ## Preprocess the data
         pp = Preprocessor()
         spectra = [copy.deepcopy(s) for s in input_spectra]
-        spectra = pp.preprocess_all_spectra(
-            spectra, max_num_peaks=max_num_peaks
-        )
+        spectra = pp.preprocess_all_spectra(spectra, max_num_peaks=max_num_peaks)
         # spectrums = pp.preprocess_all_spectrums_variable_max_peaks(spectrums, max_num_peaks=max_num_peaks)
 
         ## Get the mz, intensity values and precursor data
@@ -25,21 +23,21 @@ class LoadDataBase:
         precursor_mass = np.zeros((len(spectra), 1), dtype=np.float32)
         precursor_charge = np.zeros((len(spectra), 1), dtype=np.int32)
 
-        for i, l in enumerate(spectra):
+        for i, spectrum in enumerate(spectra):
             # check for maximum length
-            length = len(l.mz) if len(l.mz) <= max_num_peaks else max_num_peaks
+            length = (
+                len(spectrum.mz) if len(spectrum.mz) <= max_num_peaks else max_num_peaks
+            )
 
             # assign the values to the array
-            mz[i, 0:length] = np.array(l.mz[0:length])
-            intensity[i, 0:length] = np.array(l.intensity[0:length])
+            mz[i, 0:length] = np.array(spectrum.mz[0:length])
+            intensity[i, 0:length] = np.array(spectrum.intensity[0:length])
 
-            precursor_mass[i] = l.precursor_mz
-            precursor_charge[i] = l.precursor_charge
+            precursor_mass[i] = spectrum.precursor_mz
+            precursor_charge[i] = spectrum.precursor_charge
 
         # Normalize the intensity array
-        intensity = intensity / np.sqrt(
-            np.sum(intensity**2, axis=1, keepdims=True)
-        )
+        intensity = intensity / np.sqrt(np.sum(intensity**2, axis=1, keepdims=True))
 
         return {
             "mz": mz,

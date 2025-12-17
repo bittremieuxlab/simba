@@ -8,7 +8,6 @@ from simba.core.data.spectrum import SpectrumExt
 
 
 class Preprocessor:
-
     def __init__(self, bin_width=1, min_mz=10, max_mz=1400):
         # Define the parameters for binning
         self.bin_width = bin_width  # Adjust as needed to control the bin size
@@ -139,13 +138,10 @@ class Preprocessor:
 
         # Process the spectrum.
         return (
-            spectrum.remove_precursor_peak(
-                fragment_tol_mass, fragment_tol_mode
-            )
+            spectrum.remove_precursor_peak(fragment_tol_mass, fragment_tol_mode)
             # .set_mz_range(min_mz=self.min_mz, max_mz=self.max_mz)
-            .filter_intensity(
-                min_intensity=min_intensity, max_num_peaks=max_num_peaks
-            ).scale_intensity(scale_intensity)
+            .filter_intensity(min_intensity=min_intensity, max_num_peaks=max_num_peaks)
+            .scale_intensity(scale_intensity)
         )
 
     def return_spectrum_vector(self, spectrum):
@@ -164,7 +160,7 @@ class Preprocessor:
         """
         save spectrum vectors and apply preprocessing
         """
-        for i, spectrum in tqdm(enumerate(spectrums)):
+        for spectrum in tqdm(spectrums):
             spectrum_vector = self.return_vector_and_preprocess(spectrum)
             spectrum.set_spectrum_vector(spectrum_vector)
         return spectrums
@@ -175,7 +171,6 @@ class Preprocessor:
         return spectrum_vector
 
     def preprocess_vector(self, spectrum_vector, min_intensity=0.01):
-
         # scale values using the maximum
         maximum = np.max(spectrum_vector)
         if maximum != 0:
@@ -199,8 +194,6 @@ class Preprocessor:
         input_spectra = [copy.deepcopy(s) for s in spectra_original]
         preprocessed_spectra = self.preprocess_all_spectra(input_spectra)
         valid_indexes = [
-            i
-            for i, s in enumerate(preprocessed_spectra)
-            if len(s.mz) > min_peaks
+            i for i, s in enumerate(preprocessed_spectra) if len(s.mz) > min_peaks
         ]
         return [spectra_original[i] for i in valid_indexes]

@@ -18,6 +18,7 @@ FP_SIZE = _example.GetNumBits()
 
 
 class Tanimoto:
+    @staticmethod
     @functools.lru_cache
     def compute_tanimoto(fp1, fp2, nbits=2048, use_inchi=False):
         if (fp1 is not None) and (fp2 is not None):

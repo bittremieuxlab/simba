@@ -24,7 +24,8 @@ def spectrum_hash(
         return int(intensity * intensity_precision_factor)
 
     peak_list = [
-        (format_mz(m), format_intensity(inten)) for m, inten in zip(mz, intensities)
+        (format_mz(m), format_intensity(inten))
+        for m, inten in zip(mz, intensities, strict=False)
     ]
 
     # Sort by increasing m/z and then by decreasing intensity

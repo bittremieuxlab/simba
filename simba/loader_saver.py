@@ -111,7 +111,6 @@ class LoaderSaver:
         use_tqdm=True,
         config=None,
     ):
-
         # get the number of lines of the file
         with open(file) as f:
             line_count = sum(1 for line in f)
@@ -123,7 +122,7 @@ class LoaderSaver:
         current_line_number = self.nist_line_number
         all_spectra = []
 
-        for m in range(0, number_of_blocks):
+        for _ in range(0, number_of_blocks):
             print(
                 f"Starting loading spectra with block size {self.block_size} in the following spectrum index {len(all_spectra)} and line number {current_line_number}"
             )

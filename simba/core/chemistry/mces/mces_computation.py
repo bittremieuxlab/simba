@@ -91,7 +91,7 @@ class MCES:
     @staticmethod
     def create_combinations(all_spectra):
         logger.info(f"Number of unique spectra:{len(all_spectra)}")
-        indexes = [i for i in range(0, len(all_spectra))]
+        indexes = list(range(0, len(all_spectra)))
         combinations = list(itertools.combinations(indexes, 2))
         return combinations
 
@@ -121,6 +121,7 @@ class MCES:
         print(f"Example of normalized mces: {mces_normalized}")
         return mces_normalized
 
+    @staticmethod
     def compute_mces_myopic(
         smiles,
         sampled_index,
@@ -206,6 +207,7 @@ class MCES:
         indexes_np[:, 2] = df["mces_normalized"].values
         return indexes_np
 
+    @staticmethod
     def get_samples(
         all_spectra: list[SpectrumExt],
         random_sampling: bool,
@@ -245,6 +247,7 @@ class MCES:
             sample_idx = np.arange(0, len(all_spectra))
         return sample_idx, batch_size
 
+    @staticmethod
     def compute_all_mces_results_exhaustive(
         all_spectra: list[SpectrumExt],
         max_combinations: int = 1000000,
@@ -503,6 +506,7 @@ class MCES:
         print(datetime.now())
         return molecular_pair_set, df
 
+    @staticmethod
     def exp_normalize_mces20(x, scale=20, low_threshold=0.20):
         """
         normalize the input np array
@@ -518,12 +522,14 @@ class MCES:
 
         return mces_normalized
 
+    @staticmethod
     def inverse_exp_normalize_mces20(mces_normalized, scale, epsilon=0.000000000001):
         # add epsilon to avoid divide by 0
         mces_normalized_epsilon = mces_normalized + epsilon
 
         return scale * ((1 / mces_normalized_epsilon) - 1)
 
+    @staticmethod
     def compute_mces_list_smiles(smiles_0, smiles_1, threshold_mces=20):
         if not (os.path.exists("temp")):
             os.mkdir("temp")

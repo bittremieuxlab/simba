@@ -19,7 +19,7 @@ class FixedLinearRegression(nn.Module):
     """
 
     def __init__(self, d_model):
-        super(FixedLinearRegression, self).__init__()
+        super().__init__()
         self.weight = nn.Parameter(
             torch.ones(1, d_model)
         )  # Fixed weight initialized to 1
