@@ -20,5 +20,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - Pre-commit hooks for code quality (Ruff formatting and linting)
 - Documentation in README with quickstart guide, usage examples, and training instructions
 - Community files: CONTRIBUTING.md, CODE_OF_CONDUCT.md, CHANGELOG.md
+- Version management infrastructure (`__version__.py`)
+
+### Changed
+
+- **Major refactoring:** Restructured entire codebase into logical modules
+  - Organized code into `core/`, `legacy/`, and `tools/` directories
+  - Created clear module hierarchy: `core/models/`, `core/data/`, `core/chemistry/`
+  - Fixed `simba/simba/` nested folder structure
+  - Moved all legacy training scripts to `legacy/` with documentation
+  - All imports updated and validated
+- **Code quality improvements:** Applied Ruff formatting to entire `simba/` package
+  - Added ignore rules for acceptable patterns (B020, B905, N812, N999)
+  - Removed `simba/` from Ruff exclusions - now enforcing consistent code style
+  - All code follows PEP 8 and modern Python best practices
 
 [unreleased]: https://github.com/bittremieuxlab/simba/compare/HEAD
