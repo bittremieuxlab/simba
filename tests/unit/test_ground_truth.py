@@ -4,8 +4,8 @@ import numpy as np
 import pytest
 
 from simba.config import Config
-from simba.simba.ground_truth import GroundTruth
-from simba.simba.preprocessing_simba import PreprocessingSimba
+from simba.core.data.ground_truth import GroundTruth
+from simba.core.data.preprocessing_simba import PreprocessingSimba
 
 
 pytestmark = pytest.mark.unit

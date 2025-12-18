@@ -1,12 +1,7 @@
 import argparse
-import os
-import sys
-
-from simba.config import Config
 
 
 class Parser:
-
     def __init__(self):
         # parse arguments
         self.parser = argparse.ArgumentParser(description="script.")
@@ -47,17 +42,11 @@ class Parser:
                 "ADDUCT_MASS_MAP_CSV",
             ]
             if is_integer_attribute:
-                self.parser.add_argument(
-                    f"--{at}", type=int, help=at, default=None
-                )
+                self.parser.add_argument(f"--{at}", type=int, help=at, default=None)
             elif is_string_attribute:
-                self.parser.add_argument(
-                    f"--{at}", type=str, help=at, default=None
-                )
+                self.parser.add_argument(f"--{at}", type=str, help=at, default=None)
             else:
-                self.parser.add_argument(
-                    f"--{at}", type=float, help=at, default=None
-                )
+                self.parser.add_argument(f"--{at}", type=float, help=at, default=None)
 
         # Parse the command-line arguments
         args = self.parser.parse_args()

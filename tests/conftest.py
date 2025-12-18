@@ -105,7 +105,7 @@ END IONS
 @pytest.fixture
 def mock_model(mocker):
     """Create a mocked SIMBA model with random weights for testing."""
-    from simba.ordinal_classification.embedder_multitask import EmbedderMultitask
+    from simba.core.models.ordinal.embedder_multitask import EmbedderMultitask
 
     config = Config()
 
@@ -123,7 +123,7 @@ def mock_model(mocker):
     model.eval()
 
     mocker.patch(
-        "simba.ordinal_classification.embedder_multitask.EmbedderMultitask.load_from_checkpoint",
+        "simba.core.models.ordinal.embedder_multitask.EmbedderMultitask.load_from_checkpoint",
         return_value=model,
     )
 

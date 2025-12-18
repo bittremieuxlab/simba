@@ -2,7 +2,7 @@
 
 import numpy as np
 
-from simba.load_mces.load_mces import LoadMCES
+from simba.core.chemistry.mces_loader.load_mces import LoadMCES
 
 
 class TestLoadMCES:

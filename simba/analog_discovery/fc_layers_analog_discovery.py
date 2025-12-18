@@ -1,8 +1,8 @@
-import torch
 import numpy as np
+import torch
 from tqdm import tqdm
 
-from simba.ordinal_classification.embedder_multitask import EmbedderMultitask
+from simba.core.models.ordinal.embedder_multitask import EmbedderMultitask
 
 
 class FcLayerAnalogDiscovery:

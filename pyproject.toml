@@ -111,18 +111,11 @@ exclude = [
     "build",
     "dist",
     "*.egg-info",
-    # Exclude existing code from linting for now
-    "legacy_scripts",
-    "slurm_scripts",
+    # Exclude legacy code from linting
+    "legacy",
     "notebooks",
     "data",
     "docs",
-    "simba",  # Exclude main package for now
-    "preprocessing_scripts",
-    "training_scripts",
-    "inference_scripts",
-    "training_multitasking_*.py",
-    "get_only_massspecgym.py",
 ]
 
 [tool.ruff.lint]
@@ -141,8 +134,14 @@ select = [
 ignore = [
     "E501",   # Line too long (handled by formatter)
     "B008",   # Function calls in argument defaults
+    "B020",   # Loop control variable overrides iterable it iterates
+    "B905",   # zip() without explicit strict parameter
     "N803",   # Argument name should be lowercase (scientific naming)
     "N806",   # Variable should be lowercase (scientific naming)
+    "N812",   # Lowercase imported as non-lowercase (e.g., `import torch.nn.functional as F`)
+    "N813",   # Camelcase imported as lowercase
+    "N999",   # Invalid module name (legacy CamelCase module names)
+    "SIM108", # Use ternary operator (can reduce readability)
 ]
 
 fixable = ["ALL"]

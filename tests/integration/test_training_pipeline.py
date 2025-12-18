@@ -16,12 +16,12 @@ import numpy as np
 import pandas as pd
 
 from simba.config import Config
-from simba.load_mces.load_mces import LoadMCES
+from simba.core.chemistry.mces_loader.load_mces import LoadMCES
+from simba.core.data.preprocessing_simba import PreprocessingSimba
+from simba.core.data.spectrum import SpectrumExt
+from simba.core.models.ordinal.embedder_multitask import EmbedderMultitask
+from simba.core.models.simba_model import Simba
 from simba.molecule_pairs_opt import MoleculePairsOpt
-from simba.ordinal_classification.embedder_multitask import EmbedderMultitask
-from simba.simba.preprocessing_simba import PreprocessingSimba
-from simba.simba.simba import Simba
-from simba.spectrum_ext import SpectrumExt
 from simba.train_utils import TrainUtils
 
 
@@ -348,7 +348,7 @@ class TestTrainingSmoke:
         assert hasattr(model, "spectrum_encoder")
 
     @patch(
-        "simba.ordinal_classification.embedder_multitask.EmbedderMultitask.load_from_checkpoint"
+        "simba.core.models.ordinal.embedder_multitask.EmbedderMultitask.load_from_checkpoint"
     )
     def test_checkpoint_loading(self, mock_load):
         """Test that checkpoint loading interface works."""
@@ -393,7 +393,7 @@ class TestInferenceOnTrainedModel:
         model.eval()
 
         mocker.patch(
-            "simba.ordinal_classification.embedder_multitask.EmbedderMultitask.load_from_checkpoint",
+            "simba.core.models.ordinal.embedder_multitask.EmbedderMultitask.load_from_checkpoint",
             return_value=model,
         )
 
@@ -438,7 +438,7 @@ class TestInferenceOnTrainedModel:
         model.eval()
 
         mocker.patch(
-            "simba.ordinal_classification.embedder_multitask.EmbedderMultitask.load_from_checkpoint",
+            "simba.core.models.ordinal.embedder_multitask.EmbedderMultitask.load_from_checkpoint",
             return_value=model,
         )
 

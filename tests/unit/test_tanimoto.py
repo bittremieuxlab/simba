@@ -4,7 +4,7 @@ import pytest
 from rdkit import Chem
 from rdkit.DataStructs.cDataStructs import ExplicitBitVect
 
-from simba.tanimoto import Tanimoto
+from simba.core.chemistry.tanimoto import Tanimoto
 
 
 pytestmark = pytest.mark.unit

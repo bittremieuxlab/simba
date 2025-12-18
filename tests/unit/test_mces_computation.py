@@ -3,7 +3,7 @@
 import numpy as np
 import pytest
 
-from simba.mces.mces_computation import MCES
+from simba.core.chemistry.mces.mces_computation import MCES
 
 
 pytestmark = pytest.mark.unit

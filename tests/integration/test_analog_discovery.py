@@ -12,10 +12,10 @@ Based on notebooks/final_tutorials/run_analog_discovery.ipynb
 import numpy as np
 import pytest
 
+from simba.analog_discovery.simba_analog_discovery import AnalogDiscovery
 from simba.config import Config
-from simba.simba.analog_discovery import AnalogDiscovery
-from simba.simba.preprocessing_simba import PreprocessingSimba
-from simba.simba.simba import Simba
+from simba.core.data.preprocessing_simba import PreprocessingSimba
+from simba.core.models.simba_model import Simba
 
 
 pytestmark = pytest.mark.integration

@@ -1,11 +1,11 @@
 import math
-from typing import IO, List, Union
+from typing import IO
 
 import dill
 
 from simba.config import Config
-from simba.load_data import LoadData
-from simba.spectrum_ext import SpectrumExt
+from simba.core.data.loaders import LoadData
+from simba.core.data.spectrum import SpectrumExt
 
 
 class LoaderSaver:
@@ -31,7 +31,7 @@ class LoaderSaver:
 
     def get_all_spectra(
         self,
-        file: Union[str, IO],
+        file: str | IO,
         num_samples: int = 10,
         compute_classes: bool = False,
         use_tqdm: bool = True,
@@ -39,7 +39,7 @@ class LoaderSaver:
         config: Config = None,
         use_janssen: bool = False,
         use_only_protonized_adducts: bool = True,
-    ) -> List[SpectrumExt]:
+    ) -> list[SpectrumExt]:
         """
         Get all spectra from a file.
         If a pickle path is provided, it will save the loaded spectra to that path.
@@ -111,9 +111,8 @@ class LoaderSaver:
         use_tqdm=True,
         config=None,
     ):
-
         # get the number of lines of the file
-        with open(file, "r") as f:
+        with open(file) as f:
             line_count = sum(1 for line in f)
 
         print(f"The NIST file contains {line_count} lines")
@@ -123,7 +122,7 @@ class LoaderSaver:
         current_line_number = self.nist_line_number
         all_spectra = []
 
-        for m in range(0, number_of_blocks):
+        for _ in range(0, number_of_blocks):
             print(
                 f"Starting loading spectra with block size {self.block_size} in the following spectrum index {len(all_spectra)} and line number {current_line_number}"
             )
