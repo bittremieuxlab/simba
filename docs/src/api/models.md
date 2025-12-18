@@ -23,7 +23,7 @@ The main SIMBA model for embedding MS/MS spectra.
 ## Ordinal Classification
 
 ```{eval-rst}
-.. automodule:: simba.core.models.ordinal_classification.ordinal_classification
+.. automodule:: simba.core.models.ordinal.ordinal_classification
     :members:
     :undoc-members:
     :show-inheritance:
