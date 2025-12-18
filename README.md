@@ -4,6 +4,9 @@
 
 # SIMBA: Spectral Identification of Molecule Bio-Analogues
 
+[![Documentation](https://readthedocs.org/projects/simba-ms/badge/?version=latest)](https://simba-ms.readthedocs.io/en/latest/)
+[![Python](https://img.shields.io/badge/python-3.11-blue.svg)](https://www.python.org/downloads/)
+
 **SIMBA** is a transformer-based neural network that accurately predicts chemical structural similarity from tandem mass spectrometry (MS/MS) spectra. Unlike traditional methods relying on heuristic metrics (e.g., modified cosine similarity), SIMBA directly models structural differences, enabling precise analog identification in metabolomics.
 
 SIMBA predicts two interpretable metrics:
@@ -420,6 +423,25 @@ Pre-commit hooks automatically run on every commit and check:
 - Tests (pytest)
 - File formatting (trailing whitespace, line endings)
 - YAML/TOML syntax
+
+### Documentation
+
+Full documentation is available at **https://simba-ms.readthedocs.io/**
+
+To build documentation locally:
+
+```bash
+# Build HTML documentation
+cd docs
+make clean && make html
+
+# View in browser
+open build/html/index.html  # macOS
+# or
+xdg-open build/html/index.html  # Linux
+# or
+start build/html/index.html  # Windows
+```
 
 ---
 
