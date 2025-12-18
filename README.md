@@ -426,22 +426,10 @@ Pre-commit hooks automatically run on every commit and check:
 
 ### Documentation
 
-Full documentation is available at **https://simba-ms.readthedocs.io/**
+Full documentation is available at **<https://simba-ms.readthedocs.io/>**
 
 To build documentation locally:
 
-```bash
-# Build HTML documentation
-cd docs
-make clean && make html
-
-# View in browser
-open build/html/index.html  # macOS
-# or
-xdg-open build/html/index.html  # Linux
-# or
-start build/html/index.html  # Windows
-```
 
 ---
 
