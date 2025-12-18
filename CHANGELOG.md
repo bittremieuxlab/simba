@@ -18,9 +18,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - Comprehensive test suite with pytest
 - CI/CD pipelines with GitHub Actions (tests and code quality checks)
 - Pre-commit hooks for code quality (Ruff formatting and linting)
-- Documentation in README with quickstart guide, usage examples, and training instructions
 - Community files: CONTRIBUTING.md, CODE_OF_CONDUCT.md, CHANGELOG.md
 - Version management infrastructure (`__version__.py`)
+- Documentation infrastructure with Sphinx and ReadTheDocs configuration
 
 ### Changed
 

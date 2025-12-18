@@ -9,6 +9,13 @@ This module contains utilities for:
 """
 
 from simba.core.chemistry import chem_utils, tanimoto
+from simba.core.chemistry.edit_distance import edit_distance
+from simba.core.chemistry.mces_loader import load_mces
 
 
-__all__ = ["chem_utils", "tanimoto"]
+__all__ = [
+    "chem_utils",
+    "tanimoto",
+    "edit_distance",
+    "load_mces",
+]

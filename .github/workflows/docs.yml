@@ -1,0 +1,48 @@
+name: Build Documentation
+
+on:
+  push:
+    branches: [ main, dev ]
+  pull_request:
+    branches: [ main, dev ]
+
+jobs:
+  docs:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python 3.11
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.11"
+
+    - name: Install UV
+      run: |
+        curl -LsSf https://astral.sh/uv/install.sh | sh
+        echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+
+    - name: Install dependencies
+      run: |
+        uv sync --group docs
+
+    - name: Build documentation
+      run: |
+        cd docs
+        uv run sphinx-build -W --keep-going -b html src build/html
+      env:
+        SPHINX_BUILD: 1
+
+    - name: Check for documentation warnings/errors
+      run: |
+        cd docs
+        # Rebuild and capture output to check for warnings/errors
+        rm -rf build
+        uv run sphinx-build -W --keep-going -b html src build/html 2>&1 | tee build.log
+        # Fail if there are any warnings or errors
+        if grep -E "(WARNING|ERROR)" build.log; then
+          echo "Documentation build contains warnings or errors!"
+          exit 1
+        else
+          echo "Documentation build completed successfully with no warnings!"
+        fi
