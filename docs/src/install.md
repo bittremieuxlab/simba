@@ -2,7 +2,7 @@
 
 ## Requirements
 
-- Python 3.11.7
+- Python 3.11.x (tested with 3.11.7)
 - [UV](https://docs.astral.sh/uv/) (recommended) or [Conda](https://docs.conda.io/en/latest/)
 
 ## Option 1: UV (Recommended - Fastest ⚡)

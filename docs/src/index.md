@@ -16,7 +16,7 @@ See the documentation for more information and detailed examples on how to get s
 
 ## Citation
 
-SIMBA is freely available as open source under the [Apache 2.0 license](http://opensource.org/licenses/Apache-2.0).
+SIMBA is freely available as open source under the [Apache License 2.0](https://www.apache.org/licenses/LICENSE-2.0).
 
 ```{toctree}
 ---

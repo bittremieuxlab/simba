@@ -19,7 +19,7 @@ SIMBA predicts two interpretable metrics:
 ## 🚀 Quickstart
 
 ### Requirements
-- Python 3.11.7
+- Python 3.11.x (tested with 3.11.7)
 - [UV](https://docs.astral.sh/uv/) (recommended) or [Conda](https://docs.conda.io/en/latest/)
 
 ### Installation
@@ -428,8 +428,26 @@ Pre-commit hooks automatically run on every commit and check:
 
 Full documentation is available at **<https://simba-ms.readthedocs.io/>**
 
-To build documentation locally:
+**To build documentation locally:**
 
+```bash
+# Navigate to docs directory
+cd docs
+
+# Build HTML documentation
+make html                # macOS/Linux
+# or
+make.bat html           # Windows
+
+# View the generated documentation
+open build/html/index.html       # macOS
+# or
+xdg-open build/html/index.html   # Linux
+# or
+start build/html/index.html      # Windows
+```
+
+Built documentation will be available at `docs/build/html/index.html`.
 
 ---
 
@@ -443,5 +461,11 @@ To build documentation locally:
 ## 📦 Data Availability
 
 - Training and testing datasets available at: [https://zenodo.org/records/15275257].
+
+---
+
+## 📄 License
+
+SIMBA is distributed under the Apache License, Version 2.0. See the [LICENSE](LICENSE) file for more details.
 
 ---
