@@ -27,7 +27,7 @@ class CustomDatasetMultitasking(Dataset):
         max_num_peaks=None,
         use_adduct=False,
         ionmode=None,
-        adduct_mass=None,
+        adduct=None,
         use_ce=False,
         ce=None,
         use_ion_activation=False,
@@ -59,7 +59,7 @@ class CustomDatasetMultitasking(Dataset):
 
         if self.use_adduct:
             self.ionmode = ionmode
-            self.adduct_mass = adduct_mass
+            self.adduct_mass = adduct
 
         if self.use_ce:
             self.ce = ce

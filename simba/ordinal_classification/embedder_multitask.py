@@ -160,15 +160,15 @@ class EmbedderMultitask(Embedder):
 
             initial_log_sigma1 = 1.2490483522415161
             initial_log_sigma2 = -7.0018157958984375
-            # self.log_sigma1 = nn.Parameter(torch.tensor(initial_log_sigma1))
-            # self.log_sigma2 = nn.Parameter(torch.tensor(initial_log_sigma2))
-            self.log_sigma1 = torch.tensor(
-                float(initial_log_sigma1), dtype=torch.float32
-            )
-            self.log_sigma2 = torch.tensor(
-                float(initial_log_sigma2), dtype=torch.float32
-            )
-            self.use_extra_metadata = use_adduct
+            self.log_sigma1 = nn.Parameter(torch.tensor(initial_log_sigma1))
+            self.log_sigma2 = nn.Parameter(torch.tensor(initial_log_sigma2))
+            # self.log_sigma1 = torch.tensor(
+            #    float(initial_log_sigma1), dtype=torch.float32
+            # )
+            # self.log_sigma2 = torch.tensor(
+            #    float(initial_log_sigma2), dtype=torch.float32
+            # )
+        self.use_adduct = use_adduct
 
     def forward(self, batch, return_spectrum_output=False):
         # … compute raw emb0, emb1, apply relu, fingerprints, etc. …
@@ -188,7 +188,7 @@ class EmbedderMultitask(Embedder):
             "precursor_charge": batch["precursor_charge_1"].float(),
         }
 
-        if self.use_extra_metadata:
+        if self.use_adduct:
             kwargs_0["ionmode"] = batch["ionmode_0"].float()
             kwargs_1["ionmode"] = batch["ionmode_1"].float()
             kwargs_0["adduct"] = batch["adduct_0"].float()

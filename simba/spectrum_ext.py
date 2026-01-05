@@ -126,10 +126,18 @@ class SpectrumExt(MsmsSpectrum):
         self.library = state["library"]
         self.inchi = state["inchi"]
         self.ionmode = state["ionmode"]
-        self.adduct = state["adduct"]
-        self.ce = state["ce"]
-        self.ion_activation = state["ion_activation"]
-        self.ionization_method = state["ionization_method"]
+        self.adduct = state["adduct"] if "adduct" in state.keys() else None
+        self.ce = state["ce"] if "ce" in state.keys() else None
+        self.ion_activation = (
+            state["ion_activation"]
+            if "ion_activation" in state.keys()
+            else None
+        )
+        self.ionization_method = (
+            state["ionization_method"]
+            if "ion_method" in state.keys()
+            else None
+        )
         self.retention_time = state["retention_time"]
         self.superclass = state["superclass"]
         self.classe = state["classe"]

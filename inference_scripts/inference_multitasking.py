@@ -137,6 +137,9 @@ def create_dataloaders(
         molecule_pairs_ed_uniform,
         max_num_peaks=int(config.TRANSFORMER_CONTEXT),
         use_adduct=config.USE_ADDUCT,
+        use_ce =config.USE_CE,
+        use_ion_activation = config.USE_ION_ACTIVATION,
+        use_ion_method = config.USE_ION_METHOD,
     )
     dataloader_ed = DataLoader(
         dataset_ed, batch_size=config.BATCH_SIZE, shuffle=False
@@ -146,6 +149,9 @@ def create_dataloaders(
         molecule_pairs_mces_uniform,
         max_num_peaks=int(config.TRANSFORMER_CONTEXT),
         use_adduct=config.USE_ADDUCT,
+        use_ce = config.USE_CE,
+        use_ion_activation = config.USE_ION_ACTIVATION,
+        use_ion_method =config.USE_ION_METHOD,
     )
     dataloader_mces = DataLoader(
         dataset_mces, batch_size=config.BATCH_SIZE, shuffle=False

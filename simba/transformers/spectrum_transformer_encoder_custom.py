@@ -79,4 +79,8 @@ class SpectrumTransformerEncoderCustom(SpectrumTransformerEncoder):
             placeholder[:, current_idx:stop_idx] = im
             current_idx = stop_idx
 
+
+
+        # ensure there are no nans
+        placeholder = torch.nan_to_num(placeholder, nan=0.0, posinf=0.0, neginf=0.0)
         return placeholder

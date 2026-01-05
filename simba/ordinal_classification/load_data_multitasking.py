@@ -145,7 +145,8 @@ class LoadDataMultitasking:
 
             if use_adduct:
                 if spec.ionmode == "none":
-                    ionmode[i] = np.nan
+                    # ionmode[i] = np.nan
+                    ionmode[i] = 0
                 else:
                     ionmode[i] = 1.0 if spec.ionmode == "positive" else -1.0
                 adduct[i] = one_hot_encoding.encode_adduct(spec.adduct)

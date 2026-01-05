@@ -1,6 +1,7 @@
 import copy
-import numpy as np
 import random
+
+import numpy as np
 
 
 class Augmentation:
@@ -20,7 +21,9 @@ class Augmentation:
 
         # precursor mass
         # new_sample = Augmentation.add_false_precursor_masses_negatives(new_sample)
-        new_sample = Augmentation.add_false_precursor_masses_positives(new_sample)
+        new_sample = Augmentation.add_false_precursor_masses_positives(
+            new_sample
+        )
 
         new_sample = Augmentation.random_peak_dropout(new_sample)
         # normalize
@@ -47,7 +50,9 @@ class Augmentation:
         return data_sample
 
     @staticmethod
-    def peak_augmentation_max_peaks(data_sample, p_augmentation=1.0, max_peaks=100):
+    def peak_augmentation_max_peaks(
+        data_sample, p_augmentation=1.0, max_peaks=100
+    ):
         # first normalize to maximum
 
         ## half of the time select maximum 20, the other half something between 5 and the maximum number of peaks
@@ -69,7 +74,9 @@ class Augmentation:
                 intensity_ordered_indexes = np.argsort(intensity)[
                     ::-1
                 ]  # flip the order to have the max at the beginning
-                indexes_to_be_erased = intensity_ordered_indexes[max_augmented_peaks:-1]
+                indexes_to_be_erased = intensity_ordered_indexes[
+                    max_augmented_peaks:-1
+                ]
 
                 intensity[indexes_to_be_erased] = 0
                 mz[indexes_to_be_erased] = 0
@@ -120,7 +127,14 @@ class Augmentation:
         for intensity_column in intensity_labels:
             intensity = data_sample[intensity_column]
             intensity = np.sqrt(intensity)
-            intensity = intensity / np.sqrt(np.sum(intensity**2, keepdims=True))
+            intensity = intensity / np.sqrt(
+                np.sum(intensity**2, keepdims=True)
+            )
+            # if intensity == np.nan or intensity == None:
+            if np.isnan(intensity).any() or (
+                isinstance(intensity, float) and np.isnan(intensity)
+            ):
+                print(data_sample[intensity_column])
             data_sample[intensity_column] = intensity
         return data_sample
 
@@ -186,7 +200,9 @@ class Augmentation:
             return sample
 
     @staticmethod
-    def random_peak_dropout(data_sample, dropout_rate=0.10, p_augmentation=1.0):
+    def random_peak_dropout(
+        data_sample, dropout_rate=0.10, p_augmentation=1.0
+    ):
         """
         Randomly zero out a percentage of peaks to simulate partial data loss.
         """

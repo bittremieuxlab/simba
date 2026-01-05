@@ -90,6 +90,30 @@ class LoadData:
                         compute_classes=compute_classes,
                         use_gnps_format=use_gnps_format,
                     )
+                    spec = (
+                        spec
+                        if (not config.USE_ADDUCT or spec.adduct is not None)
+                        and (not config.USE_ADDUCT or spec.ionmode is not None)
+                        and (not config.USE_CE or spec.ce is not None)
+                        and (
+                            not config.USE_ION_ACTIVATION
+                            or spec.ion_activation is not None
+                        )
+                        and (
+                            not config.USE_ION_METHOD
+                            or spec.ionization_method is not None
+                        )
+                        else None
+                    )
+                    if (
+                        np.isnan(spec.mz).any()
+                        or np.isnan(spec.intensity).any()
+                        or not np.isfinite(spec.mz).all()
+                        or not np.isfinite(spec.intensity).all()
+                        or not np.all(spec.mz >= 0)
+                        or not np.all(spec.intensity >= 0)
+                    ):
+                        spec = None
                     if spec is not None:
                         yield spec
             # except ValueError as e:
