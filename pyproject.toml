@@ -80,6 +80,15 @@ notebooks = [
     "ipywidgets>=8.0.0",
 ]
 
+docs = [
+    "myst-parser>=4.0.1",
+    "sphinx>=8.2.3",
+    "sphinx-autodoc-typehints>=3.5.2",
+    "sphinx-click>=6.2.0",
+    "sphinx-rtd-theme>=3.0.2",
+    "sphinx-markdown-tables>=0.0.17",
+]
+
 [project.urls]
 Homepage = "https://github.com/bittremieux-lab/simba"
 Repository = "https://github.com/bittremieux-lab/simba"
@@ -202,14 +211,4 @@ exclude_lines = [
     "raise NotImplementedError",
     "if __name__ == .__main__.:",
     "if TYPE_CHECKING:",
-]
-
-[dependency-groups]
-docs = [
-    "myst-parser>=4.0.1",
-    "sphinx>=8.2.3",
-    "sphinx-autodoc-typehints>=3.5.2",
-    "sphinx-click>=6.2.0",
-    "sphinx-rtd-theme>=3.0.2",
-    "sphinx-markdown-tables>=0.0.17",
 ]
