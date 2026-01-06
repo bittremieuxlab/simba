@@ -4,6 +4,9 @@
 
 # SIMBA: Spectral Identification of Molecule Bio-Analogues
 
+[![Documentation](https://readthedocs.org/projects/simba-ms/badge/?version=latest)](https://simba-ms.readthedocs.io/en/latest/)
+[![Python](https://img.shields.io/badge/python-3.11-blue.svg)](https://www.python.org/downloads/)
+
 **SIMBA** is a transformer-based neural network that accurately predicts chemical structural similarity from tandem mass spectrometry (MS/MS) spectra. Unlike traditional methods relying on heuristic metrics (e.g., modified cosine similarity), SIMBA directly models structural differences, enabling precise analog identification in metabolomics.
 
 SIMBA predicts two interpretable metrics:
@@ -16,7 +19,7 @@ SIMBA predicts two interpretable metrics:
 ## 🚀 Quickstart
 
 ### Requirements
-- Python 3.11.7
+- Python 3.11.x (tested with 3.11.7)
 - [UV](https://docs.astral.sh/uv/) (recommended) or [Conda](https://docs.conda.io/en/latest/)
 
 ### Installation
@@ -421,6 +424,31 @@ Pre-commit hooks automatically run on every commit and check:
 - File formatting (trailing whitespace, line endings)
 - YAML/TOML syntax
 
+### Documentation
+
+Full documentation is available at **<https://simba-ms.readthedocs.io/>**
+
+**To build documentation locally:**
+
+```bash
+# Navigate to docs directory
+cd docs
+
+# Build HTML documentation
+make html                # macOS/Linux
+# or
+make.bat html           # Windows
+
+# View the generated documentation
+open build/html/index.html       # macOS
+# or
+xdg-open build/html/index.html   # Linux
+# or
+start build/html/index.html      # Windows
+```
+
+Built documentation will be available at `docs/build/html/index.html`.
+
 ---
 
 ## 📬 Contact & Support
@@ -433,5 +461,11 @@ Pre-commit hooks automatically run on every commit and check:
 ## 📦 Data Availability
 
 - Training and testing datasets available at: [https://zenodo.org/records/15275257].
+
+---
+
+## 📄 License
+
+SIMBA is distributed under the Apache License, Version 2.0. See the [LICENSE](LICENSE) file for more details.
 
 ---

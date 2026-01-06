@@ -131,12 +131,21 @@ def get_edit_distance_from_smiles(smiles1, smiles2, return_nans=True):
 
 def simba_get_edit_distance(mol1, mol2, return_nans=True):
     """
-    Calculates the edit distance between mol1 and mol2.
-    Input:
-        mol1: first molecule
-        mol2: second molecule
-    Output:
-        edit_distance: edit distance between mol1 and mol2
+    Calculate the edit distance between two molecules.
+
+    Parameters
+    ----------
+    mol1 : Mol
+        First molecule.
+    mol2 : Mol
+        Second molecule.
+    return_nans : bool, optional
+        Whether to return NaN for dissimilar molecules (default: True).
+
+    Returns
+    -------
+    float or np.nan
+        Edit distance between mol1 and mol2.
     """
 
     mcs1 = rdFMCS.FindMCS([mol1, mol2])
