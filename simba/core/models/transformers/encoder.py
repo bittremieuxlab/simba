@@ -17,16 +17,30 @@ class Encoder(pl.LightningModule):
         self.relu = nn.ReLU()
 
     def load_twin_network(self, model_path, D_MODEL, N_LAYERS, strict=False):
+        # Support both DictConfig (Hydra) and legacy Config
+        if hasattr(self.config, "model"):
+            n_classes = self.config.model.tasks.edit_distance.n_classes
+            use_gumbel = self.config.model.tasks.edit_distance.use_gumbel
+            lr = self.config.optimizer.lr
+            use_cosine_distance = (
+                self.config.model.tasks.cosine_similarity.use_cosine_distance
+            )
+        else:
+            n_classes = self.config.EDIT_DISTANCE_N_CLASSES
+            use_gumbel = self.config.EDIT_DISTANCE_USE_GUMBEL
+            lr = self.config.LR
+            use_cosine_distance = self.config.use_cosine_distance
+
         if self.multitasking:
             return EmbedderMultitask.load_from_checkpoint(
                 model_path,
                 d_model=int(D_MODEL),
                 n_layers=int(N_LAYERS),
                 weights=None,
-                n_classes=self.config.EDIT_DISTANCE_N_CLASSES,
-                use_gumbel=self.config.EDIT_DISTANCE_USE_GUMBEL,
-                lr=self.config.LR,
-                use_cosine_distance=self.config.use_cosine_distance,
+                n_classes=n_classes,
+                use_gumbel=use_gumbel,
+                lr=lr,
+                use_cosine_distance=use_cosine_distance,
                 strict=strict,
             )
 
@@ -36,8 +50,8 @@ class Encoder(pl.LightningModule):
                 d_model=int(D_MODEL),
                 n_layers=int(N_LAYERS),
                 weights=None,
-                lr=self.config.LR,
-                use_cosine_distance=self.config.use_cosine_distance,
+                lr=lr,
+                use_cosine_distance=use_cosine_distance,
                 strict=strict,
             )
 

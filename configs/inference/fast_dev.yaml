@@ -1,0 +1,13 @@
+# @package _global_
+# Fast development inference configuration
+# Inherits from default and overrides specific values
+
+defaults:
+  - default
+
+# Override inference settings for fast development
+inference:
+  batch_size: 8
+  uniformize_testing: false
+  accelerator: "cpu"  # Use CPU for development, avoids MPS issues
+  enable_progress_bar: true

@@ -12,28 +12,54 @@ class FcLayerAnalogDiscovery:
 
     @staticmethod
     def load_full_model(model_path, config):
+        # Support both DictConfig (Hydra) and legacy Config
+        if hasattr(config, "model"):
+            d_model = config.model.transformer.d_model
+            n_layers = config.model.transformer.n_layers
+            n_classes = config.model.tasks.edit_distance.n_classes
+            use_gumbel = config.model.tasks.edit_distance.use_gumbel
+            lr = config.optimizer.lr
+            use_cosine_distance = (
+                config.model.tasks.cosine_similarity.use_cosine_distance
+            )
+            use_fingerprints = config.model.tasks.fingerprints.enabled
+        else:
+            d_model = config.D_MODEL
+            n_layers = config.N_LAYERS
+            n_classes = config.EDIT_DISTANCE_N_CLASSES
+            use_gumbel = config.EDIT_DISTANCE_USE_GUMBEL
+            lr = config.LR
+            use_cosine_distance = config.use_cosine_distance
+            use_fingerprints = config.USE_FINGERPRINT
+
         return EmbedderMultitask.load_from_checkpoint(
             model_path,
-            d_model=config.D_MODEL,
-            n_layers=config.N_LAYERS,
+            d_model=d_model,
+            n_layers=n_layers,
             weights=None,
-            n_classes=config.EDIT_DISTANCE_N_CLASSES,
-            use_gumbel=config.EDIT_DISTANCE_USE_GUMBEL,
-            lr=config.LR,
-            use_cosine_distance=config.use_cosine_distance,
+            n_classes=n_classes,
+            use_gumbel=use_gumbel,
+            lr=lr,
+            use_cosine_distance=use_cosine_distance,
             strict=False,
-            use_fingerprints=config.USE_FINGERPRINT,
+            use_fingerprints=use_fingerprints,
         )
 
     @staticmethod
     def compute_all_combinations(
         model_path, emb0, emb1, config, fingerprints_0=None, fingerprint_index=1
     ):
+        # Support both DictConfig (Hydra) and legacy Config
+        if hasattr(config, "model"):
+            edit_distance_n_classes = config.model.tasks.edit_distance.n_classes
+        else:
+            edit_distance_n_classes = config.EDIT_DISTANCE_N_CLASSES
+
         # load full model
         model = FcLayerAnalogDiscovery.load_full_model(model_path, config)
         model.eval()
         similarities1 = np.zeros(
-            (emb0.shape[0], emb1.shape[0], config.EDIT_DISTANCE_N_CLASSES)
+            (emb0.shape[0], emb1.shape[0], edit_distance_n_classes)
         )  # edit distance
         similarities2 = np.zeros(
             (

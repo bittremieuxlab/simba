@@ -1,0 +1,20 @@
+# @package _global_
+
+# Default configuration for analog discovery
+analog_discovery:
+  # Query parameters
+  query_index: null  # null = process all queries, or specify index (e.g., 0, 5)
+  top_k: 10  # Number of top matches to return
+
+  # Processing parameters
+  batch_size: 32
+  device: cpu  # cpu or gpu
+  cache_embeddings: true  # Cache embeddings for faster repeated searches
+
+  # Evaluation parameters
+  compute_ground_truth: false  # Compute ground truth edit distance and MCES
+  use_gnps_format: false  # Whether spectra files use GNPS format
+
+  # Output parameters
+  save_rankings: true  # Save complete ranking matrix to file
+  save_individual_plots: false  # Save plots for each query (can be large)

@@ -1,6 +1,5 @@
 import copy
 
-from simba.config import Config
 from simba.core.data.loaders import LoadData
 from simba.core.data.spectrum import SpectrumExt
 from simba.loader_saver import LoaderSaver
@@ -11,7 +10,7 @@ from simba.preprocessor import Preprocessor
 class PreprocessingSimba:
     def load_spectra(
         file_name: str,
-        config: Config,
+        cfg,
         min_peaks: int = 6,
         n_samples: int = 500000,
         use_gnps_format: bool = False,
@@ -22,8 +21,8 @@ class PreprocessingSimba:
         ----------
         file_name : str
             The path to the file containing the spectra.
-        config : Config
-            Configuration object containing parameters.
+        cfg : DictConfig
+            Hydra configuration object containing parameters.
         min_peaks : int, optional
             The minimum number of peaks a spectrum must have to be included, by default 6.
         n_samples : int, optional
@@ -50,14 +49,14 @@ class PreprocessingSimba:
                 n_samples,
                 use_tqdm=True,
                 use_nist=False,
-                config=config,
+                cfg=cfg,
                 use_janssen=not (use_gnps_format),
                 use_only_protonized_adducts=use_only_protonized_adducts,
             )
         elif file_name.endswith(".pkl"):
             all_spectra = LoadData.get_all_spectra_casmi(
                 file_name,
-                config=config,
+                cfg=cfg,
             )
         else:
             logger.error("Error: unrecognized file extension")

@@ -1,0 +1,38 @@
+# Main Hydra configuration file for SIMBA
+# All values match Config class defaults from simba/config.py
+
+defaults:
+  - model: simba_default
+  - training: default
+  - data: default
+  - preprocessing: default
+  - inference: default
+  - analog_discovery: default
+  - _self_  # Main config applied last, but training configs can override via training=fast_dev
+
+# Project metadata
+project:
+  name: simba
+  version: 0.1.0
+  seed: 42
+  extra_info: "_multitasking_mces20raw_gumbelhard_20241004"
+
+# Logging
+logging:
+  enable_progress_bar: true  # Config.enable_progress_bar
+
+# Model checkpoints
+checkpoints:
+  best_model_name: "best_model.ckpt"  # Config.BEST_MODEL_NAME
+  pretrained_model_name: "pretrained_model.ckpt"  # Config.PRETRAINED_MODEL_NAME
+
+# Paths (can be overridden via CLI)
+paths:
+  spectra_path: null  # Config.SPECTRA_PATH
+  preprocessing_dir: null  # Config.PREPROCESSING_DIR
+  preprocessing_dir_train: null  # Config.PREPROCESSING_DIR_TRAIN
+  preprocessing_dir_val_test: null  # Config.PREPROCESSING_DIR_VAL_TEST
+  checkpoint_dir: null  # Config.CHECKPOINT_DIR (auto-generated if null)
+  output_dir: null  # Output directory for inference results (defaults to checkpoint_dir)
+  mol_spec_mapping_file: "edit_distance_neurips_nist_exhaustive.pkl"  # Config.MOL_SPEC_MAPPING_FILE
+  preprocessing_pickle_file: "mapping_unique_smiles.pkl"  # Config.PREPROCESSING_PICKLE_FILE (default for preprocess command)

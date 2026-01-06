@@ -9,7 +9,6 @@ from rdkit.Chem.rdchem import Mol
 from rdkit.DataStructs.cDataStructs import ExplicitBitVect
 
 import simba.core.chemistry.edit_distance.mol_utils as mu
-from simba.config import Config
 from simba.logger_setup import logger
 
 
@@ -33,7 +32,9 @@ def compute_ed_or_mces(
     batch_size: int,
     identifier: int,
     random_sampling: bool,
-    config: Config,
+    preprocessing_dir: str,
+    compute_specific_pairs: bool,
+    threshold_mces: int,
     fps: list[ExplicitBitVect],
     mols: list[Mol],
     use_edit_distance: bool,
@@ -53,8 +54,12 @@ def compute_ed_or_mces(
         An identifier for the batch (used for random seed).
     random_sampling : bool
         Whether to use random sampling of pairs.
-    config : Config
-        Configuration object containing parameters.
+    preprocessing_dir : str
+        Directory for preprocessing files.
+    compute_specific_pairs : bool
+        Whether to compute specific pairs.
+    threshold_mces : int
+        MCES threshold value.
     fps : List[ExplicitBitVect]
         List of fingerprints corresponding to the smiles.
     mols : List[Mol]
@@ -99,7 +104,7 @@ def compute_ed_or_mces(
             dist, _ = simba_solve_pair_edit_distance(s0, s1, fp0, fp1, mol0, mol1)
         else:
             dist, _ = simba_solve_pair_mces(
-                s0, s1, fp0, fp1, mol0, mol1, config.THRESHOLD_MCES
+                s0, s1, fp0, fp1, mol0, mol1, threshold_mces
             )
         distances.append(dist)
 

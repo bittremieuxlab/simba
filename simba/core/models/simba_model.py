@@ -28,10 +28,18 @@ class Simba:
         self._embedding_cache = {}
 
     def load_encoder(self, filepath):
+        # Support both DictConfig (Hydra) and legacy Config
+        if hasattr(self.config, "model"):
+            d_model = int(self.config.model.transformer.d_model)
+            n_layers = int(self.config.model.transformer.n_layers)
+        else:
+            d_model = int(self.config.D_MODEL)
+            n_layers = int(self.config.N_LAYERS)
+
         return Encoder(
             filepath,
-            D_MODEL=int(self.config.D_MODEL),
-            N_LAYERS=int(self.config.N_LAYERS),
+            D_MODEL=d_model,
+            N_LAYERS=n_layers,
             multitasking=True,
             config=self.config,
         )
@@ -40,17 +48,41 @@ class Simba:
         self,
         file_path,
     ):
+        # Support both DictConfig (Hydra) and legacy Config
+        if hasattr(self.config, "model"):
+            d_model = int(self.config.model.transformer.d_model)
+            n_layers = int(self.config.model.transformer.n_layers)
+            n_classes = self.config.model.tasks.edit_distance.n_classes
+            use_gumbel = self.config.model.tasks.edit_distance.use_gumbel
+            use_cosine_distance = (
+                self.config.model.tasks.cosine_similarity.use_cosine_distance
+            )
+            use_edit_distance_regression = (
+                self.config.model.tasks.edit_distance.use_regression
+            )
+            use_fingerprint = self.config.model.tasks.fingerprints.enabled
+            use_learnable_multitask = self.config.model.multitasking.learnable
+        else:
+            d_model = int(self.config.D_MODEL)
+            n_layers = int(self.config.N_LAYERS)
+            n_classes = self.config.EDIT_DISTANCE_N_CLASSES
+            use_gumbel = self.config.EDIT_DISTANCE_USE_GUMBEL
+            use_cosine_distance = self.config.use_cosine_distance
+            use_edit_distance_regression = self.config.USE_EDIT_DISTANCE_REGRESSION
+            use_fingerprint = self.config.USE_FINGERPRINT
+            use_learnable_multitask = self.config.USE_LEARNABLE_MULTITASK
+
         model = EmbedderMultitask.load_from_checkpoint(
             file_path,
-            d_model=int(self.config.D_MODEL),
-            n_layers=int(self.config.N_LAYERS),
-            n_classes=self.config.EDIT_DISTANCE_N_CLASSES,
-            use_gumbel=self.config.EDIT_DISTANCE_USE_GUMBEL,
+            d_model=d_model,
+            n_layers=n_layers,
+            n_classes=n_classes,
+            use_gumbel=use_gumbel,
             use_element_wise=True,
-            use_cosine_distance=self.config.use_cosine_distance,
-            use_edit_distance_regresion=self.config.USE_EDIT_DISTANCE_REGRESSION,
-            use_fingerprints=self.config.USE_FINGERPRINT,
-            USE_LEARNABLE_MULTITASK=self.config.USE_LEARNABLE_MULTITASK,
+            use_cosine_distance=use_cosine_distance,
+            use_edit_distance_regresion=use_edit_distance_regression,
+            use_fingerprints=use_fingerprint,
+            USE_LEARNABLE_MULTITASK=use_learnable_multitask,
             strict=False,
         )
         model.eval()
@@ -114,21 +146,36 @@ class Simba:
         end = time.time()
         elapsed_time = end - start
         print(f"Elapsed time: {elapsed_time:.2f} seconds")
+
+        # Support both DictConfig (Hydra) and legacy Config
+        if hasattr(self.config, "model"):
+            edit_distance_n_classes = self.config.model.tasks.edit_distance.n_classes
+            mces20_max_value = self.config.model.tasks.mces.max_value
+        else:
+            edit_distance_n_classes = self.config.EDIT_DISTANCE_N_CLASSES
+            mces20_max_value = self.config.MCES20_MAX_VALUE
+
         # denormilize
-        similarities_ed = (self.config.EDIT_DISTANCE_N_CLASSES - 1) - np.argmax(
+        similarities_ed = (edit_distance_n_classes - 1) - np.argmax(
             similarities_ed, axis=-1
         )
 
-        similarities_mces = self.config.MCES20_MAX_VALUE * (1 - similarities_mces)
+        similarities_mces = mces20_max_value * (1 - similarities_mces)
         # similarities_mces = np.round(similarities_mces)
         return similarities_ed, similarities_mces
 
     def generate_data_loader(self, spectrums):
+        # Support both DictConfig (Hydra) and legacy Config
+        if hasattr(self.config, "model"):
+            transformer_context = int(self.config.model.transformer.context_length)
+            batch_size = self.config.training.batch_size
+        else:
+            transformer_context = int(self.config.TRANSFORMER_CONTEXT)
+            batch_size = self.config.BATCH_SIZE
+
         dataset = LoadDataEncoder.from_spectrums_to_dataset(
             spectrums,
-            max_num_peaks=int(self.config.TRANSFORMER_CONTEXT),
+            max_num_peaks=transformer_context,
         )
-        dataloader = DataLoader(
-            dataset, batch_size=self.config.BATCH_SIZE, num_workers=0
-        )
+        dataloader = DataLoader(dataset, batch_size=batch_size, num_workers=0)
         return dataloader
