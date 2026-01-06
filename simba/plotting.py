@@ -1,29 +1,27 @@
+import textwrap
+
 import matplotlib.pyplot as plt
-import spectrum_utils.plot as sup
 import matplotlib.ticker as mticker
 import numpy as np
 import pandas as pd
 import seaborn as sns
-from matplotlib.gridspec import GridSpec
+import spectrum_utils.plot as sup
 from matplotlib.colors import LogNorm
-import textwrap
-import numpy as np
-import matplotlib.pyplot as plt
-from sklearn.metrics import roc_curve, auc
-from simba.config import Config
+from matplotlib.gridspec import GridSpec
+from sklearn.metrics import auc, roc_curve
 
 
 class Plotting:
-
     @staticmethod
     def plot_n_pca(list_pca_data, list_labels, colors, alpha=0.5):
         # Generate a list of colors from a colormap
-        num_labels = len(list_labels)
         # cmap = plt.cm.get_cmap('nipy_spectral', num_labels)  # You can choose other colormaps as well
         # cmap = plt.cm.get_cmap( 'viridis',num_labels )  # You can choose other colormaps as well
-        cmap = plt.colormaps["tab20"]
+        _ = plt.colormaps["tab20"]
 
-        for pca_data, label, color in zip(list_pca_data, list_labels, colors):
+        for pca_data, label, color in zip(
+            list_pca_data, list_labels, colors, strict=False
+        ):
             Plotting.plot_pca(pca_data, label, alpha=alpha, color=color)
         plt.legend()
         plt.grid()
@@ -89,7 +87,7 @@ class Plotting:
         """
         fpr, tpr, thresholds = roc_curve(y_true, y_scores)
 
-        print(f"fpr with tpr=0.70 {fpr[tpr>=0.70]}")
+        print(f"fpr with tpr=0.70 {fpr[tpr >= 0.70]}")
         roc_auc = auc(fpr, tpr)
 
         # plt.figure(figsize=(8, 8))
@@ -130,28 +128,32 @@ class Plotting:
         plt.rcParams["font.size"] = 14
         plt.figure(figsize=figsize)
         plt.plot([0, 1], [0, 1], linestyle="--", color="k")
-        for y_true_list, y_scores_list, l, c, linestyle in zip(
+        for y_true_list, y_scores_list, label, color, linestyle in zip(
             y_true_list, y_scores_list, labels, colors, linestyles
         ):
             Plotting.plot_roc_curve(
                 y_true_list,
                 y_scores_list,
                 title=title,
-                label=l,
-                color=c,
+                label=label,
+                color=color,
                 linestyle=linestyle,
             )
 
+    @staticmethod
     def plot_roc_curve_comparison(
         y_true,
         y_scores_list,
         title="Comparison between Transformer and Modified Cosine (ROC curve)",
         roc_file_path="./roc_curve_comparison.png",
-        labels=["model", "mod_cosine"],
-        colors=["r", "b"],
+        labels=None,
+        colors=None,
         fontsize=18,
     ):  # Add fontsize parameter
-
+        if labels is None:
+            labels = ["model", "mod_cosine"]
+        if colors is None:
+            colors = ["r", "b"]
         plt.figure(figsize=(10, 10))  # Increase the figure size
 
         for y_scores, label, color in zip(y_scores_list, labels, colors):
@@ -416,7 +418,7 @@ class Plotting:
             # Subplot labels.
             for y, label in zip([1, 2 / 3, 0.35], "abc"):
                 fig.text(
-                    -0.05, y, label, fontdict=dict(fontsize="xx-large", weight="bold")
+                    -0.05, y, label, fontdict={"fontsize": "xx-large", "weight": "bold"}
                 )
 
             # Save figure.
@@ -660,7 +662,7 @@ class Plotting:
             # Subplot labels.
             for y, label in zip([1, 2 / 3, 0.35], "abc"):
                 fig.text(
-                    -0.05, y, label, fontdict=dict(fontsize="xx-large", weight="bold")
+                    -0.05, y, label, fontdict={"fontsize": "xx-large", "weight": "bold"}
                 )
 
             plt.show()
@@ -668,7 +670,6 @@ class Plotting:
 
     @staticmethod
     def plot_gnps_libraries_tanimoto(similarities):
-
         similarities_filtered = similarities[similarities["tanimoto"] > 0.9]
         print(
             f"Number of spectrum pairs with Tanimoto > 0.9: "
@@ -849,7 +850,7 @@ class Plotting:
             # Subplot labels.
             for y, label in zip([1, 0.52], "ab"):
                 fig.text(
-                    -0.05, y, label, fontdict=dict(fontsize="xx-large", weight="bold")
+                    -0.05, y, label, fontdict={"fontsize": "xx-large", "weight": "bold"}
                 )
 
             # Save figure.
@@ -857,6 +858,7 @@ class Plotting:
             plt.show()
             plt.close()
 
+    @staticmethod
     def plot_weights(weights_range, weights_value, xlabel, filepath):
         plt.figure()
         plt.scatter(weights_range, weights_value)

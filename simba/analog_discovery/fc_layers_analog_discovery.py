@@ -1,7 +1,8 @@
-import torch
 import numpy as np
+import torch
 from tqdm import tqdm
-from simba.ordinal_classification.embedder_multitask import EmbedderMultitask
+
+from simba.core.models.ordinal.embedder_multitask import EmbedderMultitask
 
 
 class FcLayerAnalogDiscovery:
@@ -25,7 +26,9 @@ class FcLayerAnalogDiscovery:
         )
 
     @staticmethod
-    def compute_all_combinations(model_path, emb0, emb1, config, fingerprints_0=None, fingerprint_index=1):
+    def compute_all_combinations(
+        model_path, emb0, emb1, config, fingerprints_0=None, fingerprint_index=1
+    ):
         # load full model
         model = FcLayerAnalogDiscovery.load_full_model(model_path, config)
         model.eval()
@@ -46,43 +49,48 @@ class FcLayerAnalogDiscovery:
 
             # compute the similarities
             sim1, sim2 = FcLayerAnalogDiscovery.compute_emb_from_existing_embeddings(
-                model, emb_tiled, emb1, fingerprints_0=fingerprints_0, fingerprint_index=fingerprint_index,
+                model,
+                emb_tiled,
+                emb1,
+                fingerprints_0=fingerprints_0,
+                fingerprint_index=fingerprint_index,
             )
             similarities1[index] = sim1.detach().numpy()
             similarities2[index] = sim2.detach().numpy().reshape(-1)
         return similarities1, similarities2
 
     @staticmethod
-    def compute_emb_from_existing_embeddings(model, emb0, emb1, fingerprints_0=None, fingerprint_index=1):
+    def compute_emb_from_existing_embeddings(
+        model, emb0, emb1, fingerprints_0=None, fingerprint_index=1
+    ):
         # convert to tensors & apply relu/fingerprint exactly as forward() does
         emb0 = torch.tensor(emb0, dtype=torch.float32)
         emb1 = torch.tensor(emb1, dtype=torch.float32)
         emb0 = model.relu(emb0)
         emb1 = model.relu(emb1)
 
-        
         if fingerprints_0 is not None:
             # same fingerprint logic as in forward…
-            #fing = model.relu(model.linear_fingerprint_1(
+            # fing = model.relu(model.linear_fingerprint_1(
             #            (model.relu(
             #                model.linear_fingerprint_0(torch.tensor(fingerprints_0, dtype=torch.float32))
             #             ))
             #          ))
-            
-            if fingerprint_index==0:
+
+            if fingerprint_index == 0:
                 fp0 = torch.tensor(fingerprints_0, dtype=torch.float32)
-                fp_proj    = (model.relu(model.linear_fp0(fp0)))  # (B, d_model//2)
-                joint      = torch.cat([emb0, fp_proj], dim=-1)       # (B, d_model + d_model//2)
-                emb0       = (model.norm_mix(model.relu(model.linear_mix(joint))))
+                fp_proj = model.relu(model.linear_fp0(fp0))  # (B, d_model//2)
+                joint = torch.cat([emb0, fp_proj], dim=-1)  # (B, d_model + d_model//2)
+                emb0 = model.norm_mix(model.relu(model.linear_mix(joint)))
             else:
                 fp0 = torch.tensor(fingerprints_0, dtype=torch.float32)
-                fp_proj    = (model.relu(model.linear_fp0(fp0)))  # (B, d_model//2)
-                joint      = torch.cat([emb1, fp_proj], dim=-1)       # (B, d_model + d_model//2)
-                emb1       = (model.norm_mix(model.relu(model.linear_mix(joint))))
+                fp_proj = model.relu(model.linear_fp0(fp0))  # (B, d_model//2)
+                joint = torch.cat([emb1, fp_proj], dim=-1)  # (B, d_model + d_model//2)
+                emb1 = model.norm_mix(model.relu(model.linear_mix(joint)))
 
         # now just delegate to your new helper:
         return model.compute_from_embeddings(emb0, emb1)
-    
+
     '''
     @staticmethod
     def compute_emb_from_existing_embeddings(

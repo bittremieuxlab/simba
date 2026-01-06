@@ -1,68 +1,91 @@
-from itertools import combinations
-from tqdm import tqdm
-from simba.tanimoto import Tanimoto
-import numpy as np
 import random
-from simba.molecule_pair import MoleculePair
-from simba.preprocessor import Preprocessor
-from simba.preprocessing_utils import PreprocessingUtils
-from simba.config import Config
-import functools
-import random
-from simba.molecular_pairs_set import MolecularPairsSet
-import concurrent.futures
 from datetime import datetime
-from rdkit import Chem
-from itertools import product
-from numba import njit
+from itertools import combinations
+
+import numpy as np
 import pandas as pd
-from simba.spectrum_ext import SpectrumExt
+from rdkit import Chem
+from tqdm import tqdm
+
+from simba.core.chemistry.tanimoto import Tanimoto
+from simba.core.data.molecular_pairs import MolecularPairsSet
+from simba.core.data.preprocessing import PreprocessingUtils
+from simba.core.data.spectrum import SpectrumExt
+from simba.core.models.ordinal.ordinal_classification import (
+    OrdinalClassification,
+)
+from simba.logger_setup import logger
 from simba.molecule_pairs_opt import MoleculePairsOpt
-from simba.ordinal_classification.ordinal_classification import OrdinalClassification
 
 
 class TrainUtils:
-
     @staticmethod
     def compute_unique_combinations(molecule_pairs, high_sim=1):
-
-        lenght_total = len(molecule_pairs.spectrums)
+        lenght_total = len(molecule_pairs.spectra)
         indexes_np = np.zeros((lenght_total, 3))
         print(f"number of pairs: {lenght_total}")
-        for index, l in enumerate(molecule_pairs.spectrums):
+        for index, _ in enumerate(molecule_pairs.spectra):
             indexes_np[index, 0] = index
             indexes_np[index, 1] = index
             indexes_np[index, 2] = high_sim
 
         new_indexes_np = np.concatenate(
-            (molecule_pairs.indexes_tani, indexes_np), axis=0
+            (molecule_pairs.pair_distances, indexes_np), axis=0
         )
 
         new_indexes_np = np.unique(new_indexes_np, axis=0)
         # add info to
         new_molecule_pairs = MoleculePairsOpt(
-            spectrums_unique=molecule_pairs.spectrums,
-            indexes_tani_unique=new_indexes_np,
-            spectrums_original=molecule_pairs.spectrums_original,
+            unique_spectra=molecule_pairs.spectra,
+            pair_distances=new_indexes_np,
+            original_spectra=molecule_pairs.original_spectra,
             df_smiles=molecule_pairs.df_smiles,
         )
 
         return new_molecule_pairs
 
     @staticmethod
-    def train_val_test_split_bms(spectrums, val_split=0.1, test_split=0.1, seed=42):
+    def train_val_test_split_bms(
+        spectra: list[SpectrumExt],
+        val_split: float = 0.1,
+        test_split: float = 0.1,
+        seed: int = 42,
+    ) -> tuple[list[SpectrumExt], list[SpectrumExt], list[SpectrumExt]]:
+        """
+        Split data into train, validation, and test sets based on Murcko scaffolds
+        ensuring that scaffolds do not overlap between sets.
 
-        # set random seed for determinism
+        Parameters
+        ----------
+        spectra: List[SpectrumExt]
+            List of SpectrumExt objects to be split.
+        val_split: float
+            Proportion of data to be used for validation.
+        test_split: float
+            Proportion of data to be used for testing.
+        seed: int
+            Random seed for reproducibility.
+
+        Returns
+        -------
+        Tuple[List[SpectrumExt], List[SpectrumExt], List[SpectrumExt]]
+            Three lists containing the training, validation, and test spectra.
+        """
         random.seed(seed)
         np.random.seed(seed)
-        
+
         # get the percentage of training data
         train_split = 1 - val_split - test_split
         # get the murcko scaffold
-        bms = [s.murcko_scaffold for s in spectrums]
+        bms = [s.murcko_scaffold for s in spectra]
 
         # count the unique elements
         unique_values, counts = np.unique(bms, return_counts=True)
+        idx_no_bms = np.where(unique_values == "")
+        if len(idx_no_bms[0]) > 0:
+            logger.info(
+                f"{counts[np.where(unique_values == '')][0]}/{len(bms)} spectra without bms"
+            )
 
         # remove the appearence of not identified bms
         unique_values = unique_values[unique_values != ""]
@@ -80,9 +103,9 @@ class TrainUtils:
         test_bms = unique_values[val_index:]
 
         # get data
-        spectrums_train = [s for s in spectrums if s.murcko_scaffold in train_bms]
-        spectrums_val = [s for s in spectrums if s.murcko_scaffold in val_bms]
-        spectrums_test = [s for s in spectrums if s.murcko_scaffold in test_bms]
+        spectrums_train = [s for s in spectra if s.murcko_scaffold in train_bms]
+        spectrums_val = [s for s in spectra if s.murcko_scaffold in val_bms]
+        spectrums_test = [s for s in spectra if s.murcko_scaffold in test_bms]
         return spectrums_train, spectrums_val, spectrums_test
 
     @staticmethod
@@ -90,6 +113,7 @@ class TrainUtils:
         # Define the number of elements in each combination (e.g., 2 for pairs of indexes)
         return list(combinations(range(num_samples), combination_length))
 
+    @staticmethod
     def generate_random_combinations(num_samples, num_combinations):
         all_indices = list(range(num_samples))
 
@@ -126,12 +150,12 @@ class TrainUtils:
         # get mz
         total_mz = np.array([s.precursor_mz for s in all_spectrums])
         df["index"] = [i for i, s in enumerate(all_spectrums)]
-        for i, s in tqdm(enumerate(all_spectrums)):
+        for i, _ in tqdm(enumerate(all_spectrums)):
             # compute max and min
             diff_total_max = total_mz - (all_spectrums[i].precursor_mz + max_mass_diff)
             diff_total_min = total_mz - (all_spectrums[i].precursor_mz + min_mass_diff)
-            min_mz_index = np.where((diff_total_min > 0))[0]
-            max_mz_index = np.where((diff_total_max > 0))[0]  # get list
+            min_mz_index = np.where(diff_total_min > 0)[0]
+            max_mz_index = np.where(diff_total_max > 0)[0]  # get list
 
             min_mz_index = min_mz_index[0] if len(min_mz_index) > 0 else 0
             max_mz_index = (
@@ -143,93 +167,120 @@ class TrainUtils:
         return df
 
     @staticmethod
-    def get_unique_spectra(all_spectrums):
+    def get_unique_spectra(all_spectra):
         """
         table witht he information of indexes per unique smiles
 
-        """
-        canon_smiles = [Chem.CanonSmiles(s.smiles) for s in all_spectrums]
+        Parameters
+        ----------
+        all_spectra : List[SpectrumExt]
+            List of SpectrumExt objects.
 
-        print("getting metadata")
-        # get all metadata
-        all_mz = [s.precursor_mz for s in all_spectrums]
-        all_charge = [s.precursor_charge for s in all_spectrums]
-        all_library = [s.library for s in all_spectrums]
-        all_inchi = [s.inchi for s in all_spectrums]
-        all_ionmode = [s.ionmode for s in all_spectrums]
-        all_bms = [s.murcko_scaffold for s in all_spectrums]
-        all_superclass = [s.superclass for s in all_spectrums]
-        all_classe = [s.classe for s in all_spectrums]
-        all_subclass = [s.subclass for s in all_spectrums]
-        print("finished getting metadata")
+        Returns
+        -------
+        Tuple[List[SpectrumExt], pd.DataFrame]
+            A tuple containing a list of unique SpectrumExt objects and a DataFrame with smiles metadata.
+        """
+        # convert to canonical smiles
+        canon_smiles = [Chem.CanonSmiles(s.smiles) for s in all_spectra]
+
+        # get all metadata associated with the spectra
+        all_mz = [s.precursor_mz for s in all_spectra]
+        all_charge = [s.precursor_charge for s in all_spectra]
+        all_library = [s.library for s in all_spectra]
+        all_inchi = [s.inchi for s in all_spectra]
+        all_bms = [s.murcko_scaffold for s in all_spectra]
+        all_superclass = [s.superclass for s in all_spectra]
+        all_classe = [s.classe for s in all_spectra]
+        all_subclass = [s.subclass for s in all_spectra]
 
         unique_smiles = np.unique(canon_smiles)
-        # indexes
-        table_smiles = {
+        # map unique smiles to spectrum indexes
+        smiles_to_spectra_map = {
             s: [i for i, c in enumerate(canon_smiles) if c == s] for s in unique_smiles
         }
 
         df_smiles = pd.DataFrame()
         df_smiles["canon_smiles"] = list(unique_smiles)
-        df_smiles["indexes"] = [table_smiles[k] for k in unique_smiles]
-        df_smiles["number_indexes"] = [len(table_smiles[k]) for k in unique_smiles]
+        df_smiles["indexes"] = [smiles_to_spectra_map[k] for k in unique_smiles]
+        df_smiles["number_indexes"] = [  # TODO: rename to num_spectra
+            len(smiles_to_spectra_map[k]) for k in unique_smiles
+        ]
 
-        indexes_original = [canon_smiles.index(u_s) for u_s in unique_smiles]
+        indexes_original = [
+            canon_smiles.index(u_s) for u_s in unique_smiles
+        ]  # first index of each unique smiles
 
         df_smiles["mz"] = [all_mz[u_s] for u_s in indexes_original]
         df_smiles["charge"] = [all_charge[u_s] for u_s in indexes_original]
         df_smiles["library"] = [all_library[u_s] for u_s in indexes_original]
         df_smiles["inchi"] = [all_inchi[u_s] for u_s in indexes_original]
-        df_smiles["ionmode"] = [all_ionmode[u_s] for u_s in indexes_original]
         df_smiles["bms"] = [all_bms[u_s] for u_s in indexes_original]
         df_smiles["superclass"] = [all_superclass[u_s] for u_s in indexes_original]
         df_smiles["classe"] = [all_classe[u_s] for u_s in indexes_original]
         df_smiles["subclass"] = [all_subclass[u_s] for u_s in indexes_original]
 
-        print("creating dummy spectra...")
-        spectrums_unique = TrainUtils.create_dummy_spectra(df_smiles)
-
-        # organize the spectrums based on mz
-        spectrums_unique_ordered = PreprocessingUtils.order_spectrums_by_mz(
-            spectrums_unique
-        )
-
+        # create dummy spectra for the unique smiles
+        spectra_unique = TrainUtils.create_dummy_spectra(df_smiles)
+        # order spectra by charge and precursor mz
+        spectra_unique_ordered = PreprocessingUtils.order_spectra_by_mz(spectra_unique)
         # reindex df_smiles
-        canon_smiles_not_ordered = [s.smiles for s in spectrums_unique]
-        canon_smiles_ordered = [s.smiles for s in spectrums_unique_ordered]
+        canon_smiles_not_ordered = [s.smiles for s in spectra_unique]
+        canon_smiles_ordered = [s.smiles for s in spectra_unique_ordered]
 
         new_indexes = [canon_smiles_ordered.index(s) for s in canon_smiles_not_ordered]
         df_smiles.set_index(pd.Index(new_indexes), inplace=True)
         df_smiles = df_smiles.sort_index()
-        return spectrums_unique_ordered, df_smiles
+        return spectra_unique_ordered, df_smiles
 
     @staticmethod
-    def create_dummy_spectra(df_smiles):
-        spectrums_dummy = []
-        for index, row in df_smiles.iterrows():
-            spectrum_temp = SpectrumExt(
-                identifier=str(index),
-                precursor_mz=row["mz"],
-                precursor_charge=row["charge"],
-                mz=np.zeros(1),
-                intensity=np.zeros(1),
-                retention_time=np.nan,
-                params={"smiles": row["canon_smiles"]},
-                library=row["library"],
-                inchi=row["inchi"],
-                smiles=row["canon_smiles"],
-                ionmode=row["ionmode"],
-                bms=row["bms"],
-                superclass=row["superclass"],
-                classe=row["classe"],
-                subclass=row["subclass"],
+    def create_dummy_spectra(df_smiles: pd.DataFrame) -> list[SpectrumExt]:
+        """
+        Create dummy spectra based on the smiles information and associated metadata.
+        The spectra will have empty mz and intensity arrays.
+
+        Parameters
+        ----------
+        df_smiles : pd.DataFrame
+            DataFrame containing smiles and associated metadata.
+
+        Returns
+        -------
+        List[SpectrumExt]
+            A list of dummy SpectrumExt objects.
+        """
+        # Use DataFrame.itertuples for faster iteration and preallocate arrays
+        zeros_array = np.zeros(1)
+        nan_value = np.nan
+        dummy_spectra = [
+            SpectrumExt(
+                identifier=str(row.Index),
+                precursor_mz=row.mz,
+                precursor_charge=row.charge,
+                mz=zeros_array,
+                intensity=zeros_array,
+                retention_time=nan_value,
+                params={"smiles": row.canon_smiles},
+                library=row.library,
+                inchi=row.inchi,
+                smiles=row.canon_smiles,
+                ionmode=None,
+                adduct_mass=None,
+                ce=None,
+                ion_activation="",
+                ionization_method="",
+                bms=row.bms,
+                superclass=row.superclass,
+                classe=row.classe,
+                subclass=row.subclass,
             )
-            spectrums_dummy.append(spectrum_temp)
-        return spectrums_dummy
+            for row in df_smiles.itertuples()
+        ]
+        return dummy_spectra
 
     @staticmethod
     def compute_all_tanimoto_results_unique(
-        spectrums_original,
+        spectra_original,
         max_combinations=1000000,
         limit_low_tanimoto=True,
         max_low_pairs=0.5,
@@ -254,7 +305,7 @@ class TrainUtils:
             else TrainUtils.compute_all_tanimoto_results
         )
 
-        spectrums_unique, df_smiles = TrainUtils.get_unique_spectra(spectrums_original)
+        spectrums_unique, df_smiles = TrainUtils.get_unique_spectra(spectra_original)
 
         molecule_pairs_unique = function_tanimoto(
             spectrums_unique,
@@ -270,10 +321,10 @@ class TrainUtils:
             high_tanimoto_range=high_tanimoto_range,
         )
         return MoleculePairsOpt(
-            spectrums_original=spectrums_original,
-            spectrums_unique=spectrums_unique,
+            original_spectra=spectra_original,
+            unique_spectra=spectrums_unique,
             df_smiles=df_smiles,
-            indexes_tani_unique=molecule_pairs_unique.indexes_tani,
+            pair_distances=molecule_pairs_unique.pair_distances,
         )
 
     @staticmethod
@@ -290,7 +341,6 @@ class TrainUtils:
         MAX_SIM=1,
         high_tanimoto_range=0.5,
     ):
-
         print("Starting computation of molecule pairs")
         print(datetime.now())
         # asume the spectra is already ordered previously
@@ -327,7 +377,6 @@ class TrainUtils:
         )
 
         while counter_indexes < (max_combinations):
-
             # to use the whole range or only a small range?
             use_all_range = np.random.randint(0, 2)
 
@@ -351,18 +400,16 @@ class TrainUtils:
                 fingerprints[j],
             )
 
-            if tani is not None:
-                # if tani>MIN_SIM and tani<MAX_SIM:
-                if (counter_indexes < (max_low_pairs * max_combinations)) or (
-                    tani > high_tanimoto_range
-                ):
-
-                    indexes_np[counter_indexes, 0] = i
-                    indexes_np[counter_indexes, 1] = j
-                    indexes_np[counter_indexes, 2] = tani
-                    counter_indexes = counter_indexes + 1
-                    if use_tqdm:
-                        progress_bar.update(1)
+            if (tani is not None) and (
+                (counter_indexes < (max_low_pairs * max_combinations))
+                or (tani > high_tanimoto_range)
+            ):
+                indexes_np[counter_indexes, 0] = i
+                indexes_np[counter_indexes, 1] = j
+                indexes_np[counter_indexes, 2] = tani
+                counter_indexes = counter_indexes + 1
+                if use_tqdm:
+                    progress_bar.update(1)
 
         # avoid duplicates:
         print(f"Number of effective pairs originally computed: {indexes_np.shape[0]} ")
@@ -373,7 +420,7 @@ class TrainUtils:
         print(f"Number of effective pairs retrieved: {indexes_np.shape[0]} ")
         # molecular_pair_set= MolecularPairsSet(spectrums=all_spectrums,indexes_tani= indexes)
         molecular_pair_set = MolecularPairsSet(
-            spectrums=all_spectrums, indexes_tani=indexes_np
+            spectra=all_spectrums, pair_distances=indexes_np
         )
 
         print(datetime.now())
@@ -393,7 +440,6 @@ class TrainUtils:
         MAX_SIM=1,
         high_tanimoto_range=0.5,
     ):
-
         print("Starting computation of molecule pairs")
         print(datetime.now())
         # asume the spectra is already ordered previously
@@ -428,7 +474,7 @@ class TrainUtils:
         counter_indexes = 0
 
         # precompute min and max index
-        df_precomputed_indexes = TrainUtils.precompute_min_max_indexes(
+        _ = TrainUtils.precompute_min_max_indexes(
             all_spectrums,
             min_mass_diff=min_mass_diff,
             max_mass_diff=max_mass_diff,
@@ -438,7 +484,6 @@ class TrainUtils:
         for i in range(first_row, max_row):
             # to use the whole range or only a small range?
             for j in range(0, len(all_spectrums)):
-
                 # Submit the task to the executor
                 tani = Tanimoto.compute_tanimoto(
                     fingerprints[i],
@@ -470,14 +515,40 @@ class TrainUtils:
         print(f"Number of effective pairs retrieved: {indexes_np.shape[0]} ")
         # molecular_pair_set= MolecularPairsSet(spectrums=all_spectrums,indexes_tani= indexes)
         molecular_pair_set = MolecularPairsSet(
-            spectrums=all_spectrums, indexes_tani=indexes_np
+            spectra=all_spectrums, pair_distances=indexes_np
         )
 
         print(datetime.now())
         return molecular_pair_set
 
     @staticmethod
-    def count_ranges(list_elements, number_bins=5, bin_sim_1=False, max_value=1):
+    def count_ranges(
+        list_elements: np.ndarray,
+        number_bins: int = 5,
+        bin_sim_1: bool = False,
+        max_value: float = 1,
+    ) -> tuple[list[int], list[float]]:
+        """
+        count the number of elements in the different bins
+
+        Parameters
+        ----------
+        list_elements : list or np.array
+            List of numerical values to be binned.
+        number_bins : int
+            Number of bins to divide the data into.
+        bin_sim_1 : bool
+            If True, treat the maximum value (e.g., 1) as a separate bin.
+        max_value : float
+            Maximum value for normalization (default is 1).
+
+        Returns
+        -------
+        Tuple[List[int], List[float]]
+            A tuple containing two lists:
+            - counts: Number of elements in each bin.
+            - bins: The lower bound of each bin.
+        """
         # count the instances in the  bins from 0 to 1
         # Group the values into the corresponding bins, adding one for sim=1
         counts = []
@@ -486,17 +557,10 @@ class TrainUtils:
         # normalize the elements of list_elements based on max_value
         list_elements_norm = list_elements / max_value
 
-        if bin_sim_1:
-            number_bins_effective = number_bins + 1
-        else:
-            number_bins_effective = number_bins
+        number_bins_effective = number_bins + 1 if bin_sim_1 else number_bins
 
         for p in range(int(number_bins_effective)):
-
-            if p == 0:
-                low = -np.inf
-            else:
-                low = p * (1 / number_bins)
+            low = -np.inf if p == 0 else p * (1 / number_bins)
 
             if bin_sim_1:
                 high = (p + 1) * (1 / number_bins)
@@ -523,10 +587,7 @@ class TrainUtils:
         binned_molecule_pairs = []
 
         # Group the values into the corresponding bins, adding one for sim=1
-        if bin_sim_1:
-            number_bins_effective = number_bins + 1
-        else:
-            number_bins_effective = number_bins
+        number_bins_effective = number_bins + 1 if bin_sim_1 else number_bins
 
         for p in range(int(number_bins_effective)):
             low = p * (1 / number_bins)
@@ -541,26 +602,26 @@ class TrainUtils:
 
             # temp_molecule_pairs = [m for m in molecule_pairs if ((m.similarity>=low) and (m.similarity<high))]
             # check the similarity
-            # temp_indexes_tani = np.array([ row for row in molecule_pairs.indexes_tani if ((row[2]>=low) and (row[2]<high)) ])
-            temp_indexes_tani = molecule_pairs.indexes_tani[
-                (molecule_pairs.indexes_tani[:, 2] >= low)
-                & (molecule_pairs.indexes_tani[:, 2] < high)
+            # temp_indexes_tani = np.array([ row for row in molecule_pairs.pair_distances if ((row[2]>=low) and (row[2]<high)) ])
+            pair_distances_temp = molecule_pairs.pair_distances[
+                (molecule_pairs.pair_distances[:, 2] >= low)
+                & (molecule_pairs.pair_distances[:, 2] < high)
             ]
 
-            if molecule_pairs.tanimotos is not None:
-                tanimotos_temp = molecule_pairs.tanimotos[
-                    (molecule_pairs.indexes_tani[:, 2] >= low)
-                    & (molecule_pairs.indexes_tani[:, 2] < high)
+            if molecule_pairs.extra_distances is not None:
+                extra_distances_temp = molecule_pairs.extra_distances[
+                    (molecule_pairs.pair_distances[:, 2] >= low)
+                    & (molecule_pairs.pair_distances[:, 2] < high)
                 ]
             else:
-                tanimotos_temp = None
+                extra_distances_temp = None
 
             temp_molecule_pairs = MoleculePairsOpt(
-                spectrums_unique=molecule_pairs.spectrums,
-                indexes_tani_unique=temp_indexes_tani,
+                unique_spectra=molecule_pairs.spectra,
+                pair_distances=pair_distances_temp,
                 df_smiles=molecule_pairs.df_smiles,
-                spectrums_original=molecule_pairs.spectrums_original,
-                tanimotos=tanimotos_temp,
+                original_spectra=molecule_pairs.original_spectra,
+                extra_distances=extra_distances_temp,
             )
             binned_molecule_pairs.append(temp_molecule_pairs)
 
@@ -570,27 +631,26 @@ class TrainUtils:
 
     @staticmethod
     def divide_data_into_bins_categories(
-        molecule_pairs,
+        molecule_pairs: MoleculePairsOpt,
         number_bins,
         bin_sim_1=False,  # if you want to try sim=1 as a different bin
     ):
+        """
+        divide data into bins using ordinal classification approach
+        """
         # Initialize lists to store values for each bin
         binned_molecule_pairs = []
 
         # Group the values into the corresponding bins, adding one for sim=1
-        if bin_sim_1:
-            number_bins_effective = number_bins + 1
-        else:
-            number_bins_effective = number_bins
+        number_bins_effective = number_bins + 1 if bin_sim_1 else number_bins
 
         # convert it to an integer
         bin_size = 1 / number_bins
-        # target = np.ceil(molecule_pairs.indexes_tani[:, 2]/bin_size)
+        # target = np.ceil(molecule_pairs.pair_distances[:, 2]/bin_size)
         target = OrdinalClassification.custom_random(
-            molecule_pairs.indexes_tani[:, 2] / bin_size
+            molecule_pairs.pair_distances[:, 2] / bin_size
         )
         for p in range(int(number_bins_effective)):
-
             # low = p * (1 / number_bins)
 
             # if bin_sim_1:
@@ -603,19 +663,19 @@ class TrainUtils:
 
             # temp_molecule_pairs = [m for m in molecule_pairs if ((m.similarity>=low) and (m.similarity<high))]
             # check the similarity
-            # temp_indexes_tani = np.array([ row for row in molecule_pairs.indexes_tani if ((row[2]>=low) and (row[2]<high)) ])
-            temp_indexes_tani = molecule_pairs.indexes_tani[(target == p)]
+            # temp_indexes_tani = np.array([ row for row in molecule_pairs.pair_distances if ((row[2]>=low) and (row[2]<high)) ])
+            pair_dists_temp = molecule_pairs.pair_distances[(target == p)]
 
-            if molecule_pairs.tanimotos is not None:
-                tanimotos_temp = molecule_pairs.tanimotos[(target == p)]
+            if molecule_pairs.extra_distances is not None:
+                extra_dists_temp = molecule_pairs.extra_distances[(target == p)]
             else:
-                tanimotos_temp = None
+                extra_dists_temp = None
             temp_molecule_pairs = MoleculePairsOpt(
-                spectrums_unique=molecule_pairs.spectrums,
-                indexes_tani_unique=temp_indexes_tani,
+                unique_spectra=molecule_pairs.spectra,
+                pair_distances=pair_dists_temp,
                 df_smiles=molecule_pairs.df_smiles,
-                spectrums_original=molecule_pairs.spectrums_original,
-                tanimotos=tanimotos_temp,
+                original_spectra=molecule_pairs.original_spectra,
+                extra_distances=extra_dists_temp,
             )
             binned_molecule_pairs.append(temp_molecule_pairs)
 
@@ -636,10 +696,6 @@ class TrainUtils:
         get a uniform distribution of labels between 0 and 1
         """
 
-        # get spectrums and indexes
-        spectrums = molecule_pairs.spectrums
-        indexes_tani = molecule_pairs.indexes_tani
-
         # initialize random seed
         random.seed(seed)
         np.random.seed(seed)
@@ -659,24 +715,25 @@ class TrainUtils:
         uniform_molecule_pairs = None
 
         for target_molecule_pairs in binned_molecule_pairs:
-
             sampled_rows = np.random.choice(
-                target_molecule_pairs.indexes_tani.shape[0], size=min_bin, replace=False
+                target_molecule_pairs.pair_distances.shape[0],
+                size=min_bin,
+                replace=False,
             )
-            sampled_indexes_tani = target_molecule_pairs.indexes_tani[sampled_rows]
+            sampled_indexes_tani = target_molecule_pairs.pair_distances[sampled_rows]
 
             ## check if there are tanimotos as second similarity metric appended
-            if target_molecule_pairs.tanimotos is not None:
-                tanimotos = target_molecule_pairs.tanimotos[sampled_rows]
+            if target_molecule_pairs.extra_distances is not None:
+                tanimotos = target_molecule_pairs.extra_distances[sampled_rows]
             else:
                 tanimotos = None
 
             sampled_molecule_pairs = MoleculePairsOpt(
-                spectrums_unique=target_molecule_pairs.spectrums,
-                spectrums_original=target_molecule_pairs.spectrums_original,
-                indexes_tani_unique=sampled_indexes_tani,
+                unique_spectra=target_molecule_pairs.spectra,
+                original_spectra=target_molecule_pairs.original_spectra,
+                pair_distances=sampled_indexes_tani,
                 df_smiles=target_molecule_pairs.df_smiles,
-                tanimotos=tanimotos,
+                extra_distances=tanimotos,
             )
             # add to the final list
 
@@ -710,5 +767,8 @@ class TrainUtils:
         """
         get global variables from a spectrum such as precursor mass
         """
-        list_global_variables = [spectrum.precursor_mz, spectrum.precursor_charge]
+        list_global_variables = [
+            spectrum.precursor_mz,
+            spectrum.precursor_charge,
+        ]
         return np.array(list_global_variables)

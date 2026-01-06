@@ -1,11 +1,7 @@
-from simba.config import Config
 import argparse
-import sys
-import os
 
 
 class Parser:
-
     def __init__(self):
         # parse arguments
         self.parser = argparse.ArgumentParser(description="script.")
@@ -43,7 +39,7 @@ class Parser:
                 "pretrained_path",
                 "PREPROCESSING_DIR_VAL_TEST",
                 "PREPROCESSING_PICKLE_FILE",
-                "ADDUCT_INFO_CSV",
+                "ADDUCT_MASS_MAP_CSV",
             ]
             if is_integer_attribute:
                 self.parser.add_argument(f"--{at}", type=int, help=at, default=None)

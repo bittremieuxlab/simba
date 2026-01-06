@@ -53,6 +53,12 @@ notebooks_local/
 htmlcov/
 
 # ============================================================================
+# Package Management
+# ============================================================================
+# UV lock file - not needed for libraries
+uv.lock
+
+# ============================================================================
 # ML/Data Science
 # ============================================================================
 # Model checkpoints
@@ -60,12 +66,14 @@ htmlcov/
 *.pth
 *.pt
 model_checkpoints*
+output_dir*
+run_scripts_tfs*
 
 # Data files
 *.h5
 *.hdf5
 *.npy
-*.npz
+*.csv
 
 # Logs
 logs/
@@ -83,9 +91,3 @@ temp/
 # ============================================================================
 .ruff_cache/
 .pre-commit-config.yaml.backup
-
-# ============================================================================
-# UV Package Manager
-# ============================================================================
-# uv.lock should be committed for reproducibility
-# Only ignore .venv (already covered above)

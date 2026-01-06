@@ -27,7 +27,6 @@ class LossCallback(Callback):
         self.plot_loss(file_path=self.file_path)
 
     def plot_loss(self, file_path="./loss.png"):
-
         print("Train loss:")
         print(self.train_loss)
         print("Validation loss")
@@ -62,12 +61,11 @@ class LossCallback(Callback):
         # Adjust layout to prevent overlapping
         plt.tight_layout()
         plt.savefig(file_path)
+        print(f"Saved loss figure to {file_path}")
+        plt.close(fig)
 
 
-from lightning.pytorch.callbacks import Callback
-import matplotlib.pyplot as plt
-
-'''
+"""
 class LossCallback(Callback):
     def __init__(self, file_path, n_val_sanity_checks=2):
         super().__init__()
@@ -114,4 +112,4 @@ class LossCallback(Callback):
         plt.tight_layout()
         plt.savefig(file_path)
         plt.close(fig)
-'''
+"""
