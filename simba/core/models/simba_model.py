@@ -28,13 +28,8 @@ class Simba:
         self._embedding_cache = {}
 
     def load_encoder(self, filepath):
-        # Support both DictConfig (Hydra) and legacy Config
-        if hasattr(self.config, "model"):
-            d_model = int(self.config.model.transformer.d_model)
-            n_layers = int(self.config.model.transformer.n_layers)
-        else:
-            d_model = int(self.config.D_MODEL)
-            n_layers = int(self.config.N_LAYERS)
+        d_model = int(self.config.model.transformer.d_model)
+        n_layers = int(self.config.model.transformer.n_layers)
 
         return Encoder(
             filepath,
@@ -48,29 +43,18 @@ class Simba:
         self,
         file_path,
     ):
-        # Support both DictConfig (Hydra) and legacy Config
-        if hasattr(self.config, "model"):
-            d_model = int(self.config.model.transformer.d_model)
-            n_layers = int(self.config.model.transformer.n_layers)
-            n_classes = self.config.model.tasks.edit_distance.n_classes
-            use_gumbel = self.config.model.tasks.edit_distance.use_gumbel
-            use_cosine_distance = (
-                self.config.model.tasks.cosine_similarity.use_cosine_distance
-            )
-            use_edit_distance_regression = (
-                self.config.model.tasks.edit_distance.use_regression
-            )
-            use_fingerprint = self.config.model.tasks.fingerprints.enabled
-            use_learnable_multitask = self.config.model.multitasking.learnable
-        else:
-            d_model = int(self.config.D_MODEL)
-            n_layers = int(self.config.N_LAYERS)
-            n_classes = self.config.EDIT_DISTANCE_N_CLASSES
-            use_gumbel = self.config.EDIT_DISTANCE_USE_GUMBEL
-            use_cosine_distance = self.config.use_cosine_distance
-            use_edit_distance_regression = self.config.USE_EDIT_DISTANCE_REGRESSION
-            use_fingerprint = self.config.USE_FINGERPRINT
-            use_learnable_multitask = self.config.USE_LEARNABLE_MULTITASK
+        d_model = int(self.config.model.transformer.d_model)
+        n_layers = int(self.config.model.transformer.n_layers)
+        n_classes = self.config.model.tasks.edit_distance.n_classes
+        use_gumbel = self.config.model.tasks.edit_distance.use_gumbel
+        use_cosine_distance = (
+            self.config.model.tasks.cosine_similarity.use_cosine_distance
+        )
+        use_edit_distance_regression = (
+            self.config.model.tasks.edit_distance.use_regression
+        )
+        use_fingerprint = self.config.model.tasks.fingerprints.enabled
+        use_learnable_multitask = self.config.model.multitasking.learnable
 
         model = EmbedderMultitask.load_from_checkpoint(
             file_path,
@@ -147,13 +131,8 @@ class Simba:
         elapsed_time = end - start
         print(f"Elapsed time: {elapsed_time:.2f} seconds")
 
-        # Support both DictConfig (Hydra) and legacy Config
-        if hasattr(self.config, "model"):
-            edit_distance_n_classes = self.config.model.tasks.edit_distance.n_classes
-            mces20_max_value = self.config.model.tasks.mces.max_value
-        else:
-            edit_distance_n_classes = self.config.EDIT_DISTANCE_N_CLASSES
-            mces20_max_value = self.config.MCES20_MAX_VALUE
+        edit_distance_n_classes = self.config.model.tasks.edit_distance.n_classes
+        mces20_max_value = self.config.model.tasks.mces.max_value
 
         # denormilize
         similarities_ed = (edit_distance_n_classes - 1) - np.argmax(
@@ -165,13 +144,8 @@ class Simba:
         return similarities_ed, similarities_mces
 
     def generate_data_loader(self, spectrums):
-        # Support both DictConfig (Hydra) and legacy Config
-        if hasattr(self.config, "model"):
-            transformer_context = int(self.config.model.transformer.context_length)
-            batch_size = self.config.training.batch_size
-        else:
-            transformer_context = int(self.config.TRANSFORMER_CONTEXT)
-            batch_size = self.config.BATCH_SIZE
+        transformer_context = int(self.config.model.transformer.context_length)
+        batch_size = self.config.training.batch_size
 
         dataset = LoadDataEncoder.from_spectrums_to_dataset(
             spectrums,
