@@ -102,8 +102,8 @@ def prepare_inference_dataloaders(
     logger.info("Creating dataloaders...")
     dataset_ed = LoadDataMultitasking.from_molecule_pairs_to_dataset(
         molecule_pairs_ed_uniform,
-        max_num_peaks=int(cfg.model.transformer_context),
-        use_adduct=cfg.model.use_adduct,
+        max_num_peaks=int(cfg.model.transformer.context_length),
+        use_adduct=cfg.model.features.use_adduct,
     )
     dataloader_ed = DataLoader(
         dataset_ed, batch_size=cfg.inference.batch_size, shuffle=False
@@ -111,8 +111,8 @@ def prepare_inference_dataloaders(
 
     dataset_mces = LoadDataMultitasking.from_molecule_pairs_to_dataset(
         molecule_pairs_mces_uniform,
-        max_num_peaks=int(cfg.model.transformer_context),
-        use_adduct=cfg.model.use_adduct,
+        max_num_peaks=int(cfg.model.transformer.context_length),
+        use_adduct=cfg.model.features.use_adduct,
     )
     dataloader_mces = DataLoader(
         dataset_mces, batch_size=cfg.inference.batch_size, shuffle=False
@@ -134,20 +134,20 @@ def load_model_for_inference(cfg: DictConfig, checkpoint_path: str):
     logger.info(f"Loading model from {checkpoint_path}...")
 
     load_kwargs = {
-        "d_model": int(cfg.model.d_model),
-        "n_layers": int(cfg.model.n_layers),
+        "d_model": int(cfg.model.transformer.d_model),
+        "n_layers": int(cfg.model.transformer.n_layers),
         "n_classes": cfg.data.edit_distance_n_classes,
-        "use_gumbel": cfg.model.edit_distance_use_gumbel,
+        "use_gumbel": cfg.model.tasks.edit_distance.use_gumbel,
         "use_element_wise": True,
-        "use_cosine_distance": cfg.model.use_cosine_distance,
+        "use_cosine_distance": cfg.model.tasks.cosine_similarity.use_cosine_distance,
         "use_edit_distance_regresion": cfg.data.use_edit_distance_regression,
         "strict": False,
-        "use_adduct": cfg.model.use_adduct,
-        "categorical_adducts": cfg.model.categorical_adducts,
-        "adduct_mass_map": cfg.model.adduct_mass_map_csv,
-        "use_ce": cfg.model.use_ce,
-        "use_ion_activation": cfg.model.use_ion_activation,
-        "use_ion_method": cfg.model.use_ion_method,
+        "use_adduct": cfg.model.features.use_adduct,
+        "categorical_adducts": cfg.model.features.categorical_adducts,
+        "adduct_mass_map": cfg.data.adducts.adduct_mass_map_csv,
+        "use_ce": cfg.model.features.use_ce,
+        "use_ion_activation": cfg.model.features.use_ion_activation,
+        "use_ion_method": cfg.model.features.use_ion_method,
     }
 
     model = EmbedderMultitask.load_from_checkpoint(checkpoint_path, **load_kwargs)

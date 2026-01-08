@@ -8,6 +8,20 @@ transformer:
   dropout: 0.1
   context_length: 100
 
+# Backward compatibility - DO NOT REMOVE
+# These fields are needed for loading old checkpoints
+transformer_context: 100  # Alias for transformer.context_length
+d_model: 256  # Alias for transformer.d_model
+n_layers: 5  # Alias for transformer.n_layers
+use_adduct: false  # Alias for features.use_adduct
+edit_distance_use_gumbel: false  # Alias for tasks.edit_distance.use_gumbel
+use_cosine_distance: true  # Alias for tasks.cosine_similarity.use_cosine_distance
+categorical_adducts: false  # Alias for features.categorical_adducts
+adduct_mass_map_csv: null  # For adduct configuration
+use_ce: false  # Alias for features.use_ce
+use_ion_activation: false  # Alias for features.use_ion_activation
+use_ion_method: false  # Alias for features.use_ion_method
+
 # Embeddings
 embeddings:
   dim: 512
