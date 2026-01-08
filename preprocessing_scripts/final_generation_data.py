@@ -71,7 +71,7 @@ MAX_SPECTRA_TRAIN = args.MAX_SPECTRA_TRAIN
 MAX_SPECTRA_VAL = args.MAX_SPECTRA_VAL
 MAX_SPECTRA_TEST = args.MAX_SPECTRA_TEST
 VAL_SPLIT = args.VAL_SPLIT
-TEST_SPLIT =args.TEST_SPLIT 
+TEST_SPLIT =args.TEST_SPLIT
 
 if config.RANDOM_MCES_SAMPLING:
     subfix = ""
@@ -171,6 +171,9 @@ if __name__ == "__main__":
     # In[13]:
     molecule_pairs = {}
     print("Validation pairs ...")
+
+    config.COMPUTE_BOTH_METRICS = True
+
     for type_data in ["_train", "_val", "_test"]:
 
         if type_data == "_train":
@@ -180,22 +183,23 @@ if __name__ == "__main__":
         elif type_data == "_test":
             spectra = all_spectrums_test
 
-        for use_edit_distance in [False, True]:
-            molecule_pairs[type_data] = MCES.compute_all_mces_results_unique(
-                spectra,
-                max_combinations=10000000000000,
-                use_tqdm=use_tqdm,
-                max_mass_diff=config.MAX_MASS_DIFF,
-                min_mass_diff=config.MIN_MASS_DIFF,
-                high_tanimoto_range=high_tanimoto_range,
-                num_workers=config.PREPROCESSING_NUM_WORKERS,
-                use_exhaustive=True,
-                random_sampling=config.RANDOM_MCES_SAMPLING,
-                config=config,
-                identifier=type_data,
-                use_edit_distance=use_edit_distance,
-                loaded_molecule_pairs=None,
-            )
+        # OPTIMIZED: Compute BOTH metrics in a SINGLE pass instead of looping twice
+
+        molecule_pairs[type_data] = MCES.compute_all_mces_results_unique(
+            spectra,
+            max_combinations=10000000000000,
+            use_tqdm=use_tqdm,
+            max_mass_diff=config.MAX_MASS_DIFF,
+            min_mass_diff=config.MIN_MASS_DIFF,
+            high_tanimoto_range=high_tanimoto_range,
+            num_workers=config.PREPROCESSING_NUM_WORKERS,
+            use_exhaustive=True,
+            random_sampling=config.RANDOM_MCES_SAMPLING,
+            config=config,
+            identifier=type_data,
+            use_edit_distance=True,  # This parameter is ignored when COMPUTE_BOTH_METRICS=True
+            loaded_molecule_pairs=None,
+        )
 
     ## Write the data file
     write_data(

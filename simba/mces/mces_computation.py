@@ -349,23 +349,44 @@ class MCES:
                         fps = [fpgen.GetFingerprint(m) for m in mols]
 
                         print("Finished fongerprints")
-                        results = [
-                            pool.apply_async(
-                                comp_function,
-                                args=(
-                                    smiles,
-                                    sampled_index,
-                                    size_batch,
-                                    (index_array * len(split_arrays[0])) + sub_index,
-                                    random_sampling,
-                                    config,
-                                    fps,
-                                    mols,
-                                    use_edit_distance,
-                                ),
-                            )
-                            for sub_index, sampled_index in enumerate(array)
-                        ]
+
+                        # Check if we need to compute both metrics at once
+                        if config.COMPUTE_BOTH_METRICS:
+                            print("OPTIMIZED MODE: Computing BOTH ED and MCES in single pass")
+                            results = [
+                                pool.apply_async(
+                                    EditDistance.compute_ed_and_mces_both,
+                                    args=(
+                                        smiles,
+                                        sampled_index,
+                                        size_batch,
+                                        (index_array * len(split_arrays[0])) + sub_index,
+                                        random_sampling,
+                                        config,
+                                        fps,
+                                        mols,
+                                    ),
+                                )
+                                for sub_index, sampled_index in enumerate(array)
+                            ]
+                        else:
+                            results = [
+                                pool.apply_async(
+                                    comp_function,
+                                    args=(
+                                        smiles,
+                                        sampled_index,
+                                        size_batch,
+                                        (index_array * len(split_arrays[0])) + sub_index,
+                                        random_sampling,
+                                        config,
+                                        fps,
+                                        mols,
+                                        use_edit_distance,
+                                    ),
+                                )
+                                for sub_index, sampled_index in enumerate(array)
+                            ]
                         # else:
 
                         # results = [pool.apply_async(comp_function, args=(smiles,
@@ -385,7 +406,31 @@ class MCES:
                         [result.get() for result in results], axis=0
                     )
 
-                    np.save(arr=indexes_np_temp, file=name_file)
+                    # If we computed both metrics, save to separate files
+                    if config.COMPUTE_BOTH_METRICS:
+                        # indexes_np_temp has 4 columns: idx1, idx2, ED, MCES
+                        ed_data = indexes_np_temp[:, :3]  # idx1, idx2, ED
+                        mces_data = indexes_np_temp[:, [0, 1, 3]]  # idx1, idx2, MCES
+
+                        # Save ED file
+                        ed_file = (
+                            f"{config.PREPROCESSING_DIR}"
+                            + "edit_distance_"
+                            + f"indexes_tani_incremental{identifier}_{str(index_array)}.npy"
+                        )
+                        np.save(arr=ed_data, file=ed_file)
+                        print(f"Saved ED file: {ed_file}")
+
+                        # Save MCES file
+                        mces_file = (
+                            f"{config.PREPROCESSING_DIR}"
+                            + "mces_"
+                            + f"indexes_tani_incremental{identifier}_{str(index_array)}.npy"
+                        )
+                        np.save(arr=mces_data, file=mces_file)
+                        print(f"Saved MCES file: {mces_file}")
+                    else:
+                        np.save(arr=indexes_np_temp, file=name_file)
 
         print(f"Number of effective pairs retrieved: {indexes_np.shape[0]} ")
 
