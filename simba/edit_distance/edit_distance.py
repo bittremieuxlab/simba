@@ -85,6 +85,59 @@ class EditDistance:
         indexes_np[:, 2] = distances
         return indexes_np
 
+    def compute_ed_and_mces_both(
+        smiles,
+        sampled_index,
+        size_batch,
+        identifier,
+        random_sampling,
+        config,
+        fps,
+        mols,
+    ):
+        """Compute BOTH edit distance AND mces in a single pass."""
+        print(f"Processing: {sampled_index}")
+        # where to save results - now with 4 columns: idx1, idx2, ED, MCES
+        indexes_np = np.zeros(
+            (int(size_batch), 4),
+        )
+        # initialize randomness
+        if random_sampling:
+            np.random.seed(identifier)
+            indexes_np[:, 0] = np.random.randint(0, len(smiles), int(size_batch))
+            indexes_np[:, 1] = np.random.randint(0, len(smiles), int(size_batch))
+        else:
+            indexes_np[:, 0] = sampled_index
+            indexes_np[:, 1] = np.arange(0, size_batch)
+
+        ed_distances = []
+        mces_distances = []
+
+        for index in range(0, indexes_np.shape[0]):
+            row = indexes_np[index]
+
+            s0 = smiles[int(row[0])]
+            s1 = smiles[int(row[1])]
+            fp0 = fps[int(row[0])]
+            fp1 = fps[int(row[1])]
+            mol0 = mols[int(row[0])]
+            mol1 = mols[int(row[1])]
+
+            # Compute BOTH metrics
+            ed_dist, tanimoto = EditDistance.simba_solve_pair_edit_distance(
+                s0, s1, fp0, fp1, mol0, mol1
+            )
+            mces_dist, tanimoto = EditDistance.simba_solve_pair_mces(
+                s0, s1, fp0, fp1, mol0, mol1, config.THRESHOLD_MCES
+            )
+
+            ed_distances.append(ed_dist)
+            mces_distances.append(mces_dist)
+
+        indexes_np[:, 2] = ed_distances
+        indexes_np[:, 3] = mces_distances
+        return indexes_np
+
     def get_number_of_modification_edges(mol, substructure):
         if not mol.HasSubstructMatch(substructure):
             #    raise ValueError("The substructure is not a substructure of the molecule.")
