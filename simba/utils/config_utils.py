@@ -1,7 +1,6 @@
 """Utility functions for working with Hydra configurations.
 
-This module provides helper functions to compute derived parameters
-that were previously calculated in the legacy Config class.
+This module provides helper functions to compute derived configuration parameters.
 """
 
 import os
