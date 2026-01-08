@@ -1,5 +1,4 @@
 # Main Hydra configuration file for SIMBA
-# All values match Config class defaults from simba/config.py
 
 defaults:
   - model: simba_default
@@ -19,20 +18,20 @@ project:
 
 # Logging
 logging:
-  enable_progress_bar: true  # Config.enable_progress_bar
+  enable_progress_bar: true
 
 # Model checkpoints
 checkpoints:
-  best_model_name: "best_model.ckpt"  # Config.BEST_MODEL_NAME
-  pretrained_model_name: "pretrained_model.ckpt"  # Config.PRETRAINED_MODEL_NAME
+  best_model_name: "best_model.ckpt"
+  pretrained_model_name: "pretrained_model.ckpt"
 
 # Paths (can be overridden via CLI)
 paths:
-  spectra_path: null  # Config.SPECTRA_PATH
-  preprocessing_dir: null  # Config.PREPROCESSING_DIR
-  preprocessing_dir_train: null  # Config.PREPROCESSING_DIR_TRAIN
-  preprocessing_dir_val_test: null  # Config.PREPROCESSING_DIR_VAL_TEST
-  checkpoint_dir: null  # Config.CHECKPOINT_DIR (auto-generated if null)
+  spectra_path: null
+  preprocessing_dir: null
+  preprocessing_dir_train: null
+  preprocessing_dir_val_test: null
+  checkpoint_dir: null  # Auto-generated if null
   output_dir: null  # Output directory for inference results (defaults to checkpoint_dir)
-  mol_spec_mapping_file: "edit_distance_neurips_nist_exhaustive.pkl"  # Config.MOL_SPEC_MAPPING_FILE
-  preprocessing_pickle_file: "mapping_unique_smiles.pkl"  # Config.PREPROCESSING_PICKLE_FILE (default for preprocess command)
+  mol_spec_mapping_file: "edit_distance_neurips_nist_exhaustive.pkl"
+  preprocessing_pickle_file: "mapping_unique_smiles.pkl"  # Default for preprocess command

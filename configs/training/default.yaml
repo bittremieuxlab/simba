@@ -1,41 +1,40 @@
 # @package _global_
 # Default training configuration
-# Values match Config class defaults
 
 # Optimizer
 optimizer:
   name: adam
-  lr: 0.0001  # Config.LR
+  lr: 0.0001
   weight_decay: 0.0
   betas: [0.9, 0.999]
 
 # Training loop
 training:
-  epochs: 1000  # Config.epochs
-  batch_size: 128  # Config.BATCH_SIZE
-  val_check_interval: 10000  # Config.VAL_CHECK_INTERVAL
-  validate_after_ratio: 0.001  # Config.validate_after_ratio
+  epochs: 1000
+  batch_size: 128
+  val_check_interval: 10000
+  validate_after_ratio: 0.001
   gradient_clip_val: 1.0
   accumulate_grad_batches: 1
 
 # Data splits
 data:
-  val_split: 0.1  # Config.VAL_SPLIT
-  test_split: 0.1  # Config.TEST_SPLIT
-  max_spectra_train: 1000  # Config.MAX_SPECTRA_TRAIN
-  max_spectra_val: 1000  # Config.MAX_SPECTRA_VAL
-  max_spectra_test: 1000  # Config.MAX_SPECTRA_TEST
+  val_split: 0.1
+  test_split: 0.1
+  max_spectra_train: 1000
+  max_spectra_val: 1000
+  max_spectra_test: 1000
 
 # Sampling & Uniformization
 sampling:
-  use_resampling: false  # Config.USE_RESAMPLING
-  use_uniform_data_training: false  # Config.use_uniform_data_TRAINING
-  use_uniform_data_inference: true  # Config.use_uniform_data_INFERENCE
-  bins_uniformise_training: 10  # Config.bins_uniformise_TRAINING
-  bins_uniformise_inference: 10  # Config.bins_uniformise_INFERENCE
+  use_resampling: false
+  use_uniform_data_training: false
+  use_uniform_data_inference: true
+  bins_uniformise_training: 10
+  bins_uniformise_inference: 10
 
   # Add high similarity pairs
-  add_high_similarity_pairs: false  # Config.ADD_HIGH_SIMILARITY_PAIRS
+  add_high_similarity_pairs: false
 
 # Augmentation
 augmentation:
@@ -45,6 +44,6 @@ augmentation:
 
 # Hardware - default for production use
 hardware:
-  accelerator: gpu  # Config.ACCELERATOR
+  accelerator: gpu
   devices: 1
-  num_workers: 10  # Config.TRAINING_NUM_WORKERS
+  num_workers: 10

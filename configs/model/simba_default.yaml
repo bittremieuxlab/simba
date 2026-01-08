@@ -1,95 +1,81 @@
 # Default SIMBA model architecture
-# Values match Config class defaults
 
 # Transformer architecture
 transformer:
-  d_model: 256  # Config.D_MODEL
-  n_layers: 5   # Config.N_LAYERS
+  d_model: 256
+  n_layers: 5
   n_heads: 8
   dropout: 0.1
-  context_length: 100  # Config.TRANSFORMER_CONTEXT
-
-# Backward compatibility
-transformer_context: 100  # Alias for transformer.context_length (Config.TRANSFORMER_CONTEXT)
-d_model: 256  # Alias for transformer.d_model
-n_layers: 5  # Alias for transformer.n_layers
-use_adduct: false  # Alias for features.use_adduct
-edit_distance_use_gumbel: false  # Alias for tasks.edit_distance.use_gumbel
-use_cosine_distance: true  # MUST be true! Alias for tasks.mces20.use_cosine_distance
-categorical_adducts: false  # Alias for features.categorical_adducts
-adduct_mass_map_csv: null  # For adduct configuration
-use_ce: false  # Alias for features.use_ce
-use_ion_activation: false  # Alias for features.use_ion_activation
-use_ion_method: false  # Alias for features.use_ion_method
+  context_length: 100
 
 # Embeddings
 embeddings:
-  dim: 512  # Config.EMBEDDING_DIM
+  dim: 512
 
 # Model features
 features:
-  use_adduct: false  # Config.USE_ADDUCT
-  use_precursor_mz: true  # Config.USE_PRECURSOR_MZ_FOR_MODEL
+  use_adduct: false
+  use_precursor_mz: true
   use_element_wise: true
-  categorical_adducts: false  # Config.CATEGORICAL_ADDUCTS
-  use_only_protonized_adducts: false  # Config.USE_ONLY_PROTONIZED_ADDUCTS
+  categorical_adducts: false
+  use_only_protonized_adducts: false
 
   # Metadata features
-  use_ce: false  # Config.USE_CE
-  use_ion_activation: false  # Config.USE_ION_ACTIVATION
-  use_ion_method: false  # Config.USE_ION_METHOD
+  use_ce: false
+  use_ion_activation: false
+  use_ion_method: false
 
 # Task configuration
 tasks:
   # Edit Distance task
   edit_distance:
-    enabled: true  # Config.USE_EDIT_DISTANCE
-    n_classes: 6  # Config.EDIT_DISTANCE_N_CLASSES
-    use_gumbel: false  # Config.EDIT_DISTANCE_USE_GUMBEL
-    use_regression: false  # Config.USE_EDIT_DISTANCE_REGRESSION
-    max_value: 666  # Config.EDIT_DISTANCE_MAX_VALUE
+    enabled: true
+    n_classes: 6
+    use_gumbel: false
+    use_regression: false
+    max_value: 666
 
     # Gumbel softmax settings
-    tau_gumbel_softmax: 10  # Config.TAU_GUMBEL_SOFTMAX
-    gumbel_reg_weight: 0.1  # Config.GUMBEL_REG_WEIGHT
+    tau_gumbel_softmax: 10
+    gumbel_reg_weight: 0.1
 
   # MCES (Maximum Common Edge Substructure) task
   mces:
     enabled: true
-    use_log_loss: false  # Config.USE_MCES20_LOG_LOSS
-    threshold: 20  # Config.THRESHOLD_MCES
-    max_value: 40  # Config.MCES20_MAX_VALUE
+    use_log_loss: false
+    threshold: 20
+    max_value: 40
 
   # Cosine similarity task
   cosine_similarity:
     enabled: true
-    use_cosine_distance: true  # Config.use_cosine_distance
+    use_cosine_distance: true
 
   # Tanimoto similarity
   tanimoto:
-    enabled: false  # Config.USE_TANIMOTO
+    enabled: false
 
   # Molecular fingerprints
   fingerprints:
-    enabled: false  # Config.USE_MOLECULAR_FINGERPRINTS
-    use_fingerprint: false  # Config.USE_FINGERPRINT
+    enabled: false
+    use_fingerprint: false
 
 # Multitasking
 multitasking:
-  enabled: true  # Config.USE_MULTITASK
-  learnable: true  # Config.USE_LEARNABLE_MULTITASK
-  use_loss_weights_second_similarity: false  # Config.USE_LOSS_WEIGHTS_SECOND_SIMILARITY
+  enabled: true
+  learnable: true
+  use_loss_weights_second_similarity: false
 
 # Data columns (for multitasking)
 data_columns:
-  edit_distance: 2  # Config.COLUMN_EDIT_DISTANCE
-  mces20: 3  # Config.COLUMN_MCES20
+  edit_distance: 2
+  mces20: 3
 
 # Pretraining & Loading
 pretrained:
-  load_pretrained: false  # Config.load_pretrained
-  load_maldi_embedder: false  # Config.load_maldi_embedder
-  maldi_embedder_path: null  # Config.maldi_embedder_path
+  load_pretrained: false
+  load_maldi_embedder: false
+  maldi_embedder_path: null
 
 # Classification threshold
-threshold_class: 0.7  # Config.threshold_class
+threshold_class: 0.7
