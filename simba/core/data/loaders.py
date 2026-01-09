@@ -7,12 +7,12 @@ from pyteomics import mgf
 from tqdm import tqdm
 
 from simba.core.chemistry import chem_utils
+from simba.core.chemistry.scaffolds import MurckoScaffold
 from simba.core.data.nist_loader import NistLoader
 from simba.core.data.preprocessing import PreprocessingUtils
 from simba.core.data.spectrum import SpectrumExt
 from simba.core.data.spectrum_processing import spectrum_hash
 from simba.logger_setup import logger
-from simba.murcko_scaffold import MurckoScaffold
 
 
 class LoadData:
