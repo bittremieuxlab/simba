@@ -21,6 +21,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - Community files: CONTRIBUTING.md, CODE_OF_CONDUCT.md, CHANGELOG.md
 - Version management infrastructure (`__version__.py`)
 - Documentation infrastructure with Sphinx and ReadTheDocs configuration
+- Hydra configuration for managing complex training, inference, and preprocessing workflows
 
 ### Changed
 
@@ -34,5 +35,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   - Added ignore rules for acceptable patterns (B020, B905, N812, N999)
   - Removed `simba/` from Ruff exclusions - now enforcing consistent code style
   - All code follows PEP 8 and modern Python best practices
+  - CLI commands in `simba/commands/` now use workflow functions from `simba/workflows/`
+  - Clean separation of concerns: CLI handles argument parsing, workflows handle business logic
 
 [unreleased]: https://github.com/bittremieuxlab/simba/compare/HEAD
