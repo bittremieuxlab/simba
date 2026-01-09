@@ -1,8 +1,8 @@
 import copy
 
+from simba.core.data.loader_saver import LoaderSaver
 from simba.core.data.loaders import LoadData
 from simba.core.data.spectrum import SpectrumExt
-from simba.loader_saver import LoaderSaver
 from simba.logger_setup import logger
 from simba.preprocessor import Preprocessor
 
