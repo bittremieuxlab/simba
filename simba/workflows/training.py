@@ -35,14 +35,52 @@ def load_dataset(cfg: DictConfig):
     Returns:
         Tuple of (molecule_pairs_train, molecule_pairs_val,
                   molecule_pairs_test, uniformed_molecule_pairs_test)
+
+    Raises:
+        FileNotFoundError: If the mapping file does not exist
+        ValueError: If the mapping file is corrupted or missing required keys
     """
     preprocessing_dir = cfg.paths.preprocessing_dir_train or cfg.paths.preprocessing_dir
     mapping_path = Path(preprocessing_dir) / cfg.paths.preprocessing_pickle_file
 
+    # Check file existence
+    if not mapping_path.exists():
+        raise FileNotFoundError(
+            f"Dataset file not found: {mapping_path}\n"
+            f"Expected '{cfg.paths.preprocessing_pickle_file}' in preprocessing directory.\n"
+            f"Run preprocessing first with 'simba preprocess' command."
+        )
+
     logger.info(f"Loading dataset from {mapping_path}...")
 
-    with open(mapping_path, "rb") as file:
-        mapping = dill.load(file)
+    # Load and validate the mapping
+    try:
+        with open(mapping_path, "rb") as file:
+            mapping = dill.load(file)
+    except Exception as e:
+        raise ValueError(
+            f"Failed to deserialize dataset from {mapping_path}.\n"
+            f"The file may be corrupted or incompatible.\n"
+            f"Original error: {type(e).__name__}: {e}"
+        ) from e
+
+    # Validate required keys
+    required_keys = [
+        "molecule_pairs_train",
+        "molecule_pairs_val",
+        "molecule_pairs_test",
+        "uniformed_molecule_pairs_test",
+    ]
+    actual_keys = set(mapping.keys())
+    missing_keys = [key for key in required_keys if key not in actual_keys]
+
+    if missing_keys:
+        raise ValueError(
+            f"Dataset mapping is missing required keys: {missing_keys}\n"
+            f"Found keys: {sorted(actual_keys)}\n"
+            f"The preprocessing output may be from an incompatible version.\n"
+            f"Re-run preprocessing with 'simba preprocess' command."
+        )
 
     return (
         mapping["molecule_pairs_train"],
@@ -266,28 +304,28 @@ def setup_model(cfg: DictConfig, weights_mces: np.ndarray) -> EmbedderMultitask:
     Returns:
         Initialized EmbedderMultitask model
     """
-    model = EmbedderMultitask(
-        d_model=cfg.model.transformer.d_model,
-        n_layers=cfg.model.transformer.n_layers,
-        n_classes=cfg.model.tasks.edit_distance.n_classes,
-        use_gumbel=cfg.model.tasks.edit_distance.use_gumbel,
-        use_element_wise=cfg.model.features.use_element_wise,
-        use_cosine_distance=cfg.model.tasks.cosine_similarity.use_cosine_distance,
-        use_edit_distance_regresion=cfg.model.tasks.edit_distance.use_regression,
-        use_fingerprints=cfg.model.tasks.fingerprints.enabled,
-        USE_LEARNABLE_MULTITASK=cfg.model.multitasking.learnable,
-        use_mces20_log_loss=cfg.model.tasks.mces.use_log_loss,
-        tau_gumbel_softmax=cfg.model.tasks.edit_distance.tau_gumbel_softmax,
-        gumbel_reg_weight=cfg.model.tasks.edit_distance.gumbel_reg_weight,
-        weights=weights_mces,
-        lr=cfg.optimizer.lr,
-        use_adduct=cfg.model.features.use_adduct,
-        use_precursor_mz_for_model=cfg.model.features.use_precursor_mz,
-        categorical_adducts=cfg.model.features.categorical_adducts,
-        use_ce=cfg.model.features.use_ce,
-        use_ion_activation=cfg.model.features.use_ion_activation,
-        use_ion_method=cfg.model.features.use_ion_method,
-    )
+    model_kwargs = {
+        "d_model": cfg.model.transformer.d_model,
+        "n_layers": cfg.model.transformer.n_layers,
+        "n_classes": cfg.model.tasks.edit_distance.n_classes,
+        "use_gumbel": cfg.model.tasks.edit_distance.use_gumbel,
+        "use_element_wise": cfg.model.features.use_element_wise,
+        "use_cosine_distance": cfg.model.tasks.cosine_similarity.use_cosine_distance,
+        "use_edit_distance_regresion": cfg.model.tasks.edit_distance.use_regression,
+        "use_fingerprints": cfg.model.tasks.fingerprints.enabled,
+        "USE_LEARNABLE_MULTITASK": cfg.model.multitasking.learnable,
+        "use_mces20_log_loss": cfg.model.tasks.mces.use_log_loss,
+        "tau_gumbel_softmax": cfg.model.tasks.edit_distance.tau_gumbel_softmax,
+        "gumbel_reg_weight": cfg.model.tasks.edit_distance.gumbel_reg_weight,
+        "weights": weights_mces,
+        "lr": cfg.optimizer.lr,
+        "use_adduct": cfg.model.features.use_adduct,
+        "use_precursor_mz_for_model": cfg.model.features.use_precursor_mz,
+        "categorical_adducts": cfg.model.features.categorical_adducts,
+        "use_ce": cfg.model.features.use_ce,
+        "use_ion_activation": cfg.model.features.use_ion_activation,
+        "use_ion_method": cfg.model.features.use_ion_method,
+    }
 
     # Load pretrained weights if specified
     if cfg.model.pretrained.load_pretrained:
@@ -298,28 +336,12 @@ def setup_model(cfg: DictConfig, weights_mces: np.ndarray) -> EmbedderMultitask:
 
         if pretrained_path.exists():
             model = EmbedderMultitask.load_from_checkpoint(
-                str(pretrained_path),
-                d_model=cfg.model.transformer.d_model,
-                n_layers=cfg.model.transformer.n_layers,
-                n_classes=cfg.model.tasks.edit_distance.n_classes,
-                use_gumbel=cfg.model.tasks.edit_distance.use_gumbel,
-                use_element_wise=cfg.model.features.use_element_wise,
-                use_cosine_distance=cfg.model.tasks.cosine_similarity.use_cosine_distance,
-                use_edit_distance_regresion=cfg.model.tasks.edit_distance.use_regression,
-                use_fingerprints=cfg.model.tasks.fingerprints.enabled,
-                USE_LEARNABLE_MULTITASK=cfg.model.multitasking.learnable,
-                use_mces20_log_loss=cfg.model.tasks.mces.use_log_loss,
-                tau_gumbel_softmax=cfg.model.tasks.edit_distance.tau_gumbel_softmax,
-                gumbel_reg_weight=cfg.model.tasks.edit_distance.gumbel_reg_weight,
-                weights=weights_mces,
-                lr=cfg.optimizer.lr,
-                use_adduct=cfg.model.features.use_adduct,
-                use_precursor_mz_for_model=cfg.model.features.use_precursor_mz,
-                categorical_adducts=cfg.model.features.categorical_adducts,
-                use_ce=cfg.model.features.use_ce,
-                use_ion_activation=cfg.model.features.use_ion_activation,
-                use_ion_method=cfg.model.features.use_ion_method,
+                str(pretrained_path), **model_kwargs
             )
+        else:
+            model = EmbedderMultitask(**model_kwargs)
+    else:
+        model = EmbedderMultitask(**model_kwargs)
 
     return model
 
