@@ -52,6 +52,8 @@ parser.add_argument(f"--mapping_file_name", type=str, default=None)
 parser.add_argument(f"--PREPROCESSING_NUM_WORKERS", type=int, default=None)
 parser.add_argument(f"--VAL_SPLIT", type=float, default=0.1)
 parser.add_argument(f"--TEST_SPLIT", type=float, default=0.1)
+parser.add_argument(f"--use_lightweight_format", action="store_true",
+                    help="Save lightweight format with only df_smiles + mgf path (instead of full spectra)")
 args = parser.parse_args()
 
 ## Parsing arguments
@@ -132,16 +134,33 @@ def write_data(
     molecule_pairs_val=None,
     molecule_pairs_test=None,
     uniformed_molecule_pairs_test=None,
+    use_lightweight_format=False,
+    mgf_path=None,
 ):
-    dataset = {
-        "all_spectrums_train": all_spectrums_train,
-        "all_spectrums_val": all_spectrums_val,
-        "all_spectrums_test": all_spectrums_test,
-        "molecule_pairs_train": molecule_pairs_train,
-        "molecule_pairs_val": molecule_pairs_val,
-        "molecule_pairs_test": molecule_pairs_test,
-        "uniformed_molecule_pairs_test": uniformed_molecule_pairs_test,
-    }
+    if use_lightweight_format:
+        # Lightweight format: save only df_smiles, spectrum identifiers, and mgf path
+        # Spectra will be loaded at training time from mgf file using identifiers
+        dataset = {
+            "df_smiles_train": molecule_pairs_train.df_smiles if molecule_pairs_train is not None else None,
+            "df_smiles_val": molecule_pairs_val.df_smiles if molecule_pairs_val is not None else None,
+            "df_smiles_test": molecule_pairs_test.df_smiles if molecule_pairs_test is not None else None,
+            "spectrum_ids_train": [s.identifier for s in molecule_pairs_train.spectrums_original] if molecule_pairs_train is not None else None,
+            "spectrum_ids_val": [s.identifier for s in molecule_pairs_val.spectrums_original] if molecule_pairs_val is not None else None,
+            "spectrum_ids_test": [s.identifier for s in molecule_pairs_test.spectrums_original] if molecule_pairs_test is not None else None,
+            "mgf_path": mgf_path,
+            "format_version": "lightweight",
+        }
+    else:
+        # Original format: save full MoleculePairs objects with spectra
+        dataset = {
+            "all_spectrums_train": all_spectrums_train,
+            "all_spectrums_val": all_spectrums_val,
+            "all_spectrums_test": all_spectrums_test,
+            "molecule_pairs_train": molecule_pairs_train,
+            "molecule_pairs_val": molecule_pairs_val,
+            "molecule_pairs_test": molecule_pairs_test,
+            "uniformed_molecule_pairs_test": uniformed_molecule_pairs_test,
+        }
     with open(file_path, "wb") as file:
         pickle.dump(dataset, file)
 
@@ -211,6 +230,8 @@ if __name__ == "__main__":
         molecule_pairs_val=molecule_pairs["_val"],
         molecule_pairs_test=molecule_pairs["_test"],
         uniformed_molecule_pairs_test=None,
+        use_lightweight_format=args.use_lightweight_format,
+        mgf_path=spectra_path,
     )
 
     # List all files in the directory
