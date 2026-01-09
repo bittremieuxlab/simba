@@ -17,14 +17,14 @@ class Encoder(pl.LightningModule):
         self.relu = nn.ReLU()
 
     def load_twin_network(self, model_path, D_MODEL, N_LAYERS, strict=False):
-        n_classes = self.config.model.tasks.edit_distance.n_classes
-        use_gumbel = self.config.model.tasks.edit_distance.use_gumbel
         lr = self.config.optimizer.lr
         use_cosine_distance = (
             self.config.model.tasks.cosine_similarity.use_cosine_distance
         )
 
         if self.multitasking:
+            n_classes = self.config.model.tasks.edit_distance.n_classes
+            use_gumbel = self.config.model.tasks.edit_distance.use_gumbel
             return EmbedderMultitask.load_from_checkpoint(
                 model_path,
                 d_model=int(D_MODEL),
