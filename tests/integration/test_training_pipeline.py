@@ -65,9 +65,9 @@ class TestDataPreprocessing:
         val_ratio = len(val) / 14
         test_ratio = len(test) / 14
 
-        assert (
-            0.4 <= train_ratio <= 0.8
-        ), f"Train ratio {train_ratio} should be reasonable"
+        assert 0.4 <= train_ratio <= 0.8, (
+            f"Train ratio {train_ratio} should be reasonable"
+        )
         assert 0.0 < val_ratio <= 0.4, f"Val ratio {val_ratio} should be reasonable"
         assert 0.0 < test_ratio <= 0.4, f"Test ratio {test_ratio} should be reasonable"
 
