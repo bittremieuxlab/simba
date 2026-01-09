@@ -9,13 +9,13 @@ from tqdm import tqdm
 
 from simba.core.chemistry.tanimoto import Tanimoto
 from simba.core.data.molecular_pairs import MolecularPairsSet
+from simba.core.data.molecule_pairs_opt import MoleculePairsOpt
 from simba.core.data.preprocessing import PreprocessingUtils
 from simba.core.data.spectrum import SpectrumExt
 from simba.core.models.ordinal.ordinal_classification import (
     OrdinalClassification,
 )
 from simba.logger_setup import logger
-from simba.molecule_pairs_opt import MoleculePairsOpt
 
 
 class TrainUtils:
