@@ -326,7 +326,7 @@ class TestTrainingSmoke:
 
     def test_model_initialization(self, hydra_config):
         """Test that model can be initialized with config."""
-        d_model = hydra_config.model.embeddings.dim
+        d_model = hydra_config.model.transformer.d_model
         n_layers = 6
         n_classes = hydra_config.model.tasks.edit_distance.n_classes
         use_gumbel = False

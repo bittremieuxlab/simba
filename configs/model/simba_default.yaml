@@ -72,7 +72,6 @@ tasks:
   # Molecular fingerprints
   fingerprints:
     enabled: false
-    use_fingerprint: false
 
 # Multitasking
 multitasking:

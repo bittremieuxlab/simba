@@ -23,14 +23,9 @@ formats:
 
 # Molecular similarity computation
 similarity:
-  edit_distance:
-    enabled: true
   mces:
-    enabled: true
     threshold: 20
     random_sampling: false
-  tanimoto:
-    enabled: false
 
   # Compute specific pairs
   compute_specific_pairs: false
@@ -41,7 +36,6 @@ use_multitask: true
 use_edit_distance_regression: false
 use_tanimoto: false
 edit_distance_n_classes: 6
-edit_distance_max_value: 666
 mces20_max_value: 40
 
 # Adduct configuration

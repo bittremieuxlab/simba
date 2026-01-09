@@ -10,4 +10,8 @@ inference:
   batch_size: 8
   uniformize_testing: false
   accelerator: "cpu"  # Use CPU for development, avoids MPS issues
+  devices: 1
+
+# Logging configuration
+logging:
   enable_progress_bar: true
