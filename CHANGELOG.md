@@ -27,7 +27,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 - **Major refactoring:** Restructured entire codebase into logical modules
   - Organized code into `core/`, `legacy/`, and `tools/` directories
-  - Created clear module hierarchy: `core/models/`, `core/data/`, `core/chemistry/`
+  - Created clear module hierarchy: `core/models/`, `core/data/`, `core/chemistry/`, `core/training/`
   - Fixed `simba/simba/` nested folder structure
   - Moved all legacy training scripts to `legacy/` with documentation
   - All imports updated and validated
