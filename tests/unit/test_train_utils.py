@@ -5,7 +5,7 @@ import pandas as pd
 import pytest
 
 from simba.core.data.molecule_pairs_opt import MoleculePairsOpt
-from simba.train_utils import TrainUtils
+from simba.core.training.train_utils import TrainUtils
 
 
 @pytest.fixture

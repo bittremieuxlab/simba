@@ -11,7 +11,7 @@ from simba.core.models.ordinal.ordinal_classification import (
 from simba.core.models.transformers.CustomDatasetMultitasking import (
     CustomDatasetMultitasking,
 )
-from simba.logger_setup import logger
+from simba.utils.logger_setup import logger
 
 
 class LoadDataMultitasking:

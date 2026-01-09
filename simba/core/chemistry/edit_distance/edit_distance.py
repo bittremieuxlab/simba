@@ -9,7 +9,7 @@ from rdkit.Chem.rdchem import Mol
 from rdkit.DataStructs.cDataStructs import ExplicitBitVect
 
 import simba.core.chemistry.edit_distance.mol_utils as mu
-from simba.logger_setup import logger
+from simba.utils.logger_setup import logger
 
 
 # Sentinel value indicating very dissimilar molecules (Tanimoto < 0.2)

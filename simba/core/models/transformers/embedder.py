@@ -10,7 +10,7 @@ import torch.nn as nn
 from simba.core.models.transformers.spectrum_transformer_encoder_custom import (
     SpectrumTransformerEncoderCustom,
 )
-from simba.logger_setup import logger
+from simba.utils.logger_setup import logger
 
 
 class FixedLinearRegression(nn.Module):

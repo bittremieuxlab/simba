@@ -64,7 +64,7 @@ def inference(
     import os
     import platform
 
-    from simba.logger_setup import logger
+    from simba.utils.logger_setup import logger
     from simba.workflows.inference import inference as run_inference
 
     # Enable MPS fallback on macOS for unsupported ops

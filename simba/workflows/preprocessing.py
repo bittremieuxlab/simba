@@ -13,8 +13,8 @@ from omegaconf import DictConfig
 
 from simba.core.chemistry.mces.mces_computation import MCES
 from simba.core.data.preprocessing_simba import PreprocessingSimba
-from simba.logger_setup import logger
-from simba.train_utils import TrainUtils
+from simba.core.training.train_utils import TrainUtils
+from simba.utils.logger_setup import logger
 
 
 def preprocess(cfg: DictConfig) -> None:

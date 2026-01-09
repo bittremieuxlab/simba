@@ -15,7 +15,7 @@ from simba.core.data.spectrum import SpectrumExt
 from simba.core.models.ordinal.ordinal_classification import (
     OrdinalClassification,
 )
-from simba.logger_setup import logger
+from simba.utils.logger_setup import logger
 
 
 class TrainUtils:

@@ -12,7 +12,7 @@ from simba.core.data.nist_loader import NistLoader
 from simba.core.data.preprocessing import PreprocessingUtils
 from simba.core.data.spectrum import SpectrumExt
 from simba.core.data.spectrum_processing import spectrum_hash
-from simba.logger_setup import logger
+from simba.utils.logger_setup import logger
 
 
 class LoadData:

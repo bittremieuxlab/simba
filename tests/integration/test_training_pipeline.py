@@ -21,7 +21,7 @@ from simba.core.data.preprocessing_simba import PreprocessingSimba
 from simba.core.data.spectrum import SpectrumExt
 from simba.core.models.ordinal.embedder_multitask import EmbedderMultitask
 from simba.core.models.simba_model import Simba
-from simba.train_utils import TrainUtils
+from simba.core.training.train_utils import TrainUtils
 
 
 class TestDataPreprocessing:
