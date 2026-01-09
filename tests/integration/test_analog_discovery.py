@@ -13,7 +13,6 @@ import numpy as np
 import pytest
 
 from simba.analog_discovery.simba_analog_discovery import AnalogDiscovery
-from simba.config import Config
 from simba.core.data.preprocessing_simba import PreprocessingSimba
 from simba.core.models.simba_model import Simba
 
@@ -24,13 +23,11 @@ pytestmark = pytest.mark.integration
 class TestAnalogDiscovery:
     """Test analog discovery workflow."""
 
-    def test_compute_distance_matrix(self, sample_mgf_casmi, mock_model):
+    def test_compute_distance_matrix(self, sample_mgf_casmi, mock_model, hydra_config):
         """Test computing distance matrices between query and library spectra."""
-        config = Config()
-
         spectra = PreprocessingSimba.load_spectra(
             sample_mgf_casmi,
-            config,
+            hydra_config,
             min_peaks=5,
             n_samples=100,
             use_gnps_format=False,
@@ -39,7 +36,7 @@ class TestAnalogDiscovery:
         assert len(spectra) >= 2
 
         simba = Simba(
-            "fake_model.ckpt", config=config, device="cpu", cache_embeddings=True
+            "fake_model.ckpt", config=hydra_config, device="cpu", cache_embeddings=True
         )
 
         query_spectra = spectra[:1]
@@ -52,13 +49,11 @@ class TestAnalogDiscovery:
         assert isinstance(sim_ed, np.ndarray)
         assert isinstance(sim_mces, np.ndarray)
 
-    def test_ranking_combined_metrics(self, sample_mgf_casmi, mock_model):
+    def test_ranking_combined_metrics(self, sample_mgf_casmi, mock_model, hydra_config):
         """Test ranking using combined MCES and edit distance metrics."""
-        config = Config()
-
         spectra = PreprocessingSimba.load_spectra(
             sample_mgf_casmi,
-            config,
+            hydra_config,
             min_peaks=5,
             n_samples=100,
             use_gnps_format=False,
@@ -67,7 +62,7 @@ class TestAnalogDiscovery:
         assert len(spectra) >= 2
 
         simba = Simba(
-            "fake_model.ckpt", config=config, device="cpu", cache_embeddings=True
+            "fake_model.ckpt", config=hydra_config, device="cpu", cache_embeddings=True
         )
 
         query_spectra = spectra[:1]
@@ -80,13 +75,11 @@ class TestAnalogDiscovery:
         assert isinstance(ranking, np.ndarray)
         assert np.all(ranking >= 0) and np.all(ranking <= 1)
 
-    def test_find_top_k_analogs(self, sample_mgf_casmi, mock_model):
+    def test_find_top_k_analogs(self, sample_mgf_casmi, mock_model, hydra_config):
         """Test extracting top-k analog matches."""
-        config = Config()
-
         spectra = PreprocessingSimba.load_spectra(
             sample_mgf_casmi,
-            config,
+            hydra_config,
             min_peaks=5,
             n_samples=100,
             use_gnps_format=False,
@@ -95,7 +88,7 @@ class TestAnalogDiscovery:
         assert len(spectra) >= 2
 
         simba = Simba(
-            "fake_model.ckpt", config=config, device="cpu", cache_embeddings=True
+            "fake_model.ckpt", config=hydra_config, device="cpu", cache_embeddings=True
         )
 
         query_spectra = spectra[:1]

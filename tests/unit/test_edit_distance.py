@@ -6,7 +6,6 @@ import pytest
 from rdkit import Chem
 from rdkit.Chem.Fingerprints import FingerprintMols
 
-from simba.config import Config
 from simba.core.chemistry.edit_distance.edit_distance import (
     VERY_HIGH_DISTANCE,
     compute_ed_or_mces,
@@ -220,8 +219,8 @@ class TestSimbaSolvePairMCES:
         )
 
         # Both should return valid distances
-        assert isinstance(distance1, (int, float, np.number))
-        assert isinstance(distance2, (int, float, np.number))
+        assert isinstance(distance1, int | float | np.number)
+        assert isinstance(distance2, int | float | np.number)
 
 
 class TestCreateInputDF:
@@ -341,7 +340,6 @@ class TestComputeEdOrMces:
         smiles = ["CCO", "CCCO", "C", "CC"]
         mols = [Chem.MolFromSmiles(s) for s in smiles]
         fps = [FingerprintMols.FingerprintMol(m) for m in mols]
-        config = Config()
 
         result = compute_ed_or_mces(
             smiles=smiles,
@@ -349,7 +347,9 @@ class TestComputeEdOrMces:
             batch_size=3,
             identifier=0,
             random_sampling=False,
-            config=config,
+            preprocessing_dir="/tmp/",
+            compute_specific_pairs=False,
+            threshold_mces=20,
             fps=fps,
             mols=mols,
             use_edit_distance=True,
@@ -365,7 +365,6 @@ class TestComputeEdOrMces:
         smiles = ["CCO", "CCCO", "C", "CC"]
         mols = [Chem.MolFromSmiles(s) for s in smiles]
         fps = [FingerprintMols.FingerprintMol(m) for m in mols]
-        config = Config()
 
         result = compute_ed_or_mces(
             smiles=smiles,
@@ -373,7 +372,9 @@ class TestComputeEdOrMces:
             batch_size=2,
             identifier=42,
             random_sampling=True,
-            config=config,
+            preprocessing_dir="/tmp/",
+            compute_specific_pairs=False,
+            threshold_mces=20,
             fps=fps,
             mols=mols,
             use_edit_distance=True,
@@ -389,8 +390,6 @@ class TestComputeEdOrMces:
         smiles = ["CCO", "CCCO"]
         mols = [Chem.MolFromSmiles(s) for s in smiles]
         fps = [FingerprintMols.FingerprintMol(m) for m in mols]
-        config = Config()
-        config.THRESHOLD_MCES = 20
 
         result = compute_ed_or_mces(
             smiles=smiles,
@@ -398,7 +397,9 @@ class TestComputeEdOrMces:
             batch_size=2,
             identifier=0,
             random_sampling=False,
-            config=config,
+            preprocessing_dir="/tmp/",
+            compute_specific_pairs=False,
+            threshold_mces=20,
             fps=fps,
             mols=mols,
             use_edit_distance=False,
@@ -413,7 +414,6 @@ class TestComputeEdOrMces:
         smiles = ["CCO", "CCCO"]
         mols = [Chem.MolFromSmiles(s) for s in smiles]
         fps = [FingerprintMols.FingerprintMol(m) for m in mols]
-        config = Config()
 
         with pytest.raises(ValueError, match="batch_size .* cannot exceed"):
             compute_ed_or_mces(
@@ -422,7 +422,9 @@ class TestComputeEdOrMces:
                 batch_size=5,  # Exceeds len(smiles)
                 identifier=0,
                 random_sampling=False,
-                config=config,
+                preprocessing_dir="/tmp/",
+                compute_specific_pairs=False,
+                threshold_mces=20,
                 fps=fps,
                 mols=mols,
                 use_edit_distance=True,

@@ -10,7 +10,6 @@ from rdkit import Chem
 from rdkit.Chem import AllChem
 from tqdm import tqdm
 
-from simba.config import Config
 from simba.core.chemistry.edit_distance import edit_distance
 from simba.core.chemistry.mces_loader.load_mces import LoadMCES
 from simba.core.data.molecular_pairs import MolecularPairsSet
@@ -27,7 +26,13 @@ class MCES:
         max_combinations: int = 1000000,
         num_workers: int = 15,
         random_sampling: bool = True,
-        config: Config = None,
+        preprocessing_dir: str = None,
+        batch_size: int = 1000,
+        num_nodes: int = 1,
+        current_node: int = 0,
+        compute_specific_pairs: bool = False,
+        format_file_specific_pairs: str = "",
+        threshold_mces: int = 20,
         identifier: str = "",
         use_edit_distance: bool = False,
         loaded_molecule_pairs: MolecularPairsSet | None = None,
@@ -45,8 +50,20 @@ class MCES:
             Number of worker processes to use, by default 15.
         random_sampling : bool, optional
             If True, use random sampling; otherwise, compute all pairs, by default True.
-        config : Config, optional
-            Configuration object containing parameters, by default None.
+        preprocessing_dir : str, optional
+            Directory for preprocessing files, by default None.
+        batch_size : int, optional
+            Batch size for preprocessing, by default 1000.
+        num_nodes : int, optional
+            Number of nodes for distributed processing, by default 1.
+        current_node : int, optional
+            Current node index for distributed processing, by default 0.
+        compute_specific_pairs : bool, optional
+            Whether to compute specific pairs, by default False.
+        format_file_specific_pairs : str, optional
+            Format for specific pairs file, by default "".
+        threshold_mces : int, optional
+            MCES threshold value, by default 20.
         identifier : str, optional
             Identifier for the computation run, by default "".
         use_edit_distance : bool, optional
@@ -71,7 +88,13 @@ class MCES:
                 max_combinations=max_combinations,
                 num_workers=num_workers,
                 random_sampling=random_sampling,
-                config=config,
+                preprocessing_dir=preprocessing_dir,
+                batch_size=batch_size,
+                num_nodes=num_nodes,
+                current_node=current_node,
+                compute_specific_pairs=compute_specific_pairs,
+                format_file_specific_pairs=format_file_specific_pairs,
+                threshold_mces=threshold_mces,
                 identifier=identifier,
                 use_edit_distance=use_edit_distance,
             )
@@ -128,7 +151,9 @@ class MCES:
         size_batch,
         id,
         random_sampling,
-        config,
+        preprocessing_dir,
+        compute_specific_pairs,
+        threshold_mces,
         split_group="train",  # if it is train, val or test
         to_compute_indexes_np=None,  # the indexes to be computed
     ):
@@ -136,7 +161,7 @@ class MCES:
 
         # initialize randomness
 
-        if config.COMPUTE_SPECIFIC_PAIRS:
+        if compute_specific_pairs:
             size_batch_effective = to_compute_indexes_np.shape[0]
             indexes_np = np.zeros(
                 (int(size_batch_effective), 3),
@@ -164,7 +189,7 @@ class MCES:
 
         print("Saving df ...")
         df[["smiles_0", "smiles_1"]].to_csv(
-            f"{config.PREPROCESSING_DIR}input_{str(id)}.csv", header=False
+            f"{preprocessing_dir}input_{str(id)}.csv", header=False
         )
 
         # compute mces
@@ -175,12 +200,12 @@ class MCES:
 
         # Add the argument --num_jobs 15
         # command.extend(['--num_jobs', '32'])
-        command.extend([f"{config.PREPROCESSING_DIR}input_{str(id)}.csv"])
-        command.extend([f"{config.PREPROCESSING_DIR}output_{str(id)}.csv"])
+        command.extend([f"{preprocessing_dir}input_{str(id)}.csv"])
+        command.extend([f"{preprocessing_dir}output_{str(id)}.csv"])
         command.extend(["--num_jobs", "1"])
         # command.extend(['--solver','CPLEX_CMD'])
         # Define threshold
-        command.extend(["--threshold", str(int(config.THRESHOLD_MCES))])
+        command.extend(["--threshold", str(int(threshold_mces))])
 
         command.extend(["--solver_onethreaded"])
         command.extend(["--solver_no_msg"])
@@ -192,11 +217,9 @@ class MCES:
 
         # read results
         print("reading csv")
-        results = pd.read_csv(
-            f"{config.PREPROCESSING_DIR}output_{str(id)}.csv", header=None
-        )
-        os.system(f"rm {config.PREPROCESSING_DIR}input_{str(id)}.csv")
-        os.system(f"rm {config.PREPROCESSING_DIR}output_{str(id)}.csv")
+        results = pd.read_csv(f"{preprocessing_dir}output_{str(id)}.csv", header=None)
+        os.system(f"rm {preprocessing_dir}input_{str(id)}.csv")
+        os.system(f"rm {preprocessing_dir}output_{str(id)}.csv")
         df["mces"] = results[2]  # the column 2 is the mces result
 
         # normalize mces. the higher the mces the lower the similarity
@@ -253,7 +276,13 @@ class MCES:
         max_combinations: int = 1000000,
         num_workers: int = 15,
         random_sampling: bool = True,
-        config: Config = None,
+        preprocessing_dir: str = None,
+        batch_size: int = 1000,
+        num_nodes: int = 1,
+        current_node: int = 0,
+        compute_specific_pairs: bool = False,
+        format_file_specific_pairs: str = "",
+        threshold_mces: int = 20,
         identifier: str = "",
         use_edit_distance=False,
     ) -> MolecularPairsSet:
@@ -295,16 +324,16 @@ class MCES:
 
         all_smiles = [s.params["smiles"] for s in all_spectra]
 
-        if config.COMPUTE_SPECIFIC_PAIRS:  ## specifically for mces
-            directory_path = config.PREPROCESSING_DIR
-            prefix = config.FORMAT_FILE_SPECIFIC_PAIRS + identifier
+        if compute_specific_pairs:  ## specifically for mces
+            directory_path = preprocessing_dir
+            prefix = format_file_specific_pairs + identifier
             indices_np_loaded = LoadMCES.load_raw_data(directory_path, prefix)
 
             print(
                 f"Size of the pairs loaded for computing specific pairs: {indices_np_loaded.shape[0]}"
             )
 
-            chunk_size = config.PREPROCESSING_BATCH_SIZE * num_workers
+            chunk_size = batch_size * num_workers
             num_chunks = int(np.ceil(indices_np_loaded.shape[0] / chunk_size))
             chunks = np.array_split(indices_np_loaded, num_chunks)
 
@@ -331,13 +360,10 @@ class MCES:
 
         for chunk_idx, chunk in enumerate(chunks):
             # select chunks to compute based on node number
-            if (
-                (chunk_idx % config.PREPROCESSING_NUM_NODES)
-                == config.PREPROCESSING_CURRENT_NODE
-            ) or (config.PREPROCESSING_CURRENT_NODE is None):
+            if ((chunk_idx % num_nodes) == current_node) or (current_node is None):
                 prefix_file = "edit_distance_" if use_edit_distance else "mces_"
                 filename = (
-                    f"{config.PREPROCESSING_DIR}"
+                    f"{preprocessing_dir}"
                     + prefix_file
                     + f"indexes_tani_incremental{identifier}_{str(chunk_idx)}.npy"
                 )
@@ -351,7 +377,7 @@ class MCES:
                     fpgen = AllChem.GetRDKitFPGenerator(maxPath=3, fpSize=512)
                     fps = [fpgen.GetFingerprint(m) for m in mols]
 
-                    if config.COMPUTE_SPECIFIC_PAIRS:
+                    if compute_specific_pairs:
                         logger.info("Computing specific pairs from loaded indexes ...")
                         logger.info(f"Size of each array {chunk.shape[0]}")
                         sub_arrays = np.array_split(chunk, num_workers)
@@ -366,7 +392,9 @@ class MCES:
                                     batch_size,
                                     (chunk_idx * chunks[0].shape[0]) + sub_index,
                                     None,
-                                    config,
+                                    preprocessing_dir,
+                                    compute_specific_pairs,
+                                    threshold_mces,
                                     fps,
                                     mols,
                                     use_edit_distance,
@@ -384,7 +412,9 @@ class MCES:
                                     batch_size,
                                     (chunk_idx * len(chunks[0])) + sub_index,
                                     random_sampling,
-                                    config,
+                                    preprocessing_dir,
+                                    compute_specific_pairs,
+                                    threshold_mces,
                                     fps,
                                     mols,
                                     use_edit_distance,

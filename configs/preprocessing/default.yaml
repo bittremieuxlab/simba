@@ -1,0 +1,24 @@
+# Preprocessing configuration
+
+# Preprocessing batch processing
+batch_size: 1000
+num_workers: 60
+num_nodes: 10
+current_node: null  # Set via CLI
+overwrite: false
+
+# Dataset limits
+max_spectra_train: 10000  # Maximum training spectra to preprocess
+max_spectra_val: 1000000  # Maximum validation spectra to preprocess
+max_spectra_test: 1000000  # Maximum test spectra to preprocess
+
+# Data splits
+val_split: 0.1  # Validation split fraction (0.0-1.0)
+test_split: 0.1  # Test split fraction (0.0-1.0)
+
+# Sampling
+random_mces_sampling: false
+use_only_protonized_adducts: true
+
+# Subsampling
+subsample_preprocessing: false

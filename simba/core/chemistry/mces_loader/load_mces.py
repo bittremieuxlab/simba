@@ -1,8 +1,13 @@
+"""Load MCES (Maximum Common Edge Substructure) data for molecular pair analysis."""
+
 import os
 
 import numpy as np
 
-from simba.config import Config
+
+# Constants for column indices in pair distance arrays
+COLUMN_EDIT_DISTANCE = 2
+COLUMN_MCES20 = 3
 
 
 class LoadMCES:
@@ -72,7 +77,7 @@ class LoadMCES:
             np_array = LoadMCES.remove_excess_low_pairs(
                 np_array,
                 remove_percentage=remove_percentage,
-                target_column=Config.COLUMN_EDIT_DISTANCE,
+                target_column=COLUMN_EDIT_DISTANCE,
             )
             # print(f'Size with removal: {np_array.shape[0]}')
             list_arrays.append(np_array)
@@ -83,8 +88,8 @@ class LoadMCES:
 
         # normalize
         print("Normalizing")
-        merged_array[:, Config.COLUMN_EDIT_DISTANCE] = LoadMCES.normalize_mces(
-            merged_array[:, Config.COLUMN_EDIT_DISTANCE]
+        merged_array[:, COLUMN_EDIT_DISTANCE] = LoadMCES.normalize_mces(
+            merged_array[:, COLUMN_EDIT_DISTANCE]
         )
 
         print("Remove redundant pairs")
@@ -164,8 +169,6 @@ class LoadMCES:
         load np arrays containing data as well as apply normalization
         """
 
-        # call the configuration
-        config = Config()
         # find all np arrays
         files = LoadMCES.find_file(directory_path, prefix)
 
@@ -181,7 +184,7 @@ class LoadMCES:
             pair_distances = LoadMCES.remove_excess_low_pairs(
                 pair_distances,
                 remove_percentage=remove_percentage,
-                target_column=config.COLUMN_EDIT_DISTANCE,
+                target_column=COLUMN_EDIT_DISTANCE,
             )
             # print(f'Size with removal: {np_array.shape[0]}')
             pair_distances_chunks.append(pair_distances)
@@ -195,15 +198,19 @@ class LoadMCES:
         print("Normalizing")
 
         if normalize_ed:
-            all_pair_distances[:, config.COLUMN_EDIT_DISTANCE] = LoadMCES.normalize_ed(
-                all_pair_distances[:, config.COLUMN_EDIT_DISTANCE],
+            all_pair_distances[:, COLUMN_EDIT_DISTANCE] = LoadMCES.normalize_ed(
+                all_pair_distances[:, COLUMN_EDIT_DISTANCE],
             )
 
-        if normalize_mces and not config.USE_TANIMOTO:
+        # Normalize MCES with configurable max value
+        # use_tanimoto is typically False (from config)
+        use_tanimoto = False
+        mces20_max_value = 40  # From config: data.mces20_max_value
+        if normalize_mces and not use_tanimoto:
             # if not using tanimoto normalize between 0 and 1
-            all_pair_distances[:, config.COLUMN_MCES20] = LoadMCES.normalize_mces20(
-                all_pair_distances[:, config.COLUMN_MCES20],
-                max_value=config.MCES20_MAX_VALUE,
+            all_pair_distances[:, COLUMN_MCES20] = LoadMCES.normalize_mces20(
+                all_pair_distances[:, COLUMN_MCES20],
+                max_value=mces20_max_value,
                 remove_negative_values=True,
             )
 

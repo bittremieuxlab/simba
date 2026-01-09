@@ -6,14 +6,12 @@ import numpy as np
 from pyteomics import mgf
 from tqdm import tqdm
 
-from simba.config import Config
 from simba.core.chemistry import chem_utils
 from simba.core.data.nist_loader import NistLoader
 from simba.core.data.preprocessing import PreprocessingUtils
 from simba.core.data.spectrum import SpectrumExt
 from simba.logger_setup import logger
 from simba.murcko_scaffold import MurckoScaffold
-from simba.preprocessor import Preprocessor
 from simba.spectrum_utils import spectrum_hash
 
 
@@ -22,7 +20,7 @@ class LoadData:
         source: IO | str,
         scan_nrs: Sequence[int] = None,
         compute_classes=False,
-        config=None,
+        cfg=None,
         use_gnps_format=True,
         use_only_protonized_adducts=True,
     ) -> Iterator[SpectrumExt]:
@@ -41,8 +39,8 @@ class LoadData:
         compute_classes : bool
             Whether to compute chemical superclass, class and subclass of the molecules
             using Classyfire.
-        config : Config
-            Configuration object containing parameters for preprocessing.
+        cfg : DictConfig
+            Hydra configuration object containing preprocessing parameters.
         use_gnps_format : bool
             Whether the MGF file follows the GNPS format. If `False`, it is assumed
             to follow the Janssen format.
@@ -73,14 +71,14 @@ class LoadData:
                 if use_only_protonized_adducts:
                     if use_gnps_format:
                         condition, res = LoadData.is_valid_spectrum_gnps(
-                            spectrum, config
+                            spectrum, cfg
                         )
                     else:  # janssen format
                         condition, res = LoadData.is_valid_spectrum_janssen(
-                            spectrum, config
+                            spectrum, cfg
                         )
                 else:
-                    condition, res = LoadData.default_filters(spectrum, config)
+                    condition, res = LoadData.default_filters(spectrum, cfg)
 
                 total_results.append(res)
                 if condition:
@@ -109,12 +107,18 @@ class LoadData:
         return precursor_mz
 
     @staticmethod
-    def default_filters(spectrum: SpectrumExt, config: Config):
+    def default_filters(spectrum: SpectrumExt, cfg):
+        """Apply default filters to spectrum.
+
+        Args:
+            spectrum: Spectrum to filter
+            cfg: DictConfig (Hydra configuration object)
+        """
         cond_library = True  # all the library is good
         cond_charge = True
         precursor_mz = LoadData.get_precursor_mz(spectrum)
         cond_pepmass = precursor_mz is not None and precursor_mz > 0
-        cond_mz_array = len(spectrum["m/z array"]) >= config.MIN_N_PEAKS
+        cond_mz_array = len(spectrum["m/z array"]) >= cfg.data.preprocessing.min_n_peaks
         cond_ion_mode = True
         cond_name = True
         cond_inchi_smiles = True
@@ -149,10 +153,16 @@ class LoadData:
         return total_condition, dict_results
 
     @staticmethod
-    def is_valid_spectrum_janssen(spectrum: SpectrumExt, config: Config):
+    def is_valid_spectrum_janssen(spectrum: SpectrumExt, cfg):
+        """Validate Janssen format spectrum.
+
+        Args:
+            spectrum: Spectrum to validate
+            cfg: DictConfig (Hydra configuration object)
+        """
         cond_library = True  # all the library is good
         if "charge" in spectrum["params"]:
-            cond_charge = int(spectrum["params"]["charge"][0]) in config.CHARGES
+            cond_charge = int(spectrum["params"]["charge"][0]) in cfg.data.ms_parameters.charges
         else:
             cond_charge = True
 
@@ -162,7 +172,7 @@ class LoadData:
         #    cond_pepmass = float(spectrum["params"]["pepmass"]) > 0
         cond_pepmass = True
 
-        cond_mz_array = len(spectrum["m/z array"]) >= config.MIN_N_PEAKS
+        cond_mz_array = len(spectrum["m/z array"]) >= cfg.data.preprocessing.min_n_peaks
 
         if "ionmode" in spectrum["params"]:
             cond_ion_mode = spectrum["params"]["ionmode"].lower() == "positive"
@@ -221,14 +231,20 @@ class LoadData:
         return total_condition, dict_results
 
     @staticmethod
-    def is_valid_spectrum_gnps(spectrum: SpectrumExt, config: Config):
+    def is_valid_spectrum_gnps(spectrum: SpectrumExt, cfg):
+        """Validate GNPS format spectrum.
+
+        Args:
+            spectrum: Spectrum to validate
+            cfg: DictConfig (Hydra configuration object)
+        """
         if "libraryquality" in spectrum["params"].keys():
             cond_library = int(spectrum["params"]["libraryquality"]) <= 3
         else:
             cond_library = True
 
         if "charge" in spectrum["params"]:
-            cond_charge = int(spectrum["params"]["charge"][0]) in config.CHARGES
+            cond_charge = int(spectrum["params"]["charge"][0]) in cfg.data.ms_parameters.charges
         else:
             cond_charge = True
         # try to convert to float the pep mass
@@ -237,7 +253,7 @@ class LoadData:
         except:
             cond_pepmass = False
 
-        cond_mz_array = len(spectrum["m/z array"]) >= config.MIN_N_PEAKS
+        cond_mz_array = len(spectrum["m/z array"]) >= cfg.data.preprocessing.min_n_peaks
 
         if "ionmode" in spectrum["params"]:
             cond_ion_mode = spectrum["params"]["ionmode"] == "Positive"
@@ -328,7 +344,7 @@ class LoadData:
         if "charge" in params:
             charge = int(params["charge"][0])
         else:
-            charge = None
+            charge = 1  # Default charge for positive ions
 
         ionmode = params["ionmode"].lower() if "ionmode" in params else "none"
 
@@ -402,7 +418,7 @@ class LoadData:
         num_samples: int = -1,
         compute_classes: bool = False,
         use_tqdm: bool = True,
-        config=None,
+        cfg=None,
         use_gnps_format: bool = True,
         use_only_protonized_adducts=True,
     ) -> list[SpectrumExt]:
@@ -422,8 +438,8 @@ class LoadData:
             using Classyfire.
         use_tqdm : bool
             Whether to display a progress bar using tqdm.
-        config : Config
-            Configuration object containing parameters for preprocessing.
+        cfg : DictConfig
+            Hydra configuration object containing preprocessing parameters.
         use_gnps_format : bool
             Whether the MGF file follows the GNPS format. If `False`, it is assumed
             to follow the Janssen format.
@@ -441,7 +457,7 @@ class LoadData:
         spectra_to_process = LoadData.get_spectra(
             file,
             compute_classes=compute_classes,
-            config=config,
+            cfg=cfg,
             use_gnps_format=use_gnps_format,
             use_only_protonized_adducts=use_only_protonized_adducts,
         )
@@ -450,9 +466,6 @@ class LoadData:
             iterator = tqdm(range(0, num_samples))
         else:
             iterator = range(0, num_samples)
-
-        # preprocessor
-        pp = Preprocessor()
 
         for i in iterator:
             try:
@@ -471,7 +484,7 @@ class LoadData:
         num_samples=10,
         compute_classes=False,
         use_tqdm=True,
-        config=None,
+        cfg=None,
         initial_line_number=0,
     ):
         """
@@ -506,11 +519,10 @@ class LoadData:
 
         # processing
         all_spectra = []
-        pp = Preprocessor()
 
         for spectrum in spectra:
             # use the validation from gnps format since it is the format we are parsing
-            condition, res = LoadData.is_valid_spectrum_gnps(spectrum, config=config)
+            condition, res = LoadData.is_valid_spectrum_gnps(spectrum, cfg=cfg)
             # print(res)
             if condition:
                 # yield spectrum['params']['name']
@@ -528,7 +540,7 @@ class LoadData:
         num_samples=10,
         compute_classes=False,
         use_tqdm=True,
-        config=None,
+        cfg=None,
         initial_line_number=0,
     ):
         # open casmi file
@@ -572,11 +584,10 @@ class LoadData:
 
         # processing
         all_spectra = []
-        pp = Preprocessor()
 
         for spectrum in all_spectra_parsed:
             # use the validation from gnps format since it is the format we are parsing
-            condition, res = LoadData.is_valid_spectrum_gnps(spectrum, config=config)
+            condition, res = LoadData.is_valid_spectrum_gnps(spectrum, cfg)
             # print(res)
             if condition:
                 # yield spectrum['params']['name']
@@ -595,7 +606,7 @@ class LoadData:
         compute_classes: bool = False,
         use_tqdm: bool = True,
         use_nist: bool = False,
-        config: Config = None,
+        cfg=None,
         use_janssen: bool = False,
     ) -> list[SpectrumExt]:
         """
@@ -616,8 +627,8 @@ class LoadData:
             Whether to display a progress bar using tqdm.
         use_nist : bool
             Whether the file is a NIST file. If `False`, it is assumed to be an MGF file.
-        config : Config
-            Configuration object containing parameters for preprocessing.
+        cfg : DictConfig
+            Hydra configuration object containing preprocessing parameters.
         use_janssen : bool
             Whether the MGF file follows the Janssen format. If `False`, it is assumed
             to follow the GNPS format.
@@ -634,7 +645,7 @@ class LoadData:
                 num_samples=num_samples,
                 compute_classes=compute_classes,
                 use_tqdm=use_tqdm,
-                config=config,
+                cfg=cfg,
                 use_gnps_format=False,
             )  # use format from Janssen
         elif use_nist:
@@ -643,7 +654,7 @@ class LoadData:
                 num_samples=num_samples,
                 compute_classes=compute_classes,
                 use_tqdm=use_tqdm,
-                config=config,
+                cfg=cfg,
             )
         else:
             spectra = LoadData.get_all_spectra_mgf(
@@ -651,7 +662,7 @@ class LoadData:
                 num_samples=num_samples,
                 compute_classes=compute_classes,
                 use_tqdm=use_tqdm,
-                config=config,
+                cfg=cfg,
                 use_gnps_format=True,
             )
 

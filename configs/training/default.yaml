@@ -1,0 +1,49 @@
+# @package _global_
+# Default training configuration
+
+# Optimizer
+optimizer:
+  name: adam
+  lr: 0.0001
+  weight_decay: 0.0
+  betas: [0.9, 0.999]
+
+# Training loop
+training:
+  epochs: 1000
+  batch_size: 128
+  val_check_interval: 10000
+  validate_after_ratio: 0.001
+  gradient_clip_val: 1.0
+  accumulate_grad_batches: 1
+
+# Data splits
+data:
+  val_split: 0.1
+  test_split: 0.1
+  max_spectra_train: 1000
+  max_spectra_val: 1000
+  max_spectra_test: 1000
+
+# Sampling & Uniformization
+sampling:
+  use_resampling: false
+  use_uniform_data_training: false
+  use_uniform_data_inference: true
+  bins_uniformise_training: 10
+  bins_uniformise_inference: 10
+
+  # Add high similarity pairs
+  add_high_similarity_pairs: false
+
+# Augmentation
+augmentation:
+  enabled: false
+  intensity_scale: [0.8, 1.2]
+  peak_removal_prob: 0.1
+
+# Hardware - default for production use
+hardware:
+  accelerator: gpu
+  devices: 1
+  num_workers: 10

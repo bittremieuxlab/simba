@@ -1,0 +1,26 @@
+# @package _global_
+# Fast development mode - for quick testing
+# Inherits from default and overrides specific values
+
+name: fast_dev
+
+defaults:
+  - default
+
+# Override for faster training
+training:
+  epochs: 20
+  batch_size: 20
+  val_check_interval: 100
+
+data:
+  max_spectra_train: 20
+  max_spectra_val: 20
+  max_spectra_test: 20
+
+hardware:
+  accelerator: cpu  # Override default GPU with CPU for local testing
+  num_workers: 0
+
+logging:
+  enable_progress_bar: true

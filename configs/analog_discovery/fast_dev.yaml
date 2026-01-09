@@ -1,0 +1,13 @@
+# @package _global_
+
+# Fast development mode for quick testing
+defaults:
+  - default
+
+analog_discovery:
+  batch_size: 8
+  top_k: 5
+  device: cpu
+  save_rankings: false
+  save_individual_plots: true
+  compute_ground_truth: false

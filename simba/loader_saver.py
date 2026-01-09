@@ -3,7 +3,6 @@ from typing import IO
 
 import dill
 
-from simba.config import Config
 from simba.core.data.loaders import LoadData
 from simba.core.data.spectrum import SpectrumExt
 
@@ -36,7 +35,7 @@ class LoaderSaver:
         compute_classes: bool = False,
         use_tqdm: bool = True,
         use_nist: bool = False,
-        config: Config = None,
+        cfg=None,
         use_janssen: bool = False,
         use_only_protonized_adducts: bool = True,
     ) -> list[SpectrumExt]:
@@ -56,8 +55,8 @@ class LoaderSaver:
             Whether to use tqdm for progress indication, by default True.
         use_nist : bool, optional
             Whether the file is in NIST format, by default False.
-        config : Config, optional
-            Configuration object, by default None.
+        cfg : DictConfig, optional
+            Hydra configuration object, by default None.
         use_janssen : bool, optional
             Whether the file is in Janssen format, by default False.
         use_only_protonized_adducts : bool, optional
@@ -75,7 +74,7 @@ class LoaderSaver:
                 num_samples=num_samples,
                 compute_classes=compute_classes,
                 use_tqdm=use_tqdm,
-                config=config,
+                cfg=cfg,
                 use_gnps_format=not (use_janssen),
                 use_only_protonized_adducts=use_only_protonized_adducts,
             )  # Janssen data does not use the GNPS format
@@ -87,7 +86,7 @@ class LoaderSaver:
                 num_samples=num_samples,
                 compute_classes=compute_classes,
                 use_tqdm=use_tqdm,
-                config=config,
+                cfg=cfg,
             )
         else:
             spectra = LoadData.get_all_spectra_mgf(
@@ -95,7 +94,7 @@ class LoaderSaver:
                 num_samples=num_samples,
                 compute_classes=compute_classes,
                 use_tqdm=use_tqdm,
-                config=config,
+                cfg=cfg,
                 use_only_protonized_adducts=use_only_protonized_adducts,
             )
             if self.pickle_gnps_path is not None:
@@ -109,7 +108,7 @@ class LoaderSaver:
         num_samples=100,
         compute_classes=False,
         use_tqdm=True,
-        config=None,
+        cfg=None,
     ):
         # get the number of lines of the file
         with open(file) as f:
@@ -132,7 +131,7 @@ class LoaderSaver:
                 num_samples=self.block_size,  # get N spectra per time
                 compute_classes=compute_classes,
                 use_tqdm=use_tqdm,
-                config=config,
+                cfg=cfg,
                 initial_line_number=current_line_number,
             )
 

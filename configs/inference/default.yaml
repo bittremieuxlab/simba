@@ -1,0 +1,18 @@
+# @package _global_
+
+# Default Inference Configuration
+inference:
+  # Data settings
+  preprocessing_pickle: "preprocessed_data.pkl"
+  batch_size: 64
+
+  # Model settings
+  use_last_model: false  # If false, use best_model.ckpt; if true, use last.ckpt
+
+  # Testing settings
+  uniformize_testing: true  # Whether to uniformize pairs across bins during testing
+
+  # Hardware settings
+  accelerator: "auto"  # Options: cpu, gpu, auto
+  devices: 1
+  enable_progress_bar: true
