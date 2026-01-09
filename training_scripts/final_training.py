@@ -35,6 +35,8 @@ from simba.weight_sampling_tools.custom_weighted_random_sampler import (
 from simba.plotting import Plotting
 import sys
 import simba
+from simba.simba.preprocessing_simba import PreprocessingSimba
+from simba.molecule_pairs_opt import MoleculePairsOpt
 
 # In case a MAC is being used:
 os.environ["PYTORCH_ENABLE_MPS_FALLBACK"] = "1"
@@ -66,10 +68,59 @@ sys.modules["src"] = simba
 with open(dataset_path, "rb") as file:
     dataset = dill.load(file)
 
-molecule_pairs_train = dataset["molecule_pairs_train"]
-molecule_pairs_val = dataset["molecule_pairs_val"]
-molecule_pairs_test = dataset["molecule_pairs_test"]
-uniformed_molecule_pairs_test = dataset["uniformed_molecule_pairs_test"]
+# Check if this is a lightweight format
+format_version = dataset.get("format_version", None)
+if format_version == "lightweight":
+    print(f"Detected lightweight format: {format_version}")
+    print("Reconstructing molecule pairs from MGF file...")
+
+    # Load all spectra from MGF
+    mgf_path = dataset["mgf_path"]
+    print(f"Loading spectra from: {mgf_path}")
+    all_spectrums = PreprocessingSimba.load_spectra(
+        mgf_path, config, use_gnps_format=False, use_only_protonized_adducts=config.USE_ONLY_PROTONIZED_ADDUCTS,
+    )
+    print(f"Loaded {len(all_spectrums)} spectra")
+
+    # Create lookup dictionary
+    spectrum_by_id = {s.identifier: s for s in all_spectrums}
+
+    # Reconstruct molecule_pairs for train, val, test
+    def reconstruct_molecule_pairs(split_name):
+        df_smiles = dataset[f"df_smiles_{split_name}"]
+        if df_smiles is None:
+            return None
+
+        # Use saved spectrum identifiers
+        spectrum_ids = dataset[f"spectrum_ids_{split_name}"]
+        spectrums_original = [spectrum_by_id[sid] for sid in spectrum_ids]
+        spectrums_unique = [spectrums_original[idx_list[0]] for idx_list in df_smiles['indexes']]
+
+        return MoleculePairsOpt(
+            spectrums_original=spectrums_original,
+            spectrums_unique=spectrums_unique,
+            df_smiles=df_smiles,
+            indexes_tani_unique=None,
+        )
+
+    molecule_pairs_train = reconstruct_molecule_pairs("train")
+    molecule_pairs_val = reconstruct_molecule_pairs("val")
+    molecule_pairs_test = reconstruct_molecule_pairs("test")
+    uniformed_molecule_pairs_test = None  # Not used in lightweight format
+
+    train_count = len(molecule_pairs_train.spectrums_original) if molecule_pairs_train is not None else 0
+    val_count = len(molecule_pairs_val.spectrums_original) if molecule_pairs_val is not None else 0
+    test_count = len(molecule_pairs_test.spectrums_original) if molecule_pairs_test is not None else 0
+    print(f"Reconstructed train: {train_count} spectra")
+    print(f"Reconstructed val: {val_count} spectra")
+    print(f"Reconstructed test: {test_count} spectra")
+else:
+    # Original full format
+    print("Using original full format")
+    molecule_pairs_train = dataset["molecule_pairs_train"]
+    molecule_pairs_val = dataset["molecule_pairs_val"]
+    molecule_pairs_test = dataset["molecule_pairs_test"]
+    uniformed_molecule_pairs_test = dataset["uniformed_molecule_pairs_test"]
 
 
 # Initialize a set to track unique first two columns
@@ -234,6 +285,13 @@ weights_val = WeightSampling.compute_sample_weights_categories(
     molecule_pairs_val, weights
 )
 
+if np.isnan(weights_tr).any():
+    print("Weights_tr contains NaN, replacing with uniform weights")
+    weights_tr = np.ones(len(weights_tr)) / len(weights_tr)
+if np.isnan(weights_val).any():
+    print("Weights_val contains NaN, replacing with uniform weights")
+    weights_val = np.ones(len(weights_val)) / len(weights_val)
+
 
 # In[292]:
 
@@ -260,8 +318,8 @@ plt.yscale("log")
 # In[295]:
 
 
-plt.hist(weights_val)
-plt.yscale("log")
+# plt.hist(weights_val)
+# plt.yscale("log")
 
 
 # In[296]:
@@ -311,7 +369,7 @@ weights_tr
 # In[301]:
 
 
-dataset["molecule_pairs_train"].indexes_tani
+# dataset["molecule_pairs_train"].indexes_tani
 
 
 # In[302]:

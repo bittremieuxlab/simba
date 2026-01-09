@@ -2,8 +2,8 @@ class Config:
     # default configuration
     # Spectra and spectrum pairs to include with the following settings.
     def __init__(self):
-        
-        
+
+
         # device
         self.ACCELERATOR = "gpu"
         # MULTITASKING
@@ -43,6 +43,7 @@ class Config:
             True  ## If using edit distance for generating data, not for training!!!
         )
         self.COMPUTE_SPECIFIC_PAIRS = False
+        self.COMPUTE_BOTH_METRICS = False  ## Compute both ED and MCES in a single pass (optimization)
 
         # training
         self.TRAINING_NUM_WORKERS = 10
@@ -98,23 +99,23 @@ class Config:
         self.BEST_MODEL_NAME = f"best_model.ckpt"
         self.PRETRAINED_MODEL_NAME = f"pretrained_model.ckpt"
         self.derived_variables()
-        
+
         ## TESTING
-        self.UNIFORMIZE_DURING_TESTING=True 
-        
+        self.UNIFORMIZE_DURING_TESTING=True
+
         ## ADDUCT HANDLING
         self.USE_CATEGORICAL_ADDUCTS=False ## input adduct info as categorical variables
         self.ADDUCT_INFO_CSV= "/Users/sebas/projects/metabolomics/data/ion_modes_with_adducts_with_M.csv"
-        
+
     def derived_variables(self):
         self.MODEL_CODE = f"{self.D_MODEL}_units_{self.N_LAYERS}_layers_{self.epochs}_epochs_{self.LR}_lr_{self.BATCH_SIZE}_bs{self.extra_info}"
 
-        
+
         if self.CHECKPOINT_DIR is None:
             self.CHECKPOINT_DIR = f"/scratch/antwerpen/209/vsc20939/data/model_checkpoints/model_checkpoints_{self.MODEL_CODE}/"
 
-        
-        
+
+
 
         if self.pretrained_path is None:
             self.pretrained_path = self.CHECKPOINT_DIR + self.PRETRAINED_MODEL_NAME
