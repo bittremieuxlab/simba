@@ -92,17 +92,24 @@ docs = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/bittremieux-lab/simba"
-Repository = "https://github.com/bittremieux-lab/simba"
-"Bug Tracker" = "https://github.com/bittremieux-lab/simba/issues"
+Homepage = "https://github.com/bittremieuxlab/simba"
+Repository = "https://github.com/bittremieuxlab/simba"
+Documentation = "https://simba-ms.readthedocs.io"
+"Bug Tracker" = "https://github.com/bittremieuxlab/simba/issues"
 
 [project.scripts]
 simba = "simba.cli:cli"
 
+[tool.setuptools]
+include-package-data = true
+
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["simba*"]
-exclude = ["tests*", "legacy_scripts*", "notebooks*", "docs*"]
+exclude = ["tests*", "legacy*", "notebooks*", "docs*"]
+
+[tool.setuptools.package-data]
+simba = ["configs/**/*.yaml"]
 
 # ============================================================================
 # Ruff Configuration

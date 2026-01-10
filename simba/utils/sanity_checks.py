@@ -1,4 +1,4 @@
-from simba.train_utils import TrainUtils
+from simba.core.training.train_utils import TrainUtils
 
 
 class SanityChecks:

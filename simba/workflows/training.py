@@ -22,8 +22,8 @@ from simba.core.models.ordinal.embedder_multitask import EmbedderMultitask
 from simba.core.models.ordinal.load_data_multitasking import LoadDataMultitasking
 from simba.core.training.losscallback import LossCallback
 from simba.core.training.train_utils import TrainUtils
-from simba.sanity_checks import SanityChecks
 from simba.utils.logger_setup import logger
+from simba.utils.sanity_checks import SanityChecks
 
 
 def load_dataset(cfg: DictConfig):

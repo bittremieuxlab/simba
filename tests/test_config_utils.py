@@ -8,6 +8,7 @@ from hydra import compose, initialize_config_dir
 
 from simba.utils.config_utils import (
     get_checkpoint_dir,
+    get_config_path,
     get_model_code,
     get_model_paths,
     validate_paths,
@@ -17,7 +18,7 @@ from simba.utils.config_utils import (
 @pytest.fixture
 def hydra_config():
     """Load Hydra configuration for testing."""
-    config_path = Path(__file__).parent.parent / "configs"
+    config_path = get_config_path()
     with initialize_config_dir(
         config_dir=str(config_path.absolute()), version_base=None
     ):

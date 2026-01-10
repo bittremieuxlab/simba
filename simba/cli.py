@@ -9,7 +9,7 @@ from simba.commands.train import train
 
 
 @click.group()
-@click.version_option(package_name="simba")
+@click.version_option(package_name="simba-ms")
 def cli():
     """SIMBA: Spectral Identification of Molecule Bio-Analogues.
 
