@@ -10,6 +10,7 @@ from omegaconf import DictConfig
 from simba.analog_discovery.simba_analog_discovery import AnalogDiscovery
 from simba.core.data.preprocessing_simba import PreprocessingSimba
 from simba.core.models.simba_model import Simba
+from simba.logger_setup import logger
 
 
 def run_analog_discovery(cfg: DictConfig) -> dict:
@@ -181,7 +182,7 @@ def process_single_query(
             ground_truth_ed = ground_truth_ed[0]
         except Exception:
             # If ground truth computation fails, continue without it
-            pass
+            logger.exception("Failed computing ground truth for query spectrum")
 
     # Add match information
     for i, match_idx in enumerate(best_matches_indices):

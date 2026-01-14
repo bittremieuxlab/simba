@@ -374,7 +374,7 @@ def train(
         accumulate_grad_batches=cfg.training.accumulate_grad_batches,
         callbacks=[checkpoint_callback, checkpoint_n_steps_callback, loss_callback],
         enable_progress_bar=cfg.logging.enable_progress_bar,
-        log_every_n_steps=50,
+        log_every_n_steps=cfg.logging.log_every_n_steps,
     )
 
     trainer.fit(model, dataloader_train, dataloader_val)
