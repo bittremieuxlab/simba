@@ -3,165 +3,132 @@
 from pathlib import Path
 
 import click
+from hydra import compose, initialize_config_dir
+from omegaconf import DictConfig
+
+from simba.utils.config_utils import get_model_paths
 
 
 @click.command()
-@click.option(
-    "--checkpoint-dir",
-    type=click.Path(file_okay=False, dir_okay=True, path_type=Path),
-    required=True,
-    help="Directory where the trained model will be saved.",
-)
-@click.option(
-    "--preprocessing-dir",
-    type=click.Path(exists=True, file_okay=False, dir_okay=True, path_type=Path),
-    required=True,
-    help="Directory where preprocessing files are stored.",
-)
-@click.option(
-    "--preprocessing-pickle",
-    type=str,
-    required=True,
-    help="Filename of the mapping pickle file (e.g., mapping_unique_smiles.pkl).",
-)
-@click.option(
-    "--epochs",
-    type=int,
-    default=10,
-    show_default=True,
-    help="Number of training epochs.",
-)
-@click.option(
-    "--accelerator",
-    type=click.Choice(["cpu", "gpu"], case_sensitive=False),
-    default="cpu",
-    show_default=True,
-    help="Hardware accelerator to use for training.",
-)
-@click.option(
-    "--val-check-interval",
-    type=int,
-    default=10000,
-    show_default=True,
-    help="Validation check frequency (every N training steps).",
-)
-@click.option(
-    "--batch-size",
-    type=int,
-    default=32,
-    show_default=True,
-    help="Batch size for training and validation.",
-)
-@click.option(
-    "--num-workers",
-    type=int,
-    default=0,
-    show_default=True,
-    help="Number of data loading workers (0 = main thread only).",
-)
-@click.option(
-    "--learning-rate",
-    type=float,
-    default=0.0001,
-    show_default=True,
-    help="Learning rate for the optimizer.",
-)
-def train(
-    checkpoint_dir: Path,
-    preprocessing_dir: Path,
-    preprocessing_pickle: str,
-    epochs: int,
-    accelerator: str,
-    val_check_interval: int,
-    batch_size: int,
-    num_workers: int,
-    learning_rate: float,
-):
+@click.argument("overrides", nargs=-1)
+def train(overrides: tuple[str, ...]) -> None:
     """Train a SIMBA model on MS/MS spectral data.
 
-    This command trains a custom SIMBA model using preprocessed MS/MS data.
-    The model learns to predict structural similarity between molecules from
-    their tandem mass spectra.
+    Configuration is loaded from YAML files (configs/config.yaml).
+    You can override any parameter via command line using Hydra syntax.
 
     Examples:
 
-        # Basic training with CPU
-        simba train --checkpoint-dir ./checkpoints \\
-                    --preprocessing-dir ./preprocessed_data \\
-                    --preprocessing-pickle mapping_unique_smiles.pkl \\
-                    --epochs 10
+    \b
+    # Basic training with default config
+    simba train
 
-        # Training with GPU and custom settings
-        simba train --checkpoint-dir ./checkpoints \\
-                    --preprocessing-dir ./preprocessed_data \\
-                    --preprocessing-pickle mapping_unique_smiles.pkl \\
-                    --epochs 50 \\
-                    --accelerator gpu \\
-                    --batch-size 64 \\
-                    --learning-rate 0.001
+    \b
+    # Override specific parameters
+    simba train training.training.epochs=50 hardware.accelerator=gpu
+
+    \b
+    # Override paths
+    simba train paths.preprocessing_dir=/path/to/data
+
+    \b
+    # Multiple overrides
+    simba train training.training.epochs=100 training.training.batch_size=64
     """
+    click.echo("Loading configuration...")
+
+    # Load Hydra config with CLI overrides
+    config_path = Path(__file__).parent.parent.parent / "configs"
+    with initialize_config_dir(
+        config_dir=str(config_path.absolute()), version_base=None
+    ):
+        cfg = compose(config_name="config", overrides=list(overrides))
+
+    # Call actual training logic
+    _train_with_hydra(cfg)
+
+
+def _train_with_hydra(cfg: DictConfig) -> None:
+    """Internal training function using Hydra configuration."""
+    # Validate required paths
+    preprocessing_dir = cfg.paths.preprocessing_dir_train or cfg.paths.preprocessing_dir
+    if not preprocessing_dir:
+        click.echo(
+            "❌ Error: Preprocessing directory is required.\n"
+            "Please specify either preprocessing_dir or preprocessing_dir_train:\n"
+            "  simba train paths.preprocessing_dir_train=./preprocessed_data\n"
+            "or\n"
+            "  simba train paths.preprocessing_dir=./preprocessed_data",
+            err=True,
+        )
+        raise click.Abort()
+
+    # Check if preprocessing directory exists
+    preprocessing_path = Path(preprocessing_dir)
+    if not preprocessing_path.exists():
+        click.echo(
+            f"❌ Error: Preprocessing directory not found: {preprocessing_path}\n"
+            "Please run preprocessing first:\n"
+            "  simba preprocess paths.spectra_path=data/spectra.mgf "
+            "paths.preprocessing_dir={preprocessing_path}",
+            err=True,
+        )
+        raise click.Abort()
+
+    # Check if preprocessing pickle file exists
+    mapping_file = preprocessing_path / cfg.paths.preprocessing_pickle_file
+    if not mapping_file.exists():
+        click.echo(
+            f"❌ Error: Preprocessing file not found: {mapping_file}\n"
+            "The preprocessing directory seems incomplete.\n"
+            "Please run preprocessing again with paths.overwrite=true",
+            err=True,
+        )
+        raise click.Abort()
+
+    if not cfg.paths.checkpoint_dir:
+        click.echo(
+            "❌ Error: checkpoint_dir is required.\n"
+            "Please specify the output directory for model checkpoints:\n"
+            "  simba train paths.checkpoint_dir=./checkpoints",
+            err=True,
+        )
+        raise click.Abort()
+
+    # Get model paths (checkpoint_dir, best_model_path, pretrained_path)
+    paths = get_model_paths(cfg)
+
     click.echo("Starting SIMBA training...")
-    click.echo(f"Checkpoint directory: {checkpoint_dir}")
+    click.echo(f"Checkpoint directory: {paths['checkpoint_dir']}")
     click.echo(f"Preprocessing directory: {preprocessing_dir}")
-    click.echo(f"Epochs: {epochs}")
-    click.echo(f"Accelerator: {accelerator}")
-    click.echo(f"Batch size: {batch_size}")
+    click.echo(f"Epochs: {cfg.training.epochs}")
+    click.echo(f"Accelerator: {cfg.hardware.accelerator}")
+    click.echo(f"Batch size: {cfg.training.batch_size}")
 
-    # Lazy imports - only import heavy dependencies when actually training
-    # This speeds up CLI help commands and reduces import time
-    import dill
-
-    import simba
-    from simba.config import Config
-
-    # Import training functions from existing script
-    # TODO: Refactor these into simba.training module to make CLI independent
-    try:
-        from training_scripts.final_training import (
-            create_dataloaders,
-            prepare_data,
-            setup_callbacks,
-            setup_model,
-        )
-        from training_scripts.final_training import (
-            train as run_training,
-        )
-    except ImportError as e:
-        raise click.ClickException(
-            "Failed to import training_scripts module. "
-            "Please ensure you are running from the project root directory, "
-            "or add the project root to your PYTHONPATH:\n"
-            "  export PYTHONPATH=/path/to/simba:$PYTHONPATH\n"
-            f"Import error: {e}"
-        ) from e
+    # Import training functions from workflows module
+    from simba.workflows.training import (
+        create_dataloaders,
+        load_dataset,
+        prepare_data,
+        setup_callbacks,
+        setup_model,
+    )
+    from simba.workflows.training import (
+        train as run_training,
+    )
 
     try:
-        # Setup configuration
-        config = _setup_config(
-            checkpoint_dir=checkpoint_dir,
-            preprocessing_dir=preprocessing_dir,
-            preprocessing_pickle=preprocessing_pickle,
-            epochs=epochs,
-            accelerator=accelerator,
-            val_check_interval=val_check_interval,
-            batch_size=batch_size,
-            num_workers=num_workers,
-            learning_rate=learning_rate,
-            Config=Config,
-        )
-
         # Create checkpoint directory
-        checkpoint_dir.mkdir(parents=True, exist_ok=True)
+        paths["checkpoint_dir"].mkdir(parents=True, exist_ok=True)
 
         # Load dataset
-        mapping_path = preprocessing_dir / preprocessing_pickle
-        click.echo(f"Loading dataset from {mapping_path}...")
+        click.echo("Loading dataset...")
         (
             molecule_pairs_train,
             molecule_pairs_val,
             molecule_pairs_test,
             uniformed_molecule_pairs_test,
-        ) = _load_dataset(mapping_path, simba, dill)
+        ) = load_dataset(cfg)
 
         # Prepare training data
         click.echo("Preparing training data...")
@@ -178,12 +145,12 @@ def train(
             molecule_pairs_val,
             molecule_pairs_test,
             uniformed_molecule_pairs_test,
-            config,
+            cfg,
         )
 
         # Create dataloaders
         dataloader_train, dataloader_val = create_dataloaders(
-            config, dataset_train, train_sampler, dataset_val, val_sampler
+            cfg, dataset_train, train_sampler, dataset_val, val_sampler
         )
 
         # Check training dataset size and adjust val_check_interval if needed
@@ -196,21 +163,21 @@ def train(
                 "Please check your preprocessing outputs and ensure the dataset contains valid training pairs."
             )
 
-        if num_train_batches < config.VAL_CHECK_INTERVAL:
+        if num_train_batches < cfg.training.val_check_interval:
             click.echo(
-                f"Debug: Original val_check_interval={config.VAL_CHECK_INTERVAL}, "
+                f"Debug: Original val_check_interval={cfg.training.val_check_interval}, "
                 f"num_train_batches={num_train_batches}"
             )
-            config.VAL_CHECK_INTERVAL = max(1, num_train_batches // 2)
+            cfg.training.val_check_interval = max(1, num_train_batches // 2)
             click.echo(
-                f"Adjusted val_check_interval to {config.VAL_CHECK_INTERVAL} "
+                f"Adjusted val_check_interval to {cfg.training.val_check_interval} "
                 f"(training dataset has only {num_train_batches} batches)"
             )
 
         # Setup model and callbacks
         click.echo("Initializing model...")
         checkpoint_callback, checkpoint_n_steps_callback, losscallback = (
-            setup_callbacks(config)
+            setup_callbacks(cfg)
         )
 
         # Get weights for MCES from first 100 batches (same as original script)
@@ -240,73 +207,23 @@ def train(
         )
         weights_mces = weights_mces / np.sum(weights_mces)
 
-        model = setup_model(config, weights_mces)
+        model = setup_model(cfg, weights_mces)
 
         # Train model
-        click.echo(f"Starting training for {epochs} epochs...")
+        click.echo(f"Starting training for {cfg.training.epochs} epochs...")
         run_training(
             model,
             dataloader_train,
             dataloader_val,
-            config,
+            cfg,
             checkpoint_callback,
             checkpoint_n_steps_callback,
             losscallback,
         )
 
         click.echo("Training completed successfully!")
-        click.echo(f"Model saved to: {checkpoint_dir}")
+        click.echo(f"Model saved to: {paths['checkpoint_dir']}")
 
     except Exception as e:
         click.echo(f"Error during training: {e}", err=True)
-        raise click.Abort() from e
-
-
-def _setup_config(
-    checkpoint_dir: Path,
-    preprocessing_dir: Path,
-    preprocessing_pickle: str,
-    epochs: int,
-    accelerator: str,
-    val_check_interval: int,
-    batch_size: int,
-    num_workers: int,
-    learning_rate: float,
-    Config,
-):
-    """Setup configuration for training."""
-    config = Config()
-
-    # Paths
-    config.CHECKPOINT_DIR = str(checkpoint_dir) + "/"
-    config.PREPROCESSING_DIR_TRAIN = str(preprocessing_dir) + "/"
-    config.PREPROCESSING_PICKLE_FILE = preprocessing_pickle
-
-    # Training parameters
-    config.epochs = epochs
-    config.ACCELERATOR = accelerator
-    config.VAL_CHECK_INTERVAL = val_check_interval
-    config.BATCH_SIZE = batch_size  # Used by both training and validation dataloaders
-    config.TRAINING_NUM_WORKERS = (
-        num_workers  # Used by both training and validation dataloaders
-    )
-    config.LR = learning_rate
-
-    # Inference settings
-    config.bins_uniformise_INFERENCE = config.EDIT_DISTANCE_N_CLASSES - 1
-    config.use_uniform_data_INFERENCE = True
-
-    return config
-
-
-def _load_dataset(mapping_path: Path, simba, dill):
-    """Load training dataset from pickle file."""
-    with open(mapping_path, "rb") as file:
-        mapping = dill.load(file)
-
-    return (
-        mapping["molecule_pairs_train"],
-        mapping["molecule_pairs_val"],
-        mapping["molecule_pairs_test"],
-        mapping["uniformed_molecule_pairs_test"],
-    )
+        raise

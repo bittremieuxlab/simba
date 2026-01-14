@@ -5,7 +5,19 @@ from pathlib import Path
 
 import pytest
 
-from simba.config import Config
+
+@pytest.fixture
+def hydra_config():
+    """Create a Hydra DictConfig for testing."""
+    from hydra import compose, initialize_config_dir
+
+    from simba.utils.config_utils import get_config_path
+
+    config_path = get_config_path()
+
+    with initialize_config_dir(config_dir=str(config_path), version_base=None):
+        cfg = compose(config_name="config")
+        return cfg
 
 
 @pytest.fixture
@@ -31,28 +43,6 @@ def sample_mgf(fixtures_dir):
 def sample_mgf_casmi(fixtures_dir):
     """Path to sample MGF file (CASMI2022 format with SMILES)."""
     return str(fixtures_dir / "sample_spectra_casmi.mgf")
-
-
-@pytest.fixture
-def mini_training_config(tmp_path):
-    """Create a minimal config for training tests."""
-    config = Config()
-    config.PREPROCESSING_DIR = str(tmp_path) + "/"
-    config.CHECKPOINT_DIR = str(tmp_path / "checkpoints") + "/"
-    config.SPECTRA_PATH = str(tmp_path / "spectra.mgf")
-    config.MOL_SPEC_MAPPING_FILE = "mapping_test.pkl"
-    config.PREPROCESSING_OVERWRITE = True
-    config.PREPROCESSING_NUM_WORKERS = 1
-    config.PREPROCESSING_NUM_NODES = 1
-    config.PREPROCESSING_CURRENT_NODE = 0
-    config.MAX_SPECTRA_TRAIN = 10
-    config.MAX_SPECTRA_VAL = 2
-    config.MAX_SPECTRA_TEST = 2
-    config.VAL_SPLIT = 0.2
-    config.TEST_SPLIT = 0.2
-    config.RANDOM_MCES_SAMPLING = True
-    config.USE_ONLY_PROTONIZED_ADDUCTS = False
-    return config
 
 
 @pytest.fixture
@@ -103,22 +93,22 @@ END IONS
 
 
 @pytest.fixture
-def mock_model(mocker):
+def mock_model(mocker, hydra_config):
     """Create a mocked SIMBA model with random weights for testing."""
     from simba.core.models.ordinal.embedder_multitask import EmbedderMultitask
 
-    config = Config()
+    cfg = hydra_config
 
     model = EmbedderMultitask(
-        d_model=int(config.D_MODEL),
-        n_layers=int(config.N_LAYERS),
-        n_classes=config.EDIT_DISTANCE_N_CLASSES,
-        use_gumbel=config.EDIT_DISTANCE_USE_GUMBEL,
+        d_model=int(cfg.model.transformer.d_model),
+        n_layers=int(cfg.model.transformer.n_layers),
+        n_classes=cfg.model.tasks.edit_distance.n_classes,
+        use_gumbel=cfg.model.tasks.edit_distance.use_gumbel,
         use_element_wise=True,
-        use_cosine_distance=config.use_cosine_distance,
-        use_edit_distance_regresion=config.USE_EDIT_DISTANCE_REGRESSION,
-        use_fingerprints=config.USE_FINGERPRINT,
-        USE_LEARNABLE_MULTITASK=config.USE_LEARNABLE_MULTITASK,
+        use_cosine_distance=cfg.model.tasks.cosine_similarity.use_cosine_distance,
+        use_edit_distance_regresion=cfg.model.tasks.edit_distance.use_regression,
+        use_fingerprints=cfg.model.tasks.fingerprints.enabled,
+        USE_LEARNABLE_MULTITASK=cfg.model.multitasking.learnable,
     )
     model.eval()
 

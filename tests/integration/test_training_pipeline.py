@@ -15,7 +15,6 @@ from unittest.mock import MagicMock, patch
 import numpy as np
 import pandas as pd
 
-from simba.config import Config
 from simba.core.chemistry.mces_loader.load_mces import LoadMCES
 from simba.core.data.preprocessing_simba import PreprocessingSimba
 from simba.core.data.spectrum import SpectrumExt
@@ -28,13 +27,12 @@ from simba.train_utils import TrainUtils
 class TestDataPreprocessing:
     """Test data preprocessing and generation for training."""
 
-    def test_train_val_test_split(self, sample_training_spectra, mini_training_config):
+    def test_train_val_test_split(self, sample_training_spectra, hydra_config):
         """Test that train/val/test split works correctly."""
         # Load spectra
-        mini_training_config.SPECTRA_PATH = str(sample_training_spectra)
         all_spectra = PreprocessingSimba.load_spectra(
-            mini_training_config.SPECTRA_PATH,
-            mini_training_config,
+            str(sample_training_spectra),
+            hydra_config,
             n_samples=100,
             use_gnps_format=False,
             use_only_protonized_adducts=False,
@@ -50,8 +48,8 @@ class TestDataPreprocessing:
         # Perform split
         train, val, test = TrainUtils.train_val_test_split_bms(
             all_spectra,
-            val_split=mini_training_config.VAL_SPLIT,
-            test_split=mini_training_config.TEST_SPLIT,
+            val_split=0.2,
+            test_split=0.2,
         )
 
         # Check splits are non-empty
@@ -74,14 +72,12 @@ class TestDataPreprocessing:
         assert 0.0 < test_ratio <= 0.4, f"Test ratio {test_ratio} should be reasonable"
 
     def test_preprocessing_creates_mapping_structure(
-        self, sample_training_spectra, mini_training_config, tmp_path
+        self, sample_training_spectra, tmp_path, hydra_config
     ):
         """Test that preprocessing creates the expected mapping file structure."""
-        mini_training_config.SPECTRA_PATH = str(sample_training_spectra)
-
         all_spectra = PreprocessingSimba.load_spectra(
-            mini_training_config.SPECTRA_PATH,
-            mini_training_config,
+            str(sample_training_spectra),
+            hydra_config,
             n_samples=100,
             use_gnps_format=False,
             use_only_protonized_adducts=False,
@@ -92,8 +88,8 @@ class TestDataPreprocessing:
 
         train, val, test = TrainUtils.train_val_test_split_bms(
             all_spectra,
-            val_split=mini_training_config.VAL_SPLIT,
-            test_split=mini_training_config.TEST_SPLIT,
+            val_split=0.2,
+            test_split=0.2,
         )
         train = train[:4]
 
@@ -124,7 +120,7 @@ class TestDataPreprocessing:
             "molecule_pairs_test": None,
         }
 
-        mapping_path = tmp_path / mini_training_config.MOL_SPEC_MAPPING_FILE
+        mapping_path = tmp_path / "mapping_test.pkl"
         with open(mapping_path, "wb") as f:
             pickle.dump(mapping_data, f)
 
@@ -328,13 +324,11 @@ class TestMappingFileStructure:
 class TestTrainingSmoke:
     """Smoke tests for model training."""
 
-    def test_model_initialization(self):
+    def test_model_initialization(self, hydra_config):
         """Test that model can be initialized with config."""
-        config = Config()
-
-        d_model = config.EMBEDDING_DIM
+        d_model = hydra_config.model.transformer.d_model
         n_layers = 6
-        n_classes = config.EDIT_DISTANCE_N_CLASSES
+        n_classes = hydra_config.model.tasks.edit_distance.n_classes
         use_gumbel = False
 
         model = EmbedderMultitask(
@@ -366,13 +360,11 @@ class TestTrainingSmoke:
 class TestInferenceOnTrainedModel:
     """Test inference pipeline with trained model."""
 
-    def test_embedding_generation_shape(self, sample_mgf, mocker):
+    def test_embedding_generation_shape(self, sample_mgf, mocker, hydra_config):
         """Test that model produces embeddings of expected shape."""
-        config = Config()
-
         spectra = PreprocessingSimba.load_spectra(
             str(sample_mgf),
-            config,
+            hydra_config,
             n_samples=5,
             use_gnps_format=False,
         )
@@ -380,15 +372,15 @@ class TestInferenceOnTrainedModel:
         assert len(spectra) >= 2
 
         model = EmbedderMultitask(
-            d_model=int(config.D_MODEL),
-            n_layers=int(config.N_LAYERS),
-            n_classes=config.EDIT_DISTANCE_N_CLASSES,
-            use_gumbel=config.EDIT_DISTANCE_USE_GUMBEL,
+            d_model=int(hydra_config.model.transformer.d_model),
+            n_layers=int(hydra_config.model.transformer.n_layers),
+            n_classes=hydra_config.model.tasks.edit_distance.n_classes,
+            use_gumbel=hydra_config.model.tasks.edit_distance.use_gumbel,
             use_element_wise=True,
-            use_cosine_distance=config.use_cosine_distance,
-            use_edit_distance_regresion=config.USE_EDIT_DISTANCE_REGRESSION,
-            use_fingerprints=config.USE_FINGERPRINT,
-            USE_LEARNABLE_MULTITASK=config.USE_LEARNABLE_MULTITASK,
+            use_cosine_distance=hydra_config.model.tasks.cosine_similarity.use_cosine_distance,
+            use_edit_distance_regresion=hydra_config.model.tasks.edit_distance.use_regression,
+            use_fingerprints=hydra_config.model.tasks.fingerprints.enabled,
+            USE_LEARNABLE_MULTITASK=hydra_config.model.multitasking.learnable,
         )
         model.eval()
 
@@ -399,7 +391,7 @@ class TestInferenceOnTrainedModel:
 
         simba = Simba(
             "fake_checkpoint.ckpt",
-            config=config,
+            config=hydra_config,
             device="cpu",
             cache_embeddings=False,
         )
@@ -411,13 +403,13 @@ class TestInferenceOnTrainedModel:
         assert isinstance(sim_ed, np.ndarray)
         assert isinstance(sim_mces, np.ndarray)
 
-    def test_similarity_computation_after_training(self, sample_mgf_casmi, mocker):
+    def test_similarity_computation_after_training(
+        self, sample_mgf_casmi, mocker, hydra_config
+    ):
         """Test that similarity computation works with trained model."""
-        config = Config()
-
         spectra = PreprocessingSimba.load_spectra(
             str(sample_mgf_casmi),
-            config,
+            hydra_config,
             n_samples=10,
             use_gnps_format=False,
         )
@@ -425,15 +417,15 @@ class TestInferenceOnTrainedModel:
         assert len(spectra) >= 2, f"Need at least 2 spectra, got {len(spectra)}"
 
         model = EmbedderMultitask(
-            d_model=int(config.D_MODEL),
-            n_layers=int(config.N_LAYERS),
-            n_classes=config.EDIT_DISTANCE_N_CLASSES,
-            use_gumbel=config.EDIT_DISTANCE_USE_GUMBEL,
+            d_model=int(hydra_config.model.transformer.d_model),
+            n_layers=int(hydra_config.model.transformer.n_layers),
+            n_classes=hydra_config.model.tasks.edit_distance.n_classes,
+            use_gumbel=hydra_config.model.tasks.edit_distance.use_gumbel,
             use_element_wise=True,
-            use_cosine_distance=config.use_cosine_distance,
-            use_edit_distance_regresion=config.USE_EDIT_DISTANCE_REGRESSION,
-            use_fingerprints=config.USE_FINGERPRINT,
-            USE_LEARNABLE_MULTITASK=config.USE_LEARNABLE_MULTITASK,
+            use_cosine_distance=hydra_config.model.tasks.cosine_similarity.use_cosine_distance,
+            use_edit_distance_regresion=hydra_config.model.tasks.edit_distance.use_regression,
+            use_fingerprints=hydra_config.model.tasks.fingerprints.enabled,
+            USE_LEARNABLE_MULTITASK=hydra_config.model.multitasking.learnable,
         )
         model.eval()
 
@@ -444,7 +436,7 @@ class TestInferenceOnTrainedModel:
 
         simba = Simba(
             "fake_checkpoint.ckpt",
-            config=config,
+            config=hydra_config,
             device="cpu",
             cache_embeddings=False,
         )

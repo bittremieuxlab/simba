@@ -1,0 +1,17 @@
+# Fast development preprocessing - for quick testing
+# Inherits from default and overrides specific values
+
+name: fast_dev
+
+defaults:
+  - default
+
+# Override for faster preprocessing
+max_spectra_train: 20
+max_spectra_val: 20
+max_spectra_test: 20
+
+# Development settings
+overwrite: true  # Always overwrite in dev mode
+val_split: 0.1
+test_split: 0.1
