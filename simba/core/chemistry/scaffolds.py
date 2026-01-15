@@ -1,7 +1,7 @@
 from rdkit import Chem
 from rdkit.Chem.Scaffolds.MurckoScaffold import MakeScaffoldGeneric
 
-from simba.logger_setup import logger
+from simba.utils.logger_setup import logger
 
 
 class MurckoScaffold:

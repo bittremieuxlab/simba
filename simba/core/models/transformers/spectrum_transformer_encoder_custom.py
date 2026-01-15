@@ -3,7 +3,7 @@ from depthcharge.transformers import (
     SpectrumTransformerEncoder,
 )  # PeptideTransformerEncoder,
 
-from simba.one_hot_encoding.one_hot_encoding import OneHotEncoding
+from simba.core.data.encoding import OneHotEncoding
 
 
 class SpectrumTransformerEncoderCustom(SpectrumTransformerEncoder):

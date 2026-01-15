@@ -14,16 +14,16 @@ from omegaconf import DictConfig
 from torch.utils.data import DataLoader
 
 from simba.core.chemistry.mces_loader.load_mces import LoadMCES
-from simba.core.models.ordinal.embedder_multitask import EmbedderMultitask
-from simba.core.models.ordinal.load_data_multitasking import LoadDataMultitasking
-from simba.logger_setup import logger
-from simba.losscallback import LossCallback
-from simba.sanity_checks import SanityChecks
-from simba.train_utils import TrainUtils
-from simba.weight_sampling import WeightSampling
-from simba.weight_sampling_tools.custom_weighted_random_sampler import (
+from simba.core.data.sampling.custom_weighted_random_sampler import (
     CustomWeightedRandomSampler,
 )
+from simba.core.data.sampling.weight_sampling import WeightSampling
+from simba.core.models.ordinal.embedder_multitask import EmbedderMultitask
+from simba.core.models.ordinal.load_data_multitasking import LoadDataMultitasking
+from simba.core.training.losscallback import LossCallback
+from simba.core.training.train_utils import TrainUtils
+from simba.utils.logger_setup import logger
+from simba.utils.sanity_checks import SanityChecks
 
 
 def load_dataset(cfg: DictConfig):

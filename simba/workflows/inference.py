@@ -15,8 +15,8 @@ from simba.core.chemistry.mces_loader.load_mces import LoadMCES
 from simba.core.models.ordinal.embedder_multitask import EmbedderMultitask
 from simba.core.models.ordinal.load_data_multitasking import LoadDataMultitasking
 from simba.core.models.transformers.postprocessing import Postprocessing
-from simba.logger_setup import logger
-from simba.train_utils import TrainUtils
+from simba.core.training.train_utils import TrainUtils
+from simba.utils.logger_setup import logger
 
 
 def load_inference_data(cfg: DictConfig):

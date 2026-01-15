@@ -64,7 +64,8 @@ def inference(
     import os
     import platform
 
-    from simba.logger_setup import logger
+    from simba.utils.config_utils import get_config_path
+    from simba.utils.logger_setup import logger
     from simba.workflows.inference import inference as run_inference
 
     # Enable MPS fallback on macOS for unsupported ops
@@ -105,8 +106,7 @@ def inference(
     click.echo(f"Output directory: {output_dir}")
 
     # Initialize Hydra with absolute path to config directory
-    config_dir = Path(__file__).parent.parent.parent / "configs"
-    config_dir = str(config_dir.resolve())
+    config_dir = str(get_config_path().resolve())
 
     # Build overrides list
     override_list = [

@@ -15,9 +15,9 @@ def get_config_path() -> Path:
     Returns:
         Path to configs/ directory
     """
-    # Get the simba package root directory
-    package_root = Path(__file__).parent.parent.parent
-    return package_root / "configs"
+    # Get the simba package directory
+    simba_package = Path(__file__).parent.parent
+    return simba_package / "configs"
 
 
 def get_model_code(cfg: DictConfig) -> str:

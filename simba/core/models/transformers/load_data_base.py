@@ -2,7 +2,7 @@ import copy
 
 import numpy as np
 
-from simba.preprocessor import Preprocessor
+from simba.core.data.preprocessor import Preprocessor
 
 
 class LoadDataBase:

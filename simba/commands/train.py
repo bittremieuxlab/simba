@@ -6,7 +6,7 @@ import click
 from hydra import compose, initialize_config_dir
 from omegaconf import DictConfig
 
-from simba.utils.config_utils import get_model_paths
+from simba.utils.config_utils import get_config_path, get_model_paths
 
 
 @click.command()
@@ -38,7 +38,7 @@ def train(overrides: tuple[str, ...]) -> None:
     click.echo("Loading configuration...")
 
     # Load Hydra config with CLI overrides
-    config_path = Path(__file__).parent.parent.parent / "configs"
+    config_path = get_config_path()
     with initialize_config_dir(
         config_dir=str(config_path.absolute()), version_base=None
     ):
@@ -187,7 +187,7 @@ def _train_with_hydra(cfg: DictConfig) -> None:
 
         import numpy as np
 
-        from simba.train_utils import TrainUtils
+        from simba.core.training.train_utils import TrainUtils
 
         mces_sampled = []
         for batch in itertools.islice(dataloader_train, 100):
