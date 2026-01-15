@@ -144,7 +144,9 @@ class LoadDataMultitasking:
             precursor_charge[i] = spec.precursor_charge
 
             if use_adduct:
-                if spec.ionmode == "none":
+                if (spec.ionmode is None) or (
+                    spec.ionmode == "None"
+                ):  # TODO: check if the 2nd condition is needed
                     # ionmode[i] = np.nan
                     ionmode[i] = 0
                 else:
@@ -152,13 +154,15 @@ class LoadDataMultitasking:
                 adduct[i] = one_hot_encoding.encode_adduct(spec.adduct)
 
             if use_ce:
-                if spec.ce == "None":
+                if (spec.ce is None) or (spec.ce == "None"):
                     ce[i] = 0  # TODO: array dtype -> int
                 else:
                     ce[i] = spec.ce
 
             if use_ion_activation:
-                if spec.ion_activation == "None":
+                if (spec.ion_activation is None) or (
+                    spec.ion_activation == "None"
+                ):
                     ia[i] = np.zeros(
                         len(one_hot_encoding.ION_ACTIVATION), dtype=np.int32
                     )
@@ -168,7 +172,9 @@ class LoadDataMultitasking:
                     )
 
             if use_ion_method:
-                if spec.ionization_method == "None":
+                if (spec.ionization_method is None) or (
+                    spec.ionization_method == "None"
+                ):
                     im[i] = np.zeros(
                         len(one_hot_encoding.IONIZATION_METHODS),
                         dtype=np.int32,

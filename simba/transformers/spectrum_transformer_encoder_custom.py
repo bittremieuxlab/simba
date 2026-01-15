@@ -57,7 +57,7 @@ class SpectrumTransformerEncoderCustom(SpectrumTransformerEncoder):
             placeholder[:, current_idx] = ionmode
             current_idx += 1
 
-            adduct = kwargs["adduct"].to(device)
+            adduct = kwargs["adduct"].float().to(device).view(batch_size, -1)
             stop_idx = current_idx + adduct.shape[1]
             placeholder[:, current_idx:stop_idx] = adduct
             current_idx = stop_idx
@@ -68,19 +68,27 @@ class SpectrumTransformerEncoderCustom(SpectrumTransformerEncoder):
             current_idx += 1
 
         if self.use_ion_activation:
-            ia = kwargs["ion_activation"].to(device)
+            ia = (
+                kwargs["ion_activation"]
+                .float()
+                .to(device)
+                .view(batch_size, -1)
+            )
             stop_idx = current_idx + ia.shape[1]
             placeholder[:, current_idx:stop_idx] = ia
             current_idx = stop_idx
 
         if self.use_ion_method:
-            im = kwargs["ion_method"].to(device)
+            im = kwargs["ion_method"].float().to(device).view(batch_size, -1)
             stop_idx = current_idx + im.shape[1]
             placeholder[:, current_idx:stop_idx] = im
             current_idx = stop_idx
 
-
-
         # ensure there are no nans
-        placeholder = torch.nan_to_num(placeholder, nan=0.0, posinf=0.0, neginf=0.0)
+        placeholder = torch.nan_to_num(
+            placeholder, nan=0.0, posinf=0.0, neginf=0.0
+        )
+
+        # print('debugging placeholder')
+        # print(placeholder[0])
         return placeholder

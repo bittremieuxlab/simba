@@ -1,4 +1,5 @@
 import os
+import pickle
 import random
 import sys
 
@@ -453,6 +454,11 @@ model = EmbedderMultitask(
     use_mces20_log_loss=config.USE_MCES20_LOG_LOSS,
     use_edit_distance_regresion=config.USE_EDIT_DISTANCE_REGRESSION,
     use_precursor_mz_for_model=config.USE_PRECURSOR_MZ_FOR_MODEL,
+    USE_LEARNABLE_MULTITASK=config.USE_LEARNABLE_MULTITASK,
+    use_adduct=config.USE_ADDUCT,
+    use_ce=config.USE_CE,
+    use_ion_activation=config.USE_ION_ACTIVATION,
+    use_ion_method=config.USE_ION_METHOD,
 )
 
 # Create a model:
@@ -467,6 +473,14 @@ if config.load_pretrained:
         use_gumbel=config.EDIT_DISTANCE_USE_GUMBEL,
         weights_sim2=weights_sim2,
         strict=False,
+        use_mces20_log_loss=config.USE_MCES20_LOG_LOSS,
+        use_edit_distance_regresion=config.USE_EDIT_DISTANCE_REGRESSION,
+        use_precursor_mz_for_model=config.USE_PRECURSOR_MZ_FOR_MODEL,
+        USE_LEARNABLE_MULTITASK=config.USE_LEARNABLE_MULTITASK,
+        use_adduct=config.USE_ADDUCT,
+        use_ce=config.USE_CE,
+        use_ion_activation=config.USE_ION_ACTIVATION,
+        use_ion_method=config.USE_ION_METHOD,
     )
 
     model.spectrum_encoder = model_pretrained.spectrum_encoder

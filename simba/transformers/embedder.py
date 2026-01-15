@@ -132,7 +132,7 @@ class Embedder(pl.LightningModule):
         if self.use_ce:
             logger.info("Using CE in the model")
             kwargs_0["ce"] = batch["ce_0"].float()
-            kwargs_1["ce"] = batch["ce_0"].float()
+            kwargs_1["ce"] = batch["ce_1"].float()
 
         if self.use_ion_activation:
             kwargs_0["ion_activation"] = batch["ion_activation_0"].float()
@@ -141,6 +141,20 @@ class Embedder(pl.LightningModule):
         if self.use_ion_method:
             kwargs_0["ion_method"] = batch["ion_method_0"].float()
             kwargs_1["ion_method"] = batch["ion_method_1"].float()
+
+        # ensure there are no nans
+        batch["mz_0"] = torch.nan_to_num(
+            batch["mz_0"], nan=0.0, posinf=0.0, neginf=0.0
+        )
+        batch["mz_1"] = torch.nan_to_num(
+            batch["mz_1"], nan=0.0, posinf=0.0, neginf=0.0
+        )
+        batch["intensity_0"] = torch.nan_to_num(
+            batch["intensity_0"], nan=0.0, posinf=0.0, neginf=0.0
+        )
+        batch["intensity_1"] = torch.nan_to_num(
+            batch["intensity_1"], nan=0.0, posinf=0.0, neginf=0.0
+        )
 
         emb0, _ = self.spectrum_encoder(
             mz_array=batch["mz_0"].float(),

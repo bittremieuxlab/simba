@@ -405,6 +405,7 @@ def setup_model(config, weights_mces):
         use_precursor_mz_for_model=config.USE_PRECURSOR_MZ_FOR_MODEL,
         tau_gumbel_softmax=config.TAU_GUMBEL_SOFTMAX,
         gumbel_reg_weight=config.GUMBEL_REG_WEIGHT,
+        USE_LEARNABLE_MULTITASK=config.USE_LEARNABLE_MULTITASK,
         use_adduct=config.USE_ADDUCT,
         use_ce=config.USE_CE,
         use_ion_activation=config.USE_ION_ACTIVATION,
@@ -431,6 +432,10 @@ def setup_model(config, weights_mces):
                 tau_gumbel_softmax=config.TAU_GUMBEL_SOFTMAX,
                 gumbel_reg_weight=config.GUMBEL_REG_WEIGHT,
                 use_adduct=config.USE_ADDUCT,
+                USE_LEARNABLE_MULTITASK=config.USE_LEARNABLE_MULTITASK,
+                use_ce=config.USE_CE,
+                use_ion_activation=config.USE_ION_ACTIVATION,
+                use_ion_method=config.USE_ION_METHOD,
             )
             logger.info("Loaded full model from checkpoint")
         except Exception as e:
