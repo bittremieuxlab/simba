@@ -104,6 +104,9 @@ def prepare_inference_dataloaders(
         molecule_pairs_ed_uniform,
         max_num_peaks=int(cfg.model.transformer.context_length),
         use_adduct=cfg.model.features.use_adduct,
+        use_ce=cfg.model.features.use_ce,
+        use_ion_activation=cfg.model.features.use_ion_activation,
+        use_ion_method=cfg.model.features.use_ion_method,
     )
     dataloader_ed = DataLoader(
         dataset_ed, batch_size=cfg.inference.batch_size, shuffle=False
@@ -113,6 +116,9 @@ def prepare_inference_dataloaders(
         molecule_pairs_mces_uniform,
         max_num_peaks=int(cfg.model.transformer.context_length),
         use_adduct=cfg.model.features.use_adduct,
+        use_ce=cfg.model.features.use_ce,
+        use_ion_activation=cfg.model.features.use_ion_activation,
+        use_ion_method=cfg.model.features.use_ion_method,
     )
     dataloader_mces = DataLoader(
         dataset_mces, batch_size=cfg.inference.batch_size, shuffle=False
@@ -143,8 +149,6 @@ def load_model_for_inference(cfg: DictConfig, checkpoint_path: str):
         "use_edit_distance_regresion": cfg.data.use_edit_distance_regression,
         "strict": False,
         "use_adduct": cfg.model.features.use_adduct,
-        "categorical_adducts": cfg.model.features.categorical_adducts,
-        "adduct_mass_map": cfg.data.adducts.adduct_mass_map_csv,
         "use_ce": cfg.model.features.use_ce,
         "use_ion_activation": cfg.model.features.use_ion_activation,
         "use_ion_method": cfg.model.features.use_ion_method,

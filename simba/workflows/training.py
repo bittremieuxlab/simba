@@ -321,7 +321,6 @@ def setup_model(cfg: DictConfig, weights_mces: np.ndarray) -> EmbedderMultitask:
         "lr": cfg.optimizer.lr,
         "use_adduct": cfg.model.features.use_adduct,
         "use_precursor_mz_for_model": cfg.model.features.use_precursor_mz,
-        "categorical_adducts": cfg.model.features.categorical_adducts,
         "use_ce": cfg.model.features.use_ce,
         "use_ion_activation": cfg.model.features.use_ion_activation,
         "use_ion_method": cfg.model.features.use_ion_method,
