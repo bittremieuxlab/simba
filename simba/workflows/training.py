@@ -14,6 +14,8 @@ from omegaconf import DictConfig
 from torch.utils.data import DataLoader
 
 from simba.core.chemistry.mces_loader.load_mces import LoadMCES
+from simba.core.data.molecule_pairs_opt import MoleculePairsOpt
+from simba.core.data.preprocessing_simba import PreprocessingSimba
 from simba.core.data.sampling.custom_weighted_random_sampler import (
     CustomWeightedRandomSampler,
 )
@@ -63,6 +65,51 @@ def load_dataset(cfg: DictConfig):
             f"The file may be corrupted or incompatible.\n"
             f"Original error: {type(e).__name__}: {e}"
         ) from e
+
+    # Check if lightweight format
+    if mapping.get("format_version") == "lightweight":
+        logger.info(
+            "Detected lightweight format - loading spectra dynamically from MGF"
+        )
+
+        mgf_path = mapping["mgf_path"]
+        all_spectra = PreprocessingSimba.load_spectra(mgf_path, cfg)
+
+        # Create spectrum lookup by identifier
+        spectra_by_id = {s.identifier: s for s in all_spectra}
+
+        # Reconstruct molecule pairs with spectra
+        for split in ["train", "val", "test"]:
+            df_smiles_key = f"df_smiles_{split}"
+            spectrum_ids_key = f"spectrum_ids_{split}"
+
+            if df_smiles_key in mapping and spectrum_ids_key in mapping:
+                df_smiles = mapping[df_smiles_key]
+                spectrum_ids = mapping[spectrum_ids_key]
+
+                # Load spectra for this split
+                spectrums = [spectra_by_id[sid] for sid in spectrum_ids]
+
+                # Create MoleculePairsOpt object
+                molecule_pairs = MoleculePairsOpt(
+                    original_spectra=spectrums,
+                    unique_spectra=spectrums,
+                    df_smiles=df_smiles,
+                    pair_distances=None,  # Will be loaded separately
+                )
+
+                # Store in mapping dict
+                mapping[f"molecule_pairs_{split}"] = molecule_pairs
+
+        return (
+            mapping.get("molecule_pairs_train"),
+            mapping.get("molecule_pairs_val"),
+            mapping.get("molecule_pairs_test"),
+            None,
+        )
+
+    # Original full format validation
+    logger.info("Loading full format")
 
     # Validate required keys
     required_keys = [

@@ -12,6 +12,8 @@ from scipy.stats import spearmanr
 from torch.utils.data import DataLoader
 
 from simba.core.chemistry.mces_loader.load_mces import LoadMCES
+from simba.core.data.molecule_pairs_opt import MoleculePairsOpt
+from simba.core.data.preprocessing_simba import PreprocessingSimba
 from simba.core.models.ordinal.embedder_multitask import EmbedderMultitask
 from simba.core.models.ordinal.load_data_multitasking import LoadDataMultitasking
 from simba.core.models.transformers.postprocessing import Postprocessing
@@ -37,7 +39,37 @@ def load_inference_data(cfg: DictConfig):
     with open(dataset_path, "rb") as file:
         dataset = dill.load(file)
 
-    molecule_pairs = dataset["molecule_pairs_test"]
+    # Check if lightweight format and reconstruct if needed
+    if dataset.get("format_version") == "lightweight":
+        logger.info("Detected lightweight format - reconstructing molecule_pairs_test")
+
+        mgf_path = dataset["mgf_path"]
+        all_spectra = PreprocessingSimba.load_spectra(mgf_path, cfg)
+
+        # Create spectrum lookup by identifier
+        spectra_by_id = {s.identifier: s for s in all_spectra}
+
+        # Reconstruct test molecule pairs
+        if "df_smiles_test" in dataset and "spectrum_ids_test" in dataset:
+            df_smiles = dataset["df_smiles_test"]
+            spectrum_ids = dataset["spectrum_ids_test"]
+
+            # Load spectra for test split
+            spectrums = [spectra_by_id[sid] for sid in spectrum_ids]
+
+            # Create MoleculePairsOpt object
+            molecule_pairs = MoleculePairsOpt(
+                original_spectra=spectrums,
+                unique_spectra=spectrums,
+                df_smiles=df_smiles,
+                pair_distances=None,  # Will be loaded separately
+            )
+        else:
+            raise ValueError("Test split not found in lightweight format dataset")
+    else:
+        # Full format
+        molecule_pairs = dataset["molecule_pairs_test"]
+
     molecule_pairs_ed = copy.deepcopy(molecule_pairs)
     molecule_pairs_mces = copy.deepcopy(molecule_pairs)
 

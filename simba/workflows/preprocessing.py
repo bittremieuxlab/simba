@@ -17,6 +17,77 @@ from simba.core.training.train_utils import TrainUtils
 from simba.utils.logger_setup import logger
 
 
+def write_data(
+    file_path: str,
+    molecule_pairs_train=None,
+    molecule_pairs_val=None,
+    molecule_pairs_test=None,
+    uniformed_molecule_pairs_test=None,
+    use_lightweight_format: bool = False,
+    mgf_path: str = None,
+):
+    """Write preprocessed data to pickle file.
+
+    Args:
+        file_path: Path to output pickle file
+        molecule_pairs_train: Training molecule pairs
+        molecule_pairs_val: Validation molecule pairs
+        molecule_pairs_test: Test molecule pairs
+        uniformed_molecule_pairs_test: Uniformed test molecule pairs (optional)
+        use_lightweight_format: If True, save lightweight format with only df_smiles and spectrum IDs
+        mgf_path: Path to original MGF file (required for lightweight format)
+    """
+    if use_lightweight_format:
+        logger.info(
+            "Saving in lightweight format (df_smiles + spectrum IDs + MGF path)"
+        )
+        # Lightweight format: save only df_smiles, spectrum identifiers, and mgf path
+        # Spectra will be loaded at training time from mgf file using identifiers
+        dataset = {
+            "df_smiles_train": molecule_pairs_train.df_smiles
+            if molecule_pairs_train is not None
+            else None,
+            "df_smiles_val": molecule_pairs_val.df_smiles
+            if molecule_pairs_val is not None
+            else None,
+            "df_smiles_test": molecule_pairs_test.df_smiles
+            if molecule_pairs_test is not None
+            else None,
+            "spectrum_ids_train": [
+                s.identifier for s in molecule_pairs_train.original_spectra
+            ]
+            if molecule_pairs_train is not None
+            else None,
+            "spectrum_ids_val": [
+                s.identifier for s in molecule_pairs_val.original_spectra
+            ]
+            if molecule_pairs_val is not None
+            else None,
+            "spectrum_ids_test": [
+                s.identifier for s in molecule_pairs_test.original_spectra
+            ]
+            if molecule_pairs_test is not None
+            else None,
+            "mgf_path": mgf_path,
+            "format_version": "lightweight",
+        }
+    else:
+        logger.info("Saving in full format (complete molecule pairs)")
+        # Original format: save full MoleculePairs objects
+        dataset = {
+            "all_spectrums_train": None,
+            "all_spectrums_val": None,
+            "all_spectrums_test": None,
+            "molecule_pairs_train": molecule_pairs_train,
+            "molecule_pairs_val": molecule_pairs_val,
+            "molecule_pairs_test": molecule_pairs_test,
+            "uniformed_molecule_pairs_test": uniformed_molecule_pairs_test,
+        }
+
+    with open(file_path, "wb") as file:
+        pickle.dump(dataset, file)
+
+
 def preprocess(cfg: DictConfig) -> None:
     """Run the full preprocessing pipeline.
 
@@ -86,25 +157,23 @@ def preprocess(cfg: DictConfig) -> None:
         ("_test", all_spectra_test),
     ]:
         logger.info(f"Computing distances for {type_data[1:]} set...")
-
-        # Compute both edit distance and MCES
-        for use_edit_distance in [False, True]:
-            molecule_pairs[type_data] = MCES.compute_all_mces_results_unique(
-                spectra,
-                max_combinations=10000000000000,
-                num_workers=cfg.hardware.num_workers,
-                random_sampling=cfg.preprocessing.random_mces_sampling,
-                preprocessing_dir=str(workspace) + "/",
-                batch_size=cfg.preprocessing.batch_size,
-                num_nodes=cfg.preprocessing.num_nodes,
-                current_node=cfg.preprocessing.current_node,
-                compute_specific_pairs=cfg.data.similarity.compute_specific_pairs,
-                format_file_specific_pairs=cfg.data.formats.format_file_specific_pairs,
-                threshold_mces=cfg.model.tasks.mces.threshold,
-                identifier=type_data,
-                use_edit_distance=use_edit_distance,
-                loaded_molecule_pairs=None,
-            )
+        molecule_pairs[type_data] = MCES.compute_all_mces_results_unique(
+            spectra,
+            max_combinations=10000000000000,
+            num_workers=cfg.hardware.num_workers,
+            random_sampling=cfg.preprocessing.random_mces_sampling,
+            preprocessing_dir=str(workspace) + "/",
+            batch_size=cfg.preprocessing.batch_size,
+            num_nodes=cfg.preprocessing.num_nodes,
+            current_node=cfg.preprocessing.current_node,
+            compute_specific_pairs=cfg.data.similarity.compute_specific_pairs,
+            format_file_specific_pairs=cfg.data.formats.format_file_specific_pairs,
+            threshold_mces=cfg.model.tasks.mces.threshold,
+            identifier=type_data,
+            use_edit_distance=True,  # Ignored when compute_both_metrics=True
+            loaded_molecule_pairs=None,
+            compute_both_metrics=True,
+        )
 
     # Combine edit distance and MCES files
     logger.info("Combining edit distance and MCES files...")
@@ -162,17 +231,20 @@ def preprocess(cfg: DictConfig) -> None:
     output_file = workspace / cfg.paths.preprocessing_pickle_file
     logger.info(f"Saving mapping to {output_file}...")
 
-    dataset = {
-        "all_spectrums_train": None,
-        "all_spectrums_val": None,
-        "all_spectrums_test": None,
-        "molecule_pairs_train": molecule_pairs["_train"],
-        "molecule_pairs_val": molecule_pairs["_val"],
-        "molecule_pairs_test": molecule_pairs["_test"],
-        "uniformed_molecule_pairs_test": None,
-    }
+    use_lightweight_format = getattr(cfg.preprocessing, "use_lightweight_format", False)
+    if use_lightweight_format:
+        logger.info("Saving in lightweight format")
+    else:
+        logger.info("Saving in full format")
 
-    with open(output_file, "wb") as file:
-        pickle.dump(dataset, file)
+    write_data(
+        file_path=str(output_file),
+        molecule_pairs_train=molecule_pairs["_train"],
+        molecule_pairs_val=molecule_pairs["_val"],
+        molecule_pairs_test=molecule_pairs["_test"],
+        uniformed_molecule_pairs_test=None,
+        use_lightweight_format=use_lightweight_format,
+        mgf_path=cfg.paths.spectra_path,
+    )
 
     logger.info("✅ Preprocessing completed successfully!")

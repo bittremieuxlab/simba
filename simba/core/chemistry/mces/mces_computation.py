@@ -36,6 +36,7 @@ class MCES:
         identifier: str = "",
         use_edit_distance: bool = False,
         loaded_molecule_pairs: MolecularPairsSet | None = None,
+        compute_both_metrics: bool = False,
     ) -> MoleculePairsOpt:
         """
         Compute MCES or edit distance for all pairs of spectra using multiprocessing.
@@ -69,7 +70,9 @@ class MCES:
         use_edit_distance : bool, optional
             If True, compute edit distance instead of MCES, by default False.
         loaded_molecule_pairs : Optional[MolecularPairsSet]
-            Precomputed molecule pairs to use instead of computing new ones, by default None.
+            Precomputed molecule pairs to use instead of computing new ones, by default None;
+        compute_both_metrics : bool, optional
+            Whether to compute both MCES and edit distance metrics, by default False.
 
         Returns
         -------
@@ -97,6 +100,7 @@ class MCES:
                 threshold_mces=threshold_mces,
                 identifier=identifier,
                 use_edit_distance=use_edit_distance,
+                compute_both_metrics=compute_both_metrics,
             )
         else:
             molecular_pairs = loaded_molecule_pairs
@@ -285,6 +289,7 @@ class MCES:
         threshold_mces: int = 20,
         identifier: str = "",
         use_edit_distance=False,
+        compute_both_metrics: bool = False,
     ) -> MolecularPairsSet:
         """
         Compute MCES or edit distance for all pairs of spectra using multiprocessing.
@@ -305,6 +310,8 @@ class MCES:
             Identifier for the computation run, by default "".
         use_edit_distance : bool, optional
             If True, compute edit distance instead of MCES, by default False.
+        compute_both_metrics : bool, optional
+            If True, compute both ED and MCES in single pass (optimized), by default False.
 
         Returns
         -------
@@ -377,7 +384,69 @@ class MCES:
                     fpgen = AllChem.GetRDKitFPGenerator(maxPath=3, fpSize=512)
                     fps = [fpgen.GetFingerprint(m) for m in mols]
 
-                    if compute_specific_pairs:
+                    # Check if we should compute both metrics in single pass
+                    if compute_both_metrics:
+                        results = [
+                            pool.apply_async(
+                                edit_distance.compute_ed_and_mces_both,
+                                args=(
+                                    all_smiles,
+                                    sampled_index,
+                                    batch_size,
+                                    (chunk_idx * len(chunks[0])) + sub_index,
+                                    random_sampling,
+                                    preprocessing_dir,
+                                    compute_specific_pairs,
+                                    threshold_mces,
+                                    fps,
+                                    mols,
+                                ),
+                            )
+                            for sub_index, sampled_index in enumerate(chunk)
+                        ]
+
+                        # Close the pool and wait for all processes to finish
+                        pool.close()
+                        pool.join()
+
+                        # Get results from async objects
+                        computed_pair_distances_both = np.concatenate(
+                            [result.get() for result in results], axis=0
+                        )
+
+                        # Split into ED and MCES arrays
+                        # computed_pair_distances_both has 4 columns: idx1, idx2, ED, MCES
+                        ed_data = computed_pair_distances_both[:, :3]  # idx1, idx2, ED
+                        mces_data = computed_pair_distances_both[
+                            :, [0, 1, 3]
+                        ]  # idx1, idx2, MCES
+
+                        # Save ED file
+                        ed_filename = (
+                            f"{preprocessing_dir}"
+                            + "edit_distance_"
+                            + f"indexes_tani_incremental{identifier}_{str(chunk_idx)}.npy"
+                        )
+                        os.makedirs(os.path.dirname(ed_filename), exist_ok=True)
+                        np.save(arr=ed_data, file=ed_filename)
+                        logger.info(
+                            f"Saved ED file: {ed_filename} ({ed_data.shape[0]} pairs)"
+                        )
+
+                        # Save MCES file
+                        mces_filename = (
+                            f"{preprocessing_dir}"
+                            + "mces_"
+                            + f"indexes_tani_incremental{identifier}_{str(chunk_idx)}.npy"
+                        )
+                        np.save(arr=mces_data, file=mces_filename)
+                        logger.info(
+                            f"Saved MCES file: {mces_filename} ({mces_data.shape[0]} pairs)"
+                        )
+
+                        computed_pair_distances = ed_data
+
+                    elif compute_specific_pairs:
                         logger.info("Computing specific pairs from loaded indexes ...")
                         logger.info(f"Size of each array {chunk.shape[0]}")
                         sub_arrays = np.array_split(chunk, num_workers)
@@ -423,18 +492,18 @@ class MCES:
                             for sub_index, sampled_index in enumerate(chunk)
                         ]
 
-                    # Close the pool and wait for all processes to finish
-                    pool.close()
-                    pool.join()
+                        # Close the pool and wait for all processes to finish
+                        pool.close()
+                        pool.join()
 
-                    # Get results from async objects
-                    computed_pair_distances = np.concatenate(
-                        [result.get() for result in results], axis=0
-                    )
-                    # create parent directory if it does not exist
-                    os.makedirs(os.path.dirname(filename), exist_ok=True)
-                    # save distances per chunk
-                    np.save(arr=computed_pair_distances, file=filename)
+                        # Get results from async objects
+                        computed_pair_distances = np.concatenate(
+                            [result.get() for result in results], axis=0
+                        )
+                        # create parent directory if it does not exist
+                        os.makedirs(os.path.dirname(filename), exist_ok=True)
+                        # save distances per chunk
+                        np.save(arr=computed_pair_distances, file=filename)
 
         logger.info(f"Computed distances for {computed_pair_distances.shape[0]} pairs.")
 
