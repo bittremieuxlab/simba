@@ -65,8 +65,8 @@ class FcLayerAnalogDiscovery:
                 fingerprints_0=fingerprints_0,
                 fingerprint_index=fingerprint_index,
             )
-            similarities1[index] = sim1.detach().numpy()
-            similarities2[index] = sim2.detach().numpy().reshape(-1)
+            similarities1[index] = sim1.detach().cpu().numpy()
+            similarities2[index] = sim2.detach().cpu().numpy().reshape(-1)
         return similarities1, similarities2
 
     @staticmethod
