@@ -75,25 +75,33 @@ def load_dataset(cfg: DictConfig):
         mgf_path = mapping["mgf_path"]
         all_spectra = PreprocessingSimba.load_spectra(mgf_path, cfg)
 
-        # Create spectrum lookup by identifier
-        spectra_by_id = {s.identifier: s for s in all_spectra}
+        # Create spectrum lookup by MGF index
+        spectra_by_idx = {s.mgf_index: s for s in all_spectra}
 
         # Reconstruct molecule pairs with spectra
         for split in ["train", "val", "test"]:
             df_smiles_key = f"df_smiles_{split}"
-            spectrum_ids_key = f"spectrum_ids_{split}"
+            spectrum_indexes_key = f"spectrum_indexes_{split}"
 
-            if df_smiles_key in mapping and spectrum_ids_key in mapping:
+            if df_smiles_key in mapping and spectrum_indexes_key in mapping:
                 df_smiles = mapping[df_smiles_key]
-                spectrum_ids = mapping[spectrum_ids_key]
+                spectrum_indexes = mapping[spectrum_indexes_key]
 
-                # Load spectra for this split
-                spectrums = [spectra_by_id[sid] for sid in spectrum_ids]
+                # Load original spectra (all, including duplicates)
+                original_spectra = [spectra_by_idx[idx] for idx in spectrum_indexes]
+
+                # Build unique_spectra from df_smiles indexes
+                # df_smiles['indexes'] contains lists of indexes into original_spectra
+                # We take the first spectrum for each unique SMILES
+                unique_spectra = [
+                    original_spectra[df_smiles.loc[i, "indexes"][0]]
+                    for i in df_smiles.index
+                ]
 
                 # Create MoleculePairsOpt object
                 molecule_pairs = MoleculePairsOpt(
-                    original_spectra=spectrums,
-                    unique_spectra=spectrums,
+                    original_spectra=original_spectra,
+                    unique_spectra=unique_spectra,
                     df_smiles=df_smiles,
                     pair_distances=None,  # Will be loaded separately
                 )

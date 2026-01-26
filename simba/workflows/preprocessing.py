@@ -39,10 +39,10 @@ def write_data(
     """
     if use_lightweight_format:
         logger.info(
-            "Saving in lightweight format (df_smiles + spectrum IDs + MGF path)"
+            "Saving in lightweight format (df_smiles + spectrum indexes + MGF path)"
         )
-        # Lightweight format: save only df_smiles, spectrum identifiers, and mgf path
-        # Spectra will be loaded at training time from mgf file using identifiers
+        # Lightweight format: save only df_smiles, original MGF indexes, and mgf path
+        # Spectra will be loaded at training time from mgf file using absolute indexes
         dataset = {
             "df_smiles_train": molecule_pairs_train.df_smiles
             if molecule_pairs_train is not None
@@ -53,18 +53,18 @@ def write_data(
             "df_smiles_test": molecule_pairs_test.df_smiles
             if molecule_pairs_test is not None
             else None,
-            "spectrum_ids_train": [
-                s.identifier for s in molecule_pairs_train.original_spectra
+            "spectrum_indexes_train": [
+                s.mgf_index for s in molecule_pairs_train.original_spectra
             ]
             if molecule_pairs_train is not None
             else None,
-            "spectrum_ids_val": [
-                s.identifier for s in molecule_pairs_val.original_spectra
+            "spectrum_indexes_val": [
+                s.mgf_index for s in molecule_pairs_val.original_spectra
             ]
             if molecule_pairs_val is not None
             else None,
-            "spectrum_ids_test": [
-                s.identifier for s in molecule_pairs_test.original_spectra
+            "spectrum_indexes_test": [
+                s.mgf_index for s in molecule_pairs_test.original_spectra
             ]
             if molecule_pairs_test is not None
             else None,
@@ -119,10 +119,15 @@ def preprocess(cfg: DictConfig) -> None:
 
     # Load and preprocess spectra
     logger.info(f"Loading spectra from {cfg.paths.spectra_path}...")
+    # Use max_spectra_load if specified, otherwise load all spectra (-1)
+    n_samples = getattr(cfg.preprocessing, "max_spectra_load", -1)
+    logger.info(
+        f"Loading up to {n_samples if n_samples > 0 else 'all'} spectra from MGF file..."
+    )
     all_spectra = PreprocessingSimba.load_spectra(
         str(cfg.paths.spectra_path),
         cfg,
-        n_samples=700_000,
+        n_samples=n_samples,
         use_gnps_format=False,
         use_only_protonized_adducts=cfg.preprocessing.use_only_protonized_adducts,
     )
@@ -160,7 +165,7 @@ def preprocess(cfg: DictConfig) -> None:
         molecule_pairs[type_data] = MCES.compute_all_mces_results_unique(
             spectra,
             max_combinations=10000000000000,
-            num_workers=cfg.hardware.num_workers,
+            num_workers=cfg.preprocessing.num_workers,
             random_sampling=cfg.preprocessing.random_mces_sampling,
             preprocessing_dir=str(workspace) + "/",
             batch_size=cfg.preprocessing.batch_size,

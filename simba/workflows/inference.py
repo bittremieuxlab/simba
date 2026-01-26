@@ -46,21 +46,29 @@ def load_inference_data(cfg: DictConfig):
         mgf_path = dataset["mgf_path"]
         all_spectra = PreprocessingSimba.load_spectra(mgf_path, cfg)
 
-        # Create spectrum lookup by identifier
-        spectra_by_id = {s.identifier: s for s in all_spectra}
+        # Create spectrum lookup by MGF index
+        spectra_by_idx = {s.mgf_index: s for s in all_spectra}
 
         # Reconstruct test molecule pairs
-        if "df_smiles_test" in dataset and "spectrum_ids_test" in dataset:
+        if "df_smiles_test" in dataset and "spectrum_indexes_test" in dataset:
             df_smiles = dataset["df_smiles_test"]
-            spectrum_ids = dataset["spectrum_ids_test"]
+            spectrum_indexes = dataset["spectrum_indexes_test"]
 
-            # Load spectra for test split
-            spectrums = [spectra_by_id[sid] for sid in spectrum_ids]
+            # Load original spectra (all, including duplicates)
+            original_spectra = [spectra_by_idx[idx] for idx in spectrum_indexes]
+
+            # Build unique_spectra from df_smiles indexes
+            # df_smiles['indexes'] contains lists of indexes into original_spectra
+            # We take the first spectrum for each unique SMILES
+            unique_spectra = [
+                original_spectra[df_smiles.loc[i, "indexes"][0]]
+                for i in df_smiles.index
+            ]
 
             # Create MoleculePairsOpt object
             molecule_pairs = MoleculePairsOpt(
-                original_spectra=spectrums,
-                unique_spectra=spectrums,
+                original_spectra=original_spectra,
+                unique_spectra=unique_spectra,
                 df_smiles=df_smiles,
                 pair_distances=None,  # Will be loaded separately
             )
