@@ -379,8 +379,8 @@ def inference(cfg: DictConfig) -> dict:
 
     logger.info(f"Using {model_name}: {checkpoint_path}")
 
-    # Set output directory
-    output_dir = cfg.paths.get("output_dir", checkpoint_dir)
+    # Set output directory (default to checkpoint_dir if not specified)
+    output_dir = cfg.paths.get("output_dir") or checkpoint_dir
     Path(output_dir).mkdir(parents=True, exist_ok=True)
 
     # Load data

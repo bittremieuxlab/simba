@@ -189,21 +189,27 @@ def preprocess(cfg: DictConfig) -> None:
         npy_files = [f for f in all_files if f.endswith(".npy")]
         npy_files = [f for f in npy_files if partition in f]
 
-        # Get unique indices
-        indices = set()
+        # Extract unique file identifiers for both single-node and multi-node patterns
+        # Single-node: edit_distance_indexes_tani_incremental_train_0.npy
+        # Multi-node: edit_distance_indexes_tani_incremental_train_node0_chunk1.npy
+        file_identifiers = set()
         for file_loaded in npy_files:
-            try:
-                index = file_loaded.split("_")[-1].split(".npy")[0]
-                indices.add(int(index))
-            except (ValueError, IndexError):
+            # Only process edit_distance files to get unique identifiers
+            if not file_loaded.startswith("edit_distance_"):
                 continue
 
-        for index in sorted(indices):
-            # Define file names
-            suffix = "indexes_tani_incremental_" + partition + "_"
-            file_ed = workspace / f"edit_distance_{suffix}{index}.npy"
-            file_mces = workspace / f"mces_{suffix}{index}.npy"
-            file_output = workspace / f"ed_mces_{suffix}{index}.npy"
+            # Extract the suffix after the partition name
+            suffix_pattern = f"indexes_tani_incremental_{partition}_"
+            if suffix_pattern in file_loaded:
+                suffix_part = file_loaded.split(suffix_pattern)[1].replace(".npy", "")
+                file_identifiers.add(suffix_part)
+
+        for identifier in sorted(file_identifiers):
+            # Define file names using the extracted identifier
+            suffix = f"indexes_tani_incremental_{partition}_"
+            file_ed = workspace / f"edit_distance_{suffix}{identifier}.npy"
+            file_mces = workspace / f"mces_{suffix}{identifier}.npy"
+            file_output = workspace / f"ed_mces_{suffix}{identifier}.npy"
 
             if not file_ed.exists() or not file_mces.exists():
                 continue
@@ -230,7 +236,9 @@ def preprocess(cfg: DictConfig) -> None:
                 ]
 
                 np.save(file_output, all_distance_data)
-                logger.info(f"  Combined {partition} partition index {index}")
+                logger.info(
+                    f"  Combined {partition} partition identifier '{identifier}': {all_distance_data.shape[0]} pairs"
+                )
 
     # Save mapping file
     output_file = workspace / cfg.paths.preprocessing_pickle_file

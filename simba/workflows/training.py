@@ -339,7 +339,7 @@ def setup_callbacks(cfg: DictConfig) -> tuple:
 
     paths = get_model_paths(cfg)
 
-    # Checkpoint callback (saves best model)
+    # Always save best model checkpoint
     checkpoint_callback = ModelCheckpoint(
         dirpath=str(paths["checkpoint_dir"]),
         filename=cfg.checkpoints.best_model_name.replace(".ckpt", ""),
@@ -348,13 +348,15 @@ def setup_callbacks(cfg: DictConfig) -> tuple:
         mode="min",
     )
 
-    # Checkpoint every N steps
-    checkpoint_n_steps_callback = ModelCheckpoint(
-        dirpath=str(paths["checkpoint_dir"]),
-        filename="checkpoint-{epoch:02d}-{step}",
-        every_n_train_steps=cfg.training.val_check_interval,
-        save_top_k=-1,  # Save all checkpoints
-    )
+    # Optionally save periodic checkpoints
+    checkpoint_n_steps_callback = None
+    if cfg.checkpoints.get("save_checkpoints", True):
+        checkpoint_n_steps_callback = ModelCheckpoint(
+            dirpath=str(paths["checkpoint_dir"]),
+            filename="checkpoint-{epoch:02d}-{step}",
+            every_n_train_steps=cfg.training.val_check_interval,
+            save_top_k=-1,  # Save all checkpoints
+        )
 
     # Loss tracking callback (saves loss plot to checkpoint dir)
     loss_plot_path = paths["checkpoint_dir"] / "loss_plot.png"
@@ -417,8 +419,8 @@ def train(
     dataloader_train: DataLoader,
     dataloader_val: DataLoader,
     cfg: DictConfig,
-    checkpoint_callback: ModelCheckpoint,
-    checkpoint_n_steps_callback: ModelCheckpoint,
+    checkpoint_callback: ModelCheckpoint | None,
+    checkpoint_n_steps_callback: ModelCheckpoint | None,
     loss_callback: LossCallback,
 ) -> None:
     """Run the training loop.
@@ -427,10 +429,17 @@ def train(
         dataloader_train: Training dataloader
         dataloader_val: Validation dataloader
         cfg: Hydra configuration
-        checkpoint_callback: Best model checkpoint callback
-        checkpoint_n_steps_callback: Periodic checkpoint callback
+        checkpoint_callback: Best model checkpoint callback (optional, can be None)
+        checkpoint_n_steps_callback: Periodic checkpoint callback (optional, can be None)
         loss_callback: Loss tracking callback
     """
+    # Build callbacks list, excluding None values
+    callbacks = [
+        cb
+        for cb in [checkpoint_callback, checkpoint_n_steps_callback, loss_callback]
+        if cb is not None
+    ]
+
     trainer = pl.Trainer(
         max_epochs=cfg.training.epochs,
         accelerator=cfg.hardware.accelerator,
@@ -438,7 +447,7 @@ def train(
         val_check_interval=cfg.training.val_check_interval,
         gradient_clip_val=cfg.training.gradient_clip_val,
         accumulate_grad_batches=cfg.training.accumulate_grad_batches,
-        callbacks=[checkpoint_callback, checkpoint_n_steps_callback, loss_callback],
+        callbacks=callbacks,
         enable_progress_bar=cfg.logging.enable_progress_bar,
         log_every_n_steps=cfg.logging.log_every_n_steps,
     )

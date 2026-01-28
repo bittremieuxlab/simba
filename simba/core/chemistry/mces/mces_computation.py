@@ -443,14 +443,31 @@ class MCES:
                         [result.get() for result in results], axis=0
                     )
 
-                    # Split into ED and MCES arrays
-                    # computed_pair_distances_both has 4 columns: idx1, idx2, ED, MCES
+                    # Save combined ED+MCES file (4 columns: idx1, idx2, ED, MCES)
+                    if num_nodes > 1 and current_node is not None:
+                        combined_filename = (
+                            f"{preprocessing_dir}"
+                            + "ed_mces_"
+                            + f"indexes_tani_incremental{identifier}_node{current_node}_chunk{chunk_idx}.npy"
+                        )
+                    else:
+                        combined_filename = (
+                            f"{preprocessing_dir}"
+                            + "ed_mces_"
+                            + f"indexes_tani_incremental{identifier}_{str(chunk_idx)}.npy"
+                        )
+                    os.makedirs(os.path.dirname(combined_filename), exist_ok=True)
+                    np.save(arr=computed_pair_distances_both, file=combined_filename)
+                    logger.info(
+                        f"Saved combined ED+MCES file: {combined_filename} ({computed_pair_distances_both.shape[0]} pairs, {computed_pair_distances_both.shape[1]} columns)"
+                    )
+
+                    # Also save separate ED and MCES files for flexibility
                     ed_data = computed_pair_distances_both[:, :3]  # idx1, idx2, ED
                     mces_data = computed_pair_distances_both[
                         :, [0, 1, 3]
                     ]  # idx1, idx2, MCES
 
-                    # Save ED file with node-specific naming
                     if num_nodes > 1 and current_node is not None:
                         ed_filename = (
                             f"{preprocessing_dir}"
@@ -463,13 +480,11 @@ class MCES:
                             + "edit_distance_"
                             + f"indexes_tani_incremental{identifier}_{str(chunk_idx)}.npy"
                         )
-                    os.makedirs(os.path.dirname(ed_filename), exist_ok=True)
                     np.save(arr=ed_data, file=ed_filename)
                     logger.info(
                         f"Saved ED file: {ed_filename} ({ed_data.shape[0]} pairs)"
                     )
 
-                    # Save MCES file with node-specific naming
                     if num_nodes > 1 and current_node is not None:
                         mces_filename = (
                             f"{preprocessing_dir}"
