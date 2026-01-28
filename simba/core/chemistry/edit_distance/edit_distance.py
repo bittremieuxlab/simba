@@ -26,6 +26,99 @@ def create_input_df(smiles, indexes_0, indexes_1):
     return df
 
 
+def compute_ed_and_mces_both(
+    smiles: list[str],
+    sampled_index: np.int64,
+    batch_size: int,
+    identifier: int,
+    random_sampling: bool,
+    preprocessing_dir: str,
+    compute_specific_pairs: bool,
+    threshold_mces: int,
+    fps: list[ExplicitBitVect],
+    mols: list[Mol],
+) -> np.ndarray:
+    """
+    Compute BOTH edit distance AND MCES for a batch of molecule pairs in a single pass.
+
+    This is the optimized version that eliminates redundant computations:
+    - Load molecules once (not twice)
+    - Generate fingerprints once (not twice)
+    - Calculate Tanimoto similarity once (not twice)
+    - Compute both ED and MCES for each pair
+
+    Parameters
+    ----------
+    smiles : List[str]
+        List of SMILES strings.
+    sampled_index : np.int64
+        Index to sample from the smiles list.
+    batch_size : int
+        The size of the batch to process.
+    identifier : int
+        An identifier for the batch (used for random seed).
+    random_sampling : bool
+        Whether to use random sampling of pairs.
+    preprocessing_dir : str
+        Directory for preprocessing files.
+    compute_specific_pairs : bool
+        Whether to compute specific pairs.
+    threshold_mces : int
+        MCES threshold value.
+    fps : List[ExplicitBitVect]
+        List of fingerprints corresponding to the smiles.
+    mols : List[Mol]
+        List of RDKit Mol objects corresponding to the smiles.
+
+    Returns
+    -------
+    np.ndarray
+        A 2D numpy array with each row containing (index1, index2, ed_distance, mces_distance).
+    """
+    # 2D array to store the indexes and BOTH distances
+    pair_distances = np.zeros((int(batch_size), 4))  # 4 columns: idx1, idx2, ED, MCES
+
+    # Initialize randomness
+    if random_sampling:
+        np.random.seed(identifier)
+        pair_distances[:, 0] = np.random.randint(0, len(smiles), int(batch_size))
+        pair_distances[:, 1] = np.random.randint(0, len(smiles), int(batch_size))
+    else:
+        if batch_size > len(smiles):
+            raise ValueError(
+                f"batch_size ({batch_size}) cannot exceed the number of molecules ({len(smiles)})"
+            )
+        pair_distances[:, 0] = sampled_index
+        pair_distances[:, 1] = np.arange(0, batch_size)
+
+    ed_distances = []
+    mces_distances = []
+
+    for index in range(pair_distances.shape[0]):
+        pair = pair_distances[index]
+
+        s0 = smiles[int(pair[0])]
+        s1 = smiles[int(pair[1])]
+        fp0 = fps[int(pair[0])]
+        fp1 = fps[int(pair[1])]
+        mol0 = mols[int(pair[0])]
+        mol1 = mols[int(pair[1])]
+
+        # Compute BOTH metrics in single pass
+        ed_dist, _ = simba_solve_pair_edit_distance(s0, s1, fp0, fp1, mol0, mol1)
+        mces_dist, _ = simba_solve_pair_mces(
+            s0, s1, fp0, fp1, mol0, mol1, threshold_mces
+        )
+
+        ed_distances.append(ed_dist)
+        mces_distances.append(mces_dist)
+
+    pair_distances[:, 2] = ed_distances
+    pair_distances[:, 3] = mces_distances
+
+    return pair_distances
+
+
 def compute_ed_or_mces(
     smiles: list[str],
     sampled_index: np.int64,
