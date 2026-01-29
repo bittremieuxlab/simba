@@ -1,3 +1,4 @@
+import multiprocessing
 from functools import lru_cache
 
 import numpy as np
@@ -14,6 +15,33 @@ from simba.utils.logger_setup import logger
 
 # Sentinel value indicating very dissimilar molecules (Tanimoto < 0.2)
 VERY_HIGH_DISTANCE = 666
+
+
+def _run_mces_with_timeout(s0, s1, threshold, TIME_LIMIT, result_queue):
+    """
+    Helper function to run MCES in a separate process with timeout.
+
+    This runs in a child process spawned by simba_solve_pair_mces.
+    """
+    try:
+        result = MCES2(
+            s0,
+            s1,
+            threshold=threshold,
+            i=0,
+            solver="PULP_CBC_CMD",
+            solver_options={
+                "threads": 1,
+                "msg": False,
+                "timeLimit": TIME_LIMIT,
+            },
+            no_ilp_threshold=False,
+            always_stronger_bound=False,
+            catch_errors=False,
+        )
+        result_queue.put(("success", result))
+    except BaseException as e:
+        result_queue.put(("error", str(e)))
 
 
 def create_input_df(smiles, indexes_0, indexes_1):
@@ -303,29 +331,46 @@ def simba_solve_pair_mces(
         if (mol0.GetNumAtoms() > 60) or (mol1.GetNumAtoms() > 60):
             return np.nan, tanimoto
         else:
-            result = MCES2(
-                s0,
-                s1,
-                threshold=threshold,
-                i=0,
-                # solver='CPLEX_CMD',       # or another fast solver you have installed
-                solver="PULP_CBC_CMD",
-                solver_options={
-                    "threads": 1,
-                    "msg": False,
-                    "timeLimit": TIME_LIMIT,  # Stop CBC after 1 seconds
-                },
-                # solver_options={'threads': 1, 'msg': False},  # use single thread + no console messages
-                no_ilp_threshold=False,  # allow the ILP to stop early once the threshold is exceeded
-                always_stronger_bound=False,  # use dynamic bounding for speed
-                catch_errors=False,  # typically raise exceptions if something goes wrong
+            result_queue = multiprocessing.Queue()
+            process = multiprocessing.Process(
+                target=_run_mces_with_timeout,
+                args=(s0, s1, threshold, TIME_LIMIT, result_queue),
             )
-            distance = result[1]
-            time_taken = result[2]
-            exact_answer = result[3]
 
-            if time_taken >= (0.9 * TIME_LIMIT) and (exact_answer != 1):
+            process.start()
+            process.join(timeout=TIME_LIMIT + 1)
+
+            if process.is_alive():
+                logger.warning(
+                    f"MCES computation exceeded {TIME_LIMIT + 1}s timeout, terminating"
+                )
+                process.terminate()
+                process.join()
                 distance = np.nan
+            else:
+                if not result_queue.empty():
+                    try:
+                        status, result = result_queue.get_nowait()
+                        if status == "success":
+                            distance = result[1]
+                            exact_answer = result[3]
+
+                            if exact_answer != 1:
+                                distance = np.nan
+                        else:
+                            logger.warning(f"MCES computation error: {result}")
+                            distance = np.nan
+                    except Exception as e:
+                        logger.warning(f"Failed to retrieve MCES result: {e}")
+                        distance = np.nan
+                else:
+                    logger.warning("MCES process exited without result")
+                    distance = np.nan
+            try:
+                result_queue.close()
+                result_queue.join_thread()
+            except Exception:
+                pass
 
     return distance, tanimoto
 

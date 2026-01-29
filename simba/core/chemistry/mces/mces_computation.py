@@ -1,5 +1,4 @@
 import itertools
-import multiprocessing
 import os
 import subprocess
 from datetime import datetime
@@ -17,6 +16,12 @@ from simba.core.data.molecule_pairs_opt import MoleculePairsOpt
 from simba.core.data.spectrum import SpectrumExt
 from simba.core.training.train_utils import TrainUtils
 from simba.utils.logger_setup import logger
+from simba.utils.pool_utils import (
+    NoDaemonPool,
+    cleanup_pool,
+    register_pool,
+    unregister_pool,
+)
 
 
 class MCES:
@@ -407,162 +412,170 @@ class MCES:
             if not (os.path.exists(filename)):  # do not overwrite existing files
                 logger.info(f"Processing chunk {chunk_idx}/{len(chunks)}")
 
-                pool = multiprocessing.Pool(processes=num_workers)
+                pool = NoDaemonPool(processes=num_workers)
+                register_pool(pool)
 
-                mols = [Chem.MolFromSmiles(s) for s in all_smiles]
-                fpgen = AllChem.GetRDKitFPGenerator(maxPath=3, fpSize=512)
-                fps = [fpgen.GetFingerprint(m) for m in mols]
+                try:
+                    mols = [Chem.MolFromSmiles(s) for s in all_smiles]
+                    fpgen = AllChem.GetRDKitFPGenerator(maxPath=3, fpSize=512)
+                    fps = [fpgen.GetFingerprint(m) for m in mols]
 
-                # Check if we should compute both metrics in single pass
-                if compute_both_metrics:
-                    results = [
-                        pool.apply_async(
-                            edit_distance.compute_ed_and_mces_both,
-                            args=(
-                                all_smiles,
-                                sampled_index,
-                                batch_size,
-                                (chunk_idx * len(chunks[0])) + sub_index,
-                                random_sampling,
-                                preprocessing_dir,
-                                compute_specific_pairs,
-                                threshold_mces,
-                                fps,
-                                mols,
-                            ),
+                    # Check if we should compute both metrics in single pass
+                    if compute_both_metrics:
+                        results = [
+                            pool.apply_async(
+                                edit_distance.compute_ed_and_mces_both,
+                                args=(
+                                    all_smiles,
+                                    sampled_index,
+                                    batch_size,
+                                    (chunk_idx * len(chunks[0])) + sub_index,
+                                    random_sampling,
+                                    preprocessing_dir,
+                                    compute_specific_pairs,
+                                    threshold_mces,
+                                    fps,
+                                    mols,
+                                ),
+                            )
+                            for sub_index, sampled_index in enumerate(chunk)
+                        ]
+
+                        # Close the pool and wait for all processes to finish
+                        pool.close()
+                        pool.join()
+
+                        # Get results from async objects
+                        computed_pair_distances_both = np.concatenate(
+                            [result.get() for result in results], axis=0
                         )
-                        for sub_index, sampled_index in enumerate(chunk)
-                    ]
+
+                        # Save combined ED+MCES file (4 columns: idx1, idx2, ED, MCES)
+                        if num_nodes > 1 and current_node is not None:
+                            combined_filename = (
+                                f"{preprocessing_dir}"
+                                + "ed_mces_"
+                                + f"indexes_tani_incremental{identifier}_node{current_node}_chunk{chunk_idx}.npy"
+                            )
+                        else:
+                            combined_filename = (
+                                f"{preprocessing_dir}"
+                                + "ed_mces_"
+                                + f"indexes_tani_incremental{identifier}_{str(chunk_idx)}.npy"
+                            )
+                        os.makedirs(os.path.dirname(combined_filename), exist_ok=True)
+                        np.save(
+                            arr=computed_pair_distances_both, file=combined_filename
+                        )
+                        logger.info(
+                            f"Saved combined ED+MCES file: {combined_filename} ({computed_pair_distances_both.shape[0]} pairs, {computed_pair_distances_both.shape[1]} columns)"
+                        )
+
+                        # Also save separate ED and MCES files for flexibility
+                        ed_data = computed_pair_distances_both[:, :3]  # idx1, idx2, ED
+                        mces_data = computed_pair_distances_both[
+                            :, [0, 1, 3]
+                        ]  # idx1, idx2, MCES
+
+                        if num_nodes > 1 and current_node is not None:
+                            ed_filename = (
+                                f"{preprocessing_dir}"
+                                + "edit_distance_"
+                                + f"indexes_tani_incremental{identifier}_node{current_node}_chunk{chunk_idx}.npy"
+                            )
+                        else:
+                            ed_filename = (
+                                f"{preprocessing_dir}"
+                                + "edit_distance_"
+                                + f"indexes_tani_incremental{identifier}_{str(chunk_idx)}.npy"
+                            )
+                        np.save(arr=ed_data, file=ed_filename)
+                        logger.info(
+                            f"Saved ED file: {ed_filename} ({ed_data.shape[0]} pairs)"
+                        )
+
+                        if num_nodes > 1 and current_node is not None:
+                            mces_filename = (
+                                f"{preprocessing_dir}"
+                                + "mces_"
+                                + f"indexes_tani_incremental{identifier}_node{current_node}_chunk{chunk_idx}.npy"
+                            )
+                        else:
+                            mces_filename = (
+                                f"{preprocessing_dir}"
+                                + "mces_"
+                                + f"indexes_tani_incremental{identifier}_{str(chunk_idx)}.npy"
+                            )
+                        np.save(arr=mces_data, file=mces_filename)
+                        logger.info(
+                            f"Saved MCES file: {mces_filename} ({mces_data.shape[0]} pairs)"
+                        )
+
+                        computed_pair_distances = ed_data
+
+                    elif compute_specific_pairs:
+                        logger.info("Computing specific pairs from loaded indexes ...")
+                        logger.info(f"Size of each array {chunk.shape[0]}")
+                        sub_arrays = np.array_split(chunk, num_workers)
+                        logger.info(f"Size of each sub-array {sub_arrays[0].shape[0]}")
+
+                        results = [
+                            pool.apply_async(
+                                edit_distance.compute_ed_or_mces,  # TODO: fix this
+                                args=(
+                                    all_smiles,
+                                    None,
+                                    batch_size,
+                                    (chunk_idx * chunks[0].shape[0]) + sub_index,
+                                    None,
+                                    preprocessing_dir,
+                                    compute_specific_pairs,
+                                    threshold_mces,
+                                    fps,
+                                    mols,
+                                    use_edit_distance,
+                                ),
+                            )
+                            for sub_index, sampled_array in enumerate(sub_arrays)
+                        ]
+                    else:
+                        results = [
+                            pool.apply_async(
+                                edit_distance.compute_ed_or_mces,
+                                args=(
+                                    all_smiles,
+                                    sampled_index,
+                                    batch_size,
+                                    (chunk_idx * len(chunks[0])) + sub_index,
+                                    random_sampling,
+                                    preprocessing_dir,
+                                    compute_specific_pairs,
+                                    threshold_mces,
+                                    fps,
+                                    mols,
+                                    use_edit_distance,
+                                ),
+                            )
+                            for sub_index, sampled_index in enumerate(chunk)
+                        ]
 
                     # Close the pool and wait for all processes to finish
                     pool.close()
                     pool.join()
 
-                    # Get results from async objects
-                    computed_pair_distances_both = np.concatenate(
-                        [result.get() for result in results], axis=0
-                    )
-
-                    # Save combined ED+MCES file (4 columns: idx1, idx2, ED, MCES)
-                    if num_nodes > 1 and current_node is not None:
-                        combined_filename = (
-                            f"{preprocessing_dir}"
-                            + "ed_mces_"
-                            + f"indexes_tani_incremental{identifier}_node{current_node}_chunk{chunk_idx}.npy"
+                    # Get results from async objects (for non-compute_both_metrics cases)
+                    if not compute_both_metrics:
+                        computed_pair_distances = np.concatenate(
+                            [result.get() for result in results], axis=0
                         )
-                    else:
-                        combined_filename = (
-                            f"{preprocessing_dir}"
-                            + "ed_mces_"
-                            + f"indexes_tani_incremental{identifier}_{str(chunk_idx)}.npy"
-                        )
-                    os.makedirs(os.path.dirname(combined_filename), exist_ok=True)
-                    np.save(arr=computed_pair_distances_both, file=combined_filename)
-                    logger.info(
-                        f"Saved combined ED+MCES file: {combined_filename} ({computed_pair_distances_both.shape[0]} pairs, {computed_pair_distances_both.shape[1]} columns)"
-                    )
+                        # create parent directory if it does not exist
+                        os.makedirs(os.path.dirname(filename), exist_ok=True)
+                        # save distances per chunk
+                        np.save(arr=computed_pair_distances, file=filename)
 
-                    # Also save separate ED and MCES files for flexibility
-                    ed_data = computed_pair_distances_both[:, :3]  # idx1, idx2, ED
-                    mces_data = computed_pair_distances_both[
-                        :, [0, 1, 3]
-                    ]  # idx1, idx2, MCES
-
-                    if num_nodes > 1 and current_node is not None:
-                        ed_filename = (
-                            f"{preprocessing_dir}"
-                            + "edit_distance_"
-                            + f"indexes_tani_incremental{identifier}_node{current_node}_chunk{chunk_idx}.npy"
-                        )
-                    else:
-                        ed_filename = (
-                            f"{preprocessing_dir}"
-                            + "edit_distance_"
-                            + f"indexes_tani_incremental{identifier}_{str(chunk_idx)}.npy"
-                        )
-                    np.save(arr=ed_data, file=ed_filename)
-                    logger.info(
-                        f"Saved ED file: {ed_filename} ({ed_data.shape[0]} pairs)"
-                    )
-
-                    if num_nodes > 1 and current_node is not None:
-                        mces_filename = (
-                            f"{preprocessing_dir}"
-                            + "mces_"
-                            + f"indexes_tani_incremental{identifier}_node{current_node}_chunk{chunk_idx}.npy"
-                        )
-                    else:
-                        mces_filename = (
-                            f"{preprocessing_dir}"
-                            + "mces_"
-                            + f"indexes_tani_incremental{identifier}_{str(chunk_idx)}.npy"
-                        )
-                    np.save(arr=mces_data, file=mces_filename)
-                    logger.info(
-                        f"Saved MCES file: {mces_filename} ({mces_data.shape[0]} pairs)"
-                    )
-
-                    computed_pair_distances = ed_data
-
-                elif compute_specific_pairs:
-                    logger.info("Computing specific pairs from loaded indexes ...")
-                    logger.info(f"Size of each array {chunk.shape[0]}")
-                    sub_arrays = np.array_split(chunk, num_workers)
-                    logger.info(f"Size of each sub-array {sub_arrays[0].shape[0]}")
-
-                    results = [
-                        pool.apply_async(
-                            edit_distance.compute_ed_or_mces,  # TODO: fix this
-                            args=(
-                                all_smiles,
-                                None,
-                                batch_size,
-                                (chunk_idx * chunks[0].shape[0]) + sub_index,
-                                None,
-                                preprocessing_dir,
-                                compute_specific_pairs,
-                                threshold_mces,
-                                fps,
-                                mols,
-                                use_edit_distance,
-                            ),
-                        )
-                        for sub_index, sampled_array in enumerate(sub_arrays)
-                    ]
-                else:
-                    results = [
-                        pool.apply_async(
-                            edit_distance.compute_ed_or_mces,
-                            args=(
-                                all_smiles,
-                                sampled_index,
-                                batch_size,
-                                (chunk_idx * len(chunks[0])) + sub_index,
-                                random_sampling,
-                                preprocessing_dir,
-                                compute_specific_pairs,
-                                threshold_mces,
-                                fps,
-                                mols,
-                                use_edit_distance,
-                            ),
-                        )
-                        for sub_index, sampled_index in enumerate(chunk)
-                    ]
-
-                # Close the pool and wait for all processes to finish
-                pool.close()
-                pool.join()
-
-                # Get results from async objects (for non-compute_both_metrics cases)
-                if not compute_both_metrics:
-                    computed_pair_distances = np.concatenate(
-                        [result.get() for result in results], axis=0
-                    )
-                    # create parent directory if it does not exist
-                    os.makedirs(os.path.dirname(filename), exist_ok=True)
-                    # save distances per chunk
-                    np.save(arr=computed_pair_distances, file=filename)
+                finally:
+                    cleanup_pool(pool)
+                    unregister_pool(pool)
 
         logger.info(f"Computed distances for {computed_pair_distances.shape[0]} pairs.")
 
