@@ -25,6 +25,13 @@ from simba.core.training.train_utils import TrainUtils
 from simba.utils.logger_setup import logger
 from simba.utils.sanity_checks import SanityChecks
 
+import sys 
+import simba.core.data.molecule_pairs_opt 
+import simba.core.data.molecular_pairs 
+import simba.core.data.spectrum 
+sys.modules['simba.molecule_pairs_opt'] = simba.core.data.molecule_pairs_opt 
+sys.modules['simba.molecular_pairs'] = simba.core.data.molecular_pairs 
+sys.modules['simba.spectrum_ext'] = simba.core.data.spectrum
 
 def load_dataset(cfg: DictConfig):
     """Load training dataset from pickle file.
