@@ -1,5 +1,4 @@
 import itertools
-import multiprocessing
 import os
 import subprocess
 from datetime import datetime
@@ -17,6 +16,12 @@ from simba.core.data.molecule_pairs_opt import MoleculePairsOpt
 from simba.core.data.spectrum import SpectrumExt
 from simba.core.training.train_utils import TrainUtils
 from simba.utils.logger_setup import logger
+from simba.utils.pool_utils import (
+    NoDaemonPool,
+    cleanup_pool,
+    register_pool,
+    unregister_pool,
+)
 
 
 class MCES:
@@ -36,6 +41,7 @@ class MCES:
         identifier: str = "",
         use_edit_distance: bool = False,
         loaded_molecule_pairs: MolecularPairsSet | None = None,
+        compute_both_metrics: bool = False,
     ) -> MoleculePairsOpt:
         """
         Compute MCES or edit distance for all pairs of spectra using multiprocessing.
@@ -69,7 +75,9 @@ class MCES:
         use_edit_distance : bool, optional
             If True, compute edit distance instead of MCES, by default False.
         loaded_molecule_pairs : Optional[MolecularPairsSet]
-            Precomputed molecule pairs to use instead of computing new ones, by default None.
+            Precomputed molecule pairs to use instead of computing new ones, by default None;
+        compute_both_metrics : bool, optional
+            Whether to compute both MCES and edit distance metrics, by default False.
 
         Returns
         -------
@@ -97,6 +105,7 @@ class MCES:
                 threshold_mces=threshold_mces,
                 identifier=identifier,
                 use_edit_distance=use_edit_distance,
+                compute_both_metrics=compute_both_metrics,
             )
         else:
             molecular_pairs = loaded_molecule_pairs
@@ -285,6 +294,7 @@ class MCES:
         threshold_mces: int = 20,
         identifier: str = "",
         use_edit_distance=False,
+        compute_both_metrics: bool = False,
     ) -> MolecularPairsSet:
         """
         Compute MCES or edit distance for all pairs of spectra using multiprocessing.
@@ -305,6 +315,8 @@ class MCES:
             Identifier for the computation run, by default "".
         use_edit_distance : bool, optional
             If True, compute edit distance instead of MCES, by default False.
+        compute_both_metrics : bool, optional
+            If True, compute both ED and MCES in single pass (optimized), by default False.
 
         Returns
         -------
@@ -324,24 +336,46 @@ class MCES:
 
         all_smiles = [s.params["smiles"] for s in all_spectra]
 
+        # Node-first splitting: split data across nodes first, then chunk within each node
         if compute_specific_pairs:  ## specifically for mces
             directory_path = preprocessing_dir
             prefix = format_file_specific_pairs + identifier
             indices_np_loaded = LoadMCES.load_raw_data(directory_path, prefix)
 
-            print(
+            logger.info(
                 f"Size of the pairs loaded for computing specific pairs: {indices_np_loaded.shape[0]}"
             )
 
+            # Split by nodes first if multi-node setup
+            if num_nodes > 1 and current_node is not None:
+                node_splits = np.array_split(indices_np_loaded, num_nodes)
+                my_data = node_splits[current_node]
+                logger.info(
+                    f"Node {current_node}/{num_nodes}: assigned {my_data.shape[0]} pairs"
+                )
+            else:
+                my_data = indices_np_loaded
+
+            # Now chunk this node's data by workers
             chunk_size = batch_size * num_workers
-            num_chunks = int(np.ceil(indices_np_loaded.shape[0] / chunk_size))
-            chunks = np.array_split(indices_np_loaded, num_chunks)
+            num_chunks = int(np.ceil(my_data.shape[0] / chunk_size))
+            chunks = np.array_split(my_data, num_chunks)
 
         else:
-            # Split the sample idx array into chunks of size chunk_size
+            # Split by nodes first if multi-node setup
+            if num_nodes > 1 and current_node is not None:
+                node_splits = np.array_split(sample_idx, num_nodes)
+                my_data = node_splits[current_node]
+                logger.info(
+                    f"Node {current_node}/{num_nodes}: assigned {len(my_data)} samples"
+                )
+            else:
+                my_data = sample_idx
+
+            # Now chunk this node's data by workers
             chunk_size = num_workers * 10
-            num_chunks = int(np.ceil(len(sample_idx) / chunk_size))
-            chunks = np.array_split(sample_idx, num_chunks)
+            num_chunks = int(np.ceil(len(my_data) / chunk_size))
+            chunks = np.array_split(my_data, num_chunks)
 
         if num_chunks == 0:
             logger.info("No pairs to process; returning empty MolecularPairsSet.")
@@ -350,7 +384,7 @@ class MCES:
                 pair_distances=np.empty((0, 3)),
             )
 
-        logger.info(f"Number of chunks: {num_chunks}")
+        logger.info(f"Number of chunks for this node: {num_chunks}")
         logger.info(f"Size of each chunk: {chunks[0].shape[0]}")
         logger.info(
             f"Size of each sub-chunk: {np.array_split(chunks[0], num_workers)[0].shape[0]}"
@@ -358,26 +392,128 @@ class MCES:
 
         computed_pair_distances = np.empty((0, 3))
 
+        # Process ALL chunks assigned to this node (no filtering needed)
         for chunk_idx, chunk in enumerate(chunks):
-            # select chunks to compute based on node number
-            if ((chunk_idx % num_nodes) == current_node) or (current_node is None):
-                prefix_file = "edit_distance_" if use_edit_distance else "mces_"
+            # Generate unique filename including node ID to avoid conflicts
+            prefix_file = "edit_distance_" if use_edit_distance else "mces_"
+            if num_nodes > 1 and current_node is not None:
+                filename = (
+                    f"{preprocessing_dir}"
+                    + prefix_file
+                    + f"indexes_tani_incremental{identifier}_node{current_node}_chunk{chunk_idx}.npy"
+                )
+            else:
                 filename = (
                     f"{preprocessing_dir}"
                     + prefix_file
                     + f"indexes_tani_incremental{identifier}_{str(chunk_idx)}.npy"
                 )
 
-                if not (os.path.exists(filename)):  # do not overwrite existing files
-                    logger.info(f"Processing split {chunk_idx}/{len(chunks)}")
+            if not (os.path.exists(filename)):  # do not overwrite existing files
+                logger.info(f"Processing chunk {chunk_idx}/{len(chunks)}")
 
-                    pool = multiprocessing.Pool(processes=num_workers)
+                pool = NoDaemonPool(processes=num_workers)
+                register_pool(pool)
 
+                try:
                     mols = [Chem.MolFromSmiles(s) for s in all_smiles]
                     fpgen = AllChem.GetRDKitFPGenerator(maxPath=3, fpSize=512)
                     fps = [fpgen.GetFingerprint(m) for m in mols]
 
-                    if compute_specific_pairs:
+                    # Check if we should compute both metrics in single pass
+                    if compute_both_metrics:
+                        results = [
+                            pool.apply_async(
+                                edit_distance.compute_ed_and_mces_both,
+                                args=(
+                                    all_smiles,
+                                    sampled_index,
+                                    batch_size,
+                                    (chunk_idx * len(chunks[0])) + sub_index,
+                                    random_sampling,
+                                    preprocessing_dir,
+                                    compute_specific_pairs,
+                                    threshold_mces,
+                                    fps,
+                                    mols,
+                                ),
+                            )
+                            for sub_index, sampled_index in enumerate(chunk)
+                        ]
+
+                        # Close the pool and wait for all processes to finish
+                        pool.close()
+                        pool.join()
+
+                        # Get results from async objects
+                        computed_pair_distances_both = np.concatenate(
+                            [result.get() for result in results], axis=0
+                        )
+
+                        # Save combined ED+MCES file (4 columns: idx1, idx2, ED, MCES)
+                        if num_nodes > 1 and current_node is not None:
+                            combined_filename = (
+                                f"{preprocessing_dir}"
+                                + "ed_mces_"
+                                + f"indexes_tani_incremental{identifier}_node{current_node}_chunk{chunk_idx}.npy"
+                            )
+                        else:
+                            combined_filename = (
+                                f"{preprocessing_dir}"
+                                + "ed_mces_"
+                                + f"indexes_tani_incremental{identifier}_{str(chunk_idx)}.npy"
+                            )
+                        os.makedirs(os.path.dirname(combined_filename), exist_ok=True)
+                        np.save(
+                            arr=computed_pair_distances_both, file=combined_filename
+                        )
+                        logger.info(
+                            f"Saved combined ED+MCES file: {combined_filename} ({computed_pair_distances_both.shape[0]} pairs, {computed_pair_distances_both.shape[1]} columns)"
+                        )
+
+                        # Also save separate ED and MCES files for flexibility
+                        ed_data = computed_pair_distances_both[:, :3]  # idx1, idx2, ED
+                        mces_data = computed_pair_distances_both[
+                            :, [0, 1, 3]
+                        ]  # idx1, idx2, MCES
+
+                        if num_nodes > 1 and current_node is not None:
+                            ed_filename = (
+                                f"{preprocessing_dir}"
+                                + "edit_distance_"
+                                + f"indexes_tani_incremental{identifier}_node{current_node}_chunk{chunk_idx}.npy"
+                            )
+                        else:
+                            ed_filename = (
+                                f"{preprocessing_dir}"
+                                + "edit_distance_"
+                                + f"indexes_tani_incremental{identifier}_{str(chunk_idx)}.npy"
+                            )
+                        np.save(arr=ed_data, file=ed_filename)
+                        logger.info(
+                            f"Saved ED file: {ed_filename} ({ed_data.shape[0]} pairs)"
+                        )
+
+                        if num_nodes > 1 and current_node is not None:
+                            mces_filename = (
+                                f"{preprocessing_dir}"
+                                + "mces_"
+                                + f"indexes_tani_incremental{identifier}_node{current_node}_chunk{chunk_idx}.npy"
+                            )
+                        else:
+                            mces_filename = (
+                                f"{preprocessing_dir}"
+                                + "mces_"
+                                + f"indexes_tani_incremental{identifier}_{str(chunk_idx)}.npy"
+                            )
+                        np.save(arr=mces_data, file=mces_filename)
+                        logger.info(
+                            f"Saved MCES file: {mces_filename} ({mces_data.shape[0]} pairs)"
+                        )
+
+                        computed_pair_distances = ed_data
+
+                    elif compute_specific_pairs:
                         logger.info("Computing specific pairs from loaded indexes ...")
                         logger.info(f"Size of each array {chunk.shape[0]}")
                         sub_arrays = np.array_split(chunk, num_workers)
@@ -427,14 +563,19 @@ class MCES:
                     pool.close()
                     pool.join()
 
-                    # Get results from async objects
-                    computed_pair_distances = np.concatenate(
-                        [result.get() for result in results], axis=0
-                    )
-                    # create parent directory if it does not exist
-                    os.makedirs(os.path.dirname(filename), exist_ok=True)
-                    # save distances per chunk
-                    np.save(arr=computed_pair_distances, file=filename)
+                    # Get results from async objects (for non-compute_both_metrics cases)
+                    if not compute_both_metrics:
+                        computed_pair_distances = np.concatenate(
+                            [result.get() for result in results], axis=0
+                        )
+                        # create parent directory if it does not exist
+                        os.makedirs(os.path.dirname(filename), exist_ok=True)
+                        # save distances per chunk
+                        np.save(arr=computed_pair_distances, file=filename)
+
+                finally:
+                    cleanup_pool(pool)
+                    unregister_pool(pool)
 
         logger.info(f"Computed distances for {computed_pair_distances.shape[0]} pairs.")
 

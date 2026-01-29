@@ -1,3 +1,4 @@
+import multiprocessing
 from functools import lru_cache
 
 import numpy as np
@@ -16,6 +17,33 @@ from simba.utils.logger_setup import logger
 VERY_HIGH_DISTANCE = 666
 
 
+def _run_mces_with_timeout(s0, s1, threshold, TIME_LIMIT, result_queue):
+    """
+    Helper function to run MCES in a separate process with timeout.
+
+    This runs in a child process spawned by simba_solve_pair_mces.
+    """
+    try:
+        result = MCES2(
+            s0,
+            s1,
+            threshold=threshold,
+            i=0,
+            solver="PULP_CBC_CMD",
+            solver_options={
+                "threads": 1,
+                "msg": False,
+                "timeLimit": TIME_LIMIT,
+            },
+            no_ilp_threshold=False,
+            always_stronger_bound=False,
+            catch_errors=False,
+        )
+        result_queue.put(("success", result))
+    except BaseException as e:
+        result_queue.put(("error", str(e)))
+
+
 def create_input_df(smiles, indexes_0, indexes_1):
     df = pd.DataFrame()
     logger.info(f"Number of spectra: {len(smiles)}")
@@ -24,6 +52,99 @@ def create_input_df(smiles, indexes_0, indexes_1):
     df["smiles_1"] = [smiles[int(r)] for r in indexes_1]
 
     return df
+
+
+def compute_ed_and_mces_both(
+    smiles: list[str],
+    sampled_index: np.int64,
+    batch_size: int,
+    identifier: int,
+    random_sampling: bool,
+    preprocessing_dir: str,
+    compute_specific_pairs: bool,
+    threshold_mces: int,
+    fps: list[ExplicitBitVect],
+    mols: list[Mol],
+) -> np.ndarray:
+    """
+    Compute BOTH edit distance AND MCES for a batch of molecule pairs in a single pass.
+
+    This is the optimized version that eliminates redundant computations:
+    - Load molecules once (not twice)
+    - Generate fingerprints once (not twice)
+    - Calculate Tanimoto similarity once (not twice)
+    - Compute both ED and MCES for each pair
+
+    Parameters
+    ----------
+    smiles : List[str]
+        List of SMILES strings.
+    sampled_index : np.int64
+        Index to sample from the smiles list.
+    batch_size : int
+        The size of the batch to process.
+    identifier : int
+        An identifier for the batch (used for random seed).
+    random_sampling : bool
+        Whether to use random sampling of pairs.
+    preprocessing_dir : str
+        Directory for preprocessing files.
+    compute_specific_pairs : bool
+        Whether to compute specific pairs.
+    threshold_mces : int
+        MCES threshold value.
+    fps : List[ExplicitBitVect]
+        List of fingerprints corresponding to the smiles.
+    mols : List[Mol]
+        List of RDKit Mol objects corresponding to the smiles.
+
+    Returns
+    -------
+    np.ndarray
+        A 2D numpy array with each row containing (index1, index2, ed_distance, mces_distance).
+    """
+    # 2D array to store the indexes and BOTH distances
+    pair_distances = np.zeros((int(batch_size), 4))  # 4 columns: idx1, idx2, ED, MCES
+
+    # Initialize randomness
+    if random_sampling:
+        np.random.seed(identifier)
+        pair_distances[:, 0] = np.random.randint(0, len(smiles), int(batch_size))
+        pair_distances[:, 1] = np.random.randint(0, len(smiles), int(batch_size))
+    else:
+        if batch_size > len(smiles):
+            raise ValueError(
+                f"batch_size ({batch_size}) cannot exceed the number of molecules ({len(smiles)})"
+            )
+        pair_distances[:, 0] = sampled_index
+        pair_distances[:, 1] = np.arange(0, batch_size)
+
+    ed_distances = []
+    mces_distances = []
+
+    for index in range(pair_distances.shape[0]):
+        pair = pair_distances[index]
+
+        s0 = smiles[int(pair[0])]
+        s1 = smiles[int(pair[1])]
+        fp0 = fps[int(pair[0])]
+        fp1 = fps[int(pair[1])]
+        mol0 = mols[int(pair[0])]
+        mol1 = mols[int(pair[1])]
+
+        # Compute BOTH metrics in single pass
+        ed_dist, _ = simba_solve_pair_edit_distance(s0, s1, fp0, fp1, mol0, mol1)
+        mces_dist, _ = simba_solve_pair_mces(
+            s0, s1, fp0, fp1, mol0, mol1, threshold_mces
+        )
+
+        ed_distances.append(ed_dist)
+        mces_distances.append(mces_dist)
+
+    pair_distances[:, 2] = ed_distances
+    pair_distances[:, 3] = mces_distances
+
+    return pair_distances
 
 
 def compute_ed_or_mces(
@@ -210,29 +331,46 @@ def simba_solve_pair_mces(
         if (mol0.GetNumAtoms() > 60) or (mol1.GetNumAtoms() > 60):
             return np.nan, tanimoto
         else:
-            result = MCES2(
-                s0,
-                s1,
-                threshold=threshold,
-                i=0,
-                # solver='CPLEX_CMD',       # or another fast solver you have installed
-                solver="PULP_CBC_CMD",
-                solver_options={
-                    "threads": 1,
-                    "msg": False,
-                    "timeLimit": TIME_LIMIT,  # Stop CBC after 1 seconds
-                },
-                # solver_options={'threads': 1, 'msg': False},  # use single thread + no console messages
-                no_ilp_threshold=False,  # allow the ILP to stop early once the threshold is exceeded
-                always_stronger_bound=False,  # use dynamic bounding for speed
-                catch_errors=False,  # typically raise exceptions if something goes wrong
+            result_queue = multiprocessing.Queue()
+            process = multiprocessing.Process(
+                target=_run_mces_with_timeout,
+                args=(s0, s1, threshold, TIME_LIMIT, result_queue),
             )
-            distance = result[1]
-            time_taken = result[2]
-            exact_answer = result[3]
 
-            if time_taken >= (0.9 * TIME_LIMIT) and (exact_answer != 1):
+            process.start()
+            process.join(timeout=TIME_LIMIT + 1)
+
+            if process.is_alive():
+                logger.warning(
+                    f"MCES computation exceeded {TIME_LIMIT + 1}s timeout, terminating"
+                )
+                process.terminate()
+                process.join()
                 distance = np.nan
+            else:
+                if not result_queue.empty():
+                    try:
+                        status, result = result_queue.get_nowait()
+                        if status == "success":
+                            distance = result[1]
+                            exact_answer = result[3]
+
+                            if exact_answer != 1:
+                                distance = np.nan
+                        else:
+                            logger.warning(f"MCES computation error: {result}")
+                            distance = np.nan
+                    except Exception as e:
+                        logger.warning(f"Failed to retrieve MCES result: {e}")
+                        distance = np.nan
+                else:
+                    logger.warning("MCES process exited without result")
+                    distance = np.nan
+            try:
+                result_queue.close()
+                result_queue.join_thread()
+            except Exception:
+                pass
 
     return distance, tanimoto
 
