@@ -5,16 +5,17 @@ import numpy as np
 
 
 class Augmentation:
-
     @staticmethod
     def zero_and_pack(arr, zero_idx):
-        '''
+        """
         put zeros to the array and move the nonzero values to the beginning
-        '''
-        arr=arr.copy()
-        arr[zero_idx]=0
+        """
+        arr = arr.copy()
+        arr[zero_idx] = 0
         nonzero = arr[arr != 0]
-        return np.concatenate([nonzero, np.zeros(len(arr)-len(nonzero), dtype=arr.dtype)])
+        return np.concatenate(
+            [nonzero, np.zeros(len(arr) - len(nonzero), dtype=arr.dtype)]
+        )
 
     @staticmethod
     def augment(data_sample, training=False, max_num_peaks=None):
@@ -78,8 +79,8 @@ class Augmentation:
                 ]  # flip the order to have the max at the beginning
                 indexes_to_be_erased = intensity_ordered_indexes[max_augmented_peaks:-1]
 
-                #intensity[indexes_to_be_erased] = 0
-                #mz[indexes_to_be_erased] = 0
+                # intensity[indexes_to_be_erased] = 0
+                # mz[indexes_to_be_erased] = 0
 
                 intensity = Augmentation.zero_and_pack(intensity, indexes_to_be_erased)
                 mz = Augmentation.zero_and_pack(mz, indexes_to_be_erased)
@@ -107,9 +108,11 @@ class Augmentation:
                 max_amplitude = random.random() * max_percentage
 
                 # indexes_to_modify=intensity < max_amplitude
-                indexes_to_be_erased = intensity < (max_amplitude * np.max(intensity, keepdims=True))
-                #intensity[indexes_to_be_erased] = 0
-                #mz[indexes_to_be_erased] = 0
+                indexes_to_be_erased = intensity < (
+                    max_amplitude * np.max(intensity, keepdims=True)
+                )
+                # intensity[indexes_to_be_erased] = 0
+                # mz[indexes_to_be_erased] = 0
                 intensity = Augmentation.zero_and_pack(intensity, indexes_to_be_erased)
                 mz = Augmentation.zero_and_pack(mz, indexes_to_be_erased)
 
@@ -133,7 +136,6 @@ class Augmentation:
             intensity = intensity / np.sqrt(np.sum(intensity**2, keepdims=True))
             data_sample[intensity_column] = intensity
         return data_sample
-
 
     @staticmethod
     def add_false_precursor_masses_positives(
@@ -194,10 +196,12 @@ class Augmentation:
                 n_drop = int(n_peaks * dropout_rate)
                 # choose random peaks to drop
                 drop_indices = np.array(random.sample(range(n_peaks), n_drop))
-                #for idx in drop_indices:
+                # for idx in drop_indices:
                 #    intensity_array[idx] = 0
                 #    mz_array[idx] = 0
-                intensity_array = Augmentation.zero_and_pack(intensity_array, drop_indices)
+                intensity_array = Augmentation.zero_and_pack(
+                    intensity_array, drop_indices
+                )
                 mz_array = Augmentation.zero_and_pack(mz_array, drop_indices)
 
                 data_sample[int_key] = intensity_array
@@ -209,31 +213,27 @@ class Augmentation:
         """
         Randomly mask metadata fields for augmentation.
         """
-        if random.random()<p_aug:
+        if random.random() < p_aug:
             keys_found = list(data_sample.keys())
 
-            #if random.random() < p_aug:
+            # if random.random() < p_aug:
             #    if "precursor_mass_0" in keys_found:
             #        data_sample["precursor_mass_0"]= 0 * data_sample["precursor_mass_0"]
             #        data_sample["precursor_mass_1"]= 0 * data_sample["precursor_mass_1"]
-            #if random.random() < p_aug:
+            # if random.random() < p_aug:
             #    if "precursor_charge_0" in keys_found:
             #        data_sample["precursor_charge_0"]= 0*data_sample["precursor_charge_0"]
             #        data_sample["precursor_charge_1"]= 0*data_sample["precursor_charge_1"]
-            if random.random() < 0.5:
-                if "ionmode_0" in keys_found:
-                    data_sample["ionmode_0"] = 0 * data_sample["ionmode_0"]
-                    data_sample["ionmode_1"] = 0 * data_sample["ionmode_1"]
-            if random.random() < 0.5:
-                if "adduct_0" in keys_found:
-                    data_sample["adduct_0"] = 0 * data_sample["adduct_0"]
-                    data_sample["adduct_1"] = 0 * data_sample["adduct_1"]
-            if random.random() < 0.5:
-                if "ce_0" in keys_found:
-                    data_sample["ce_0"] = 0 * data_sample["ce_0"]
-                    data_sample["ce_1"] = 0 * data_sample["ce_1"]
-            if random.random() < 0.5:
-                if "ion_activation_0" in keys_found:
-                    data_sample["ion_activation_0"] = 0 * data_sample["ion_activation_0"]
-                    data_sample["ion_activation_1"] = 0 * data_sample["ion_activation_1"]
+            if random.random() < 0.5 and "ionmode_0" in keys_found:
+                data_sample["ionmode_0"] = 0 * data_sample["ionmode_0"]
+                data_sample["ionmode_1"] = 0 * data_sample["ionmode_1"]
+            if random.random() < 0.5 and "adduct_0" in keys_found:
+                data_sample["adduct_0"] = 0 * data_sample["adduct_0"]
+                data_sample["adduct_1"] = 0 * data_sample["adduct_1"]
+            if random.random() < 0.5 and "ce_0" in keys_found:
+                data_sample["ce_0"] = 0 * data_sample["ce_0"]
+                data_sample["ce_1"] = 0 * data_sample["ce_1"]
+            if random.random() < 0.5 and "ion_activation_0" in keys_found:
+                data_sample["ion_activation_0"] = 0 * data_sample["ion_activation_0"]
+                data_sample["ion_activation_1"] = 0 * data_sample["ion_activation_1"]
         return data_sample

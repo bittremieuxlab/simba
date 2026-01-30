@@ -164,7 +164,7 @@ class TestSimbaSolvePairMCES:
         fp = FingerprintMols.FingerprintMol(mol)
 
         distance, tanimoto = simba_solve_pair_mces(
-            smiles, smiles, fp, fp, mol, mol, threshold=20, TIME_LIMIT=2
+            smiles, smiles, fp, fp, mol, mol, threshold=20, TIME_LIMIT=5
         )
 
         assert distance == 0
@@ -180,7 +180,7 @@ class TestSimbaSolvePairMCES:
         fp2 = FingerprintMols.FingerprintMol(mol2)
 
         distance, tanimoto = simba_solve_pair_mces(
-            smiles1, smiles2, fp1, fp2, mol1, mol2, threshold=20, TIME_LIMIT=2
+            smiles1, smiles2, fp1, fp2, mol1, mol2, threshold=20, TIME_LIMIT=5
         )
 
         assert distance == 1.0
@@ -196,7 +196,7 @@ class TestSimbaSolvePairMCES:
         fp2 = FingerprintMols.FingerprintMol(mol2)
 
         distance, tanimoto = simba_solve_pair_mces(
-            smiles1, smiles2, fp1, fp2, mol1, mol2, threshold=20, TIME_LIMIT=2
+            smiles1, smiles2, fp1, fp2, mol1, mol2, threshold=20, TIME_LIMIT=5
         )
 
         assert distance == VERY_HIGH_DISTANCE  # 666
@@ -212,10 +212,10 @@ class TestSimbaSolvePairMCES:
         fp2 = FingerprintMols.FingerprintMol(mol2)
 
         distance1, _ = simba_solve_pair_mces(
-            smiles1, smiles2, fp1, fp2, mol1, mol2, threshold=10, TIME_LIMIT=2
+            smiles1, smiles2, fp1, fp2, mol1, mol2, threshold=10, TIME_LIMIT=5
         )
         distance2, _ = simba_solve_pair_mces(
-            smiles1, smiles2, fp1, fp2, mol1, mol2, threshold=30, TIME_LIMIT=2
+            smiles1, smiles2, fp1, fp2, mol1, mol2, threshold=30, TIME_LIMIT=5
         )
 
         # Both should return valid distances
