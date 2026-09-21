@@ -314,6 +314,8 @@ class SimilarityModelMultitask(SimilarityModel):
         contrastive_temperature=0.07,
         contrastive_loss_weight=1.0,
         contrastive_use_projection_head=False,
+        use_spectral_cosine_head=False,
+        spectral_cosine_loss_weight=1.0,
         use_precursor_mz_for_model=True,
         use_adduct=False,
         use_ce=False,
@@ -371,6 +373,15 @@ class SimilarityModelMultitask(SimilarityModel):
         self.contrastive_use_projection_head = contrastive_use_projection_head
         if self.use_contrastive_loss and self.contrastive_use_projection_head:
             self.contrastive_projection = nn.Sequential(
+                nn.Linear(d_model, d_model),
+                nn.ReLU(),
+                nn.Linear(d_model, d_model),
+            )
+
+        self.use_spectral_cosine_head = use_spectral_cosine_head
+        self.spectral_cosine_loss_weight = spectral_cosine_loss_weight
+        if self.use_spectral_cosine_head:
+            self.spectral_cosine_projection = nn.Sequential(
                 nn.Linear(d_model, d_model),
                 nn.ReLU(),
                 nn.Linear(d_model, d_model),
@@ -492,8 +503,9 @@ class SimilarityModelMultitask(SimilarityModel):
             return self.compute_from_embeddings(emb0, emb1)
 
     def _forward_with_embeddings(self, batch):
-        """(logits_list, emb0, emb1) if use_contrastive_loss else (logits_list, None, None)."""
-        if self.use_contrastive_loss:
+        """(logits_list, emb0, emb1) if any embedding-level auxiliary loss
+        (contrastive, spectral-cosine) is enabled, else (logits_list, None, None)."""
+        if self.use_contrastive_loss or self.use_spectral_cosine_head:
             *logits_list, emb0, emb1 = self(batch, return_spectrum_output=True)
             return logits_list, emb0, emb1
         return self(batch), None, None
@@ -541,6 +553,15 @@ class SimilarityModelMultitask(SimilarityModel):
             result["mces_bucket_target"] = self._mces_bucket_target_bins(
                 raw_mces_target
             ).cpu()
+        if self.use_spectral_cosine_head:
+            pred_spectral_cosine = self._spectral_cosine_predict(emb0, emb1)
+            target_spectral_cosine = (
+                batch["spectral_cosine"]
+                .to(dtype=torch.float32, device=self.device)
+                .view(-1)
+            )
+            result["spectral_cosine_pred"] = pred_spectral_cosine.view(-1).cpu()
+            result["spectral_cosine_target"] = target_spectral_cosine.cpu()
         return result
 
     def step(
@@ -601,7 +622,33 @@ class SimilarityModelMultitask(SimilarityModel):
                     prog_bar=False,
                 )
                 loss = loss + (self.contrastive_loss_weight * loss_contrastive)
+
+        if self.use_spectral_cosine_head:
+            pred_spectral_cosine = self._spectral_cosine_predict(emb0, emb1)
+            target_spectral_cosine = (
+                batch["spectral_cosine"].to(dtype=torch.float32, device=self.device)
+            ).view(-1)
+            loss_spectral_cosine = F.mse_loss(
+                pred_spectral_cosine.view(-1), target_spectral_cosine
+            )
+            self.log(
+                "loss_spectral_cosine",
+                loss_spectral_cosine,
+                on_step=True,
+                on_epoch=True,
+                prog_bar=False,
+            )
+            loss = loss + (self.spectral_cosine_loss_weight * loss_spectral_cosine)
         return loss
+
+    def _spectral_cosine_predict(self, emb0, emb1):
+        """Predicted spectral-cosine score: cosine similarity of emb0/emb1
+        after the dedicated spectral_cosine_projection, trained via MSE
+        against the true binned spectral cosine (see
+        simba/core/data/spectral_cosine.py)."""
+        proj0 = self.spectral_cosine_projection(emb0)
+        proj1 = self.spectral_cosine_projection(emb1)
+        return self.cosine_similarity(proj0, proj1)
 
     def _contrastive_loss_info_nce(self, emb0, emb1, mol_idx_0, mol_idx_1):
         """In-batch InfoNCE over the batch's self-pairs (same molecule, two

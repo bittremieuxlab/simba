@@ -58,6 +58,7 @@ class TestEmbedderMultitask:
             "mces": torch.tensor([0.7, 0.5]),
             "mol_idx_0": torch.tensor([10, 20]),
             "mol_idx_1": torch.tensor([10, 20]),
+            "spectral_cosine": torch.tensor([0.9, 0.4]),
         }
 
     def test_init_basic(self, embedder_config):
@@ -215,6 +216,90 @@ class TestEmbedderMultitask:
         assert n_pairs == 4
         assert loss is not None
         assert not torch.isnan(loss)
+
+    def test_spectral_cosine_head_off_by_default(self, embedder_config):
+        embedder = SimilarityModelMultitask(**embedder_config)
+
+        assert embedder.use_spectral_cosine_head is False
+        assert not hasattr(embedder, "spectral_cosine_projection")
+
+    def test_spectral_cosine_projection_head_created_when_enabled(
+        self, embedder_config
+    ):
+        embedder_config["use_spectral_cosine_head"] = True
+        embedder = SimilarityModelMultitask(**embedder_config)
+
+        assert hasattr(embedder, "spectral_cosine_projection")
+
+    def test_spectral_cosine_predict_basic(self, embedder_config):
+        embedder_config["use_spectral_cosine_head"] = True
+        embedder = SimilarityModelMultitask(**embedder_config)
+        d_model = embedder_config["d_model"]
+
+        emb0 = torch.randn(4, d_model)
+        emb1 = torch.randn(4, d_model)
+
+        pred = embedder._spectral_cosine_predict(emb0, emb1)
+
+        assert pred.shape == (4,)
+        assert not torch.isnan(pred).any()
+        assert (pred >= -1.0).all() and (pred <= 1.0).all()
+
+    def test_training_step_with_spectral_cosine_head(
+        self, embedder_config, sample_batch
+    ):
+        embedder_config["use_spectral_cosine_head"] = True
+        embedder = SimilarityModelMultitask(**embedder_config)
+
+        result = embedder.training_step(sample_batch, batch_idx=0)
+
+        assert not torch.isnan(result["loss"])
+
+    def test_validation_step_with_spectral_cosine_head(
+        self, embedder_config, sample_batch
+    ):
+        embedder_config["use_spectral_cosine_head"] = True
+        embedder = SimilarityModelMultitask(**embedder_config)
+        embedder.eval()
+
+        with torch.no_grad():
+            loss = embedder.validation_step(sample_batch, batch_idx=0)
+
+        assert not torch.isnan(loss["loss"])
+        assert "spectral_cosine_pred" in loss
+        assert "spectral_cosine_target" in loss
+        assert (
+            loss["spectral_cosine_pred"].shape == loss["spectral_cosine_target"].shape
+        )
+        assert torch.equal(
+            loss["spectral_cosine_target"], sample_batch["spectral_cosine"]
+        )
+
+    def test_validation_step_without_spectral_cosine_head_omits_keys(
+        self, embedder, sample_batch
+    ):
+        embedder.eval()
+        with torch.no_grad():
+            loss = embedder.validation_step(sample_batch, batch_idx=0)
+
+        assert "spectral_cosine_pred" not in loss
+        assert "spectral_cosine_target" not in loss
+
+    def test_forward_with_embeddings_for_spectral_cosine_only(
+        self, embedder_config, sample_batch
+    ):
+        """_forward_with_embeddings should thread emb0/emb1 through even when
+        only the spectral-cosine head (not contrastive) is enabled."""
+        embedder_config["use_spectral_cosine_head"] = True
+        embedder = SimilarityModelMultitask(**embedder_config)
+        embedder.eval()
+
+        with torch.no_grad():
+            logits_list, emb0, emb1 = embedder._forward_with_embeddings(sample_batch)
+
+        assert emb0 is not None
+        assert emb1 is not None
+        assert emb0.shape[0] == sample_batch["mz_0"].shape[0]
 
     def test_test_step(self, embedder, sample_batch):
         embedder.eval()

@@ -489,6 +489,9 @@ def prepare_data(
         precursor_noise_mode=cfg.sampling.get("precursor_noise_mode", "legacy"),
         prob_aug=cfg.augmentation.prob_aug,
         iceberg_spectra_prob=cfg.sampling.get("iceberg_spectra_prob", 0.0),
+        use_spectral_cosine=cfg.model.tasks.spectral_cosine.enabled,
+        spectral_cosine_bin_width=cfg.model.tasks.spectral_cosine.bin_width,
+        spectral_cosine_max_mz=cfg.model.tasks.spectral_cosine.max_mz,
     )
 
     dataset_val = MultitaskDataBuilder.from_molecule_pairs_to_dataset(
@@ -500,6 +503,9 @@ def prepare_data(
         use_ion_method=cfg.model.features.use_ion_method,
         use_ion_mode=cfg.model.features.use_ion_mode,
         precursor_mass_mode=cfg.sampling.get("precursor_mass_mode", "measured"),
+        use_spectral_cosine=cfg.model.tasks.spectral_cosine.enabled,
+        spectral_cosine_bin_width=cfg.model.tasks.spectral_cosine.bin_width,
+        spectral_cosine_max_mz=cfg.model.tasks.spectral_cosine.max_mz,
     )
 
     # Validation always uses a full, unweighted, sequential pass regardless
@@ -670,6 +676,8 @@ def setup_model(cfg: DictConfig, weights_mces: np.ndarray) -> SimilarityModelMul
         "contrastive_temperature": cfg.model.tasks.contrastive.temperature,
         "contrastive_loss_weight": cfg.model.tasks.contrastive.loss_weight,
         "contrastive_use_projection_head": cfg.model.tasks.contrastive.use_projection_head,
+        "use_spectral_cosine_head": cfg.model.tasks.spectral_cosine.enabled,
+        "spectral_cosine_loss_weight": cfg.model.tasks.spectral_cosine.loss_weight,
         "weights": weights_mces,
         "lr": cfg.optimizer.lr,
         "use_adduct": cfg.model.features.use_adduct,

@@ -69,6 +69,12 @@ tasks:
     loss_weight: 1.0
     use_projection_head: false
 
+  spectral_cosine:
+    enabled: false
+    loss_weight: 1.0
+    bin_width: 0.01
+    max_mz: 1100.0
+
 # Multitasking
 multitasking:
   enabled: true

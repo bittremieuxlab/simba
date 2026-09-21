@@ -278,6 +278,8 @@ class ValMetricsCallback(Callback):
         self._mces_targets = []
         self._bucket_preds = []
         self._bucket_targets = []
+        self._spectral_cosine_preds = []
+        self._spectral_cosine_targets = []
         self._mol_idx_0 = []
         self._mol_idx_1 = []
         self._spec_idx_0 = []
@@ -299,6 +301,13 @@ class ValMetricsCallback(Callback):
         if "mces_bucket_pred" in outputs:
             self._bucket_preds.append(outputs["mces_bucket_pred"].numpy())
             self._bucket_targets.append(outputs["mces_bucket_target"].numpy())
+        if "spectral_cosine_pred" in outputs:
+            self._spectral_cosine_preds.append(
+                outputs["spectral_cosine_pred"].float().numpy()
+            )
+            self._spectral_cosine_targets.append(
+                outputs["spectral_cosine_target"].float().numpy()
+            )
         if "mol_idx_0" in batch:
             self._mol_idx_0.append(batch["mol_idx_0"].cpu().numpy())
             self._mol_idx_1.append(batch["mol_idx_1"].cpu().numpy())
@@ -346,6 +355,15 @@ class ValMetricsCallback(Callback):
             )
             self._log_overlap_coefficients(
                 pl_module, corrected_mces, bin_idx, prefix="val_overlap_corrected"
+            )
+
+        if self._spectral_cosine_preds:
+            spectral_cosine_pred = np.concatenate(self._spectral_cosine_preds)
+            spectral_cosine_target = np.concatenate(self._spectral_cosine_targets)
+            self._spectral_cosine_preds.clear()
+            self._spectral_cosine_targets.clear()
+            self._log_and_plot_spectral_cosine(
+                pl_module, spectral_cosine_pred, spectral_cosine_target, step, tb_logger
             )
 
         if self._mol_idx_0:
@@ -462,6 +480,55 @@ class ValMetricsCallback(Callback):
         if tb_logger is not None:
             tb_logger.experiment.add_figure(
                 "val_plots/mces_binned_box", fig, global_step=step
+            )
+        plt.close(fig)
+
+    def _log_and_plot_spectral_cosine(self, pl_module, pred, target, step, tb_logger):
+        mae = float(np.abs(pred - target).mean())
+        corr = float(np.corrcoef(pred, target)[0, 1]) if len(pred) > 1 else float("nan")
+        pl_module.log(
+            "val_spectral_cosine_mae",
+            mae,
+            on_step=False,
+            on_epoch=True,
+            add_dataloader_idx=False,
+        )
+        pl_module.log(
+            "val_spectral_cosine_corr",
+            corr,
+            on_step=False,
+            on_epoch=True,
+            add_dataloader_idx=False,
+        )
+
+        fig, ax = plt.subplots(figsize=(6, 6))
+        ax.scatter(target, pred, s=4, alpha=0.15, edgecolors="none")
+        ax.plot([0, 1], [0, 1], "r--", lw=1, label="pred = target")
+        ax.set_xlabel("True spectral cosine")
+        ax.set_ylabel("Predicted spectral cosine")
+        ax.set_title(f"Spectral cosine: predicted vs. true — step {step}")
+        ax.text(
+            0.05,
+            0.95,
+            f"MAE={mae:.4f}\nr={corr:.4f}\nn={len(pred)}",
+            transform=ax.transAxes,
+            va="top",
+            ha="left",
+            fontsize=9,
+            bbox={"boxstyle": "round", "facecolor": "white", "alpha": 0.8},
+        )
+        ax.legend(fontsize=8, loc="lower right")
+        ax.grid(True, alpha=0.3)
+        ax.set_xlim(-0.05, 1.05)
+        ax.set_ylim(-0.05, 1.05)
+        plt.tight_layout()
+        path = os.path.join(
+            self.output_dir, f"spectral_cosine_scatter_step{step:06d}.png"
+        )
+        fig.savefig(path, dpi=130)
+        if tb_logger is not None:
+            tb_logger.experiment.add_figure(
+                "val_plots/spectral_cosine_scatter", fig, global_step=step
             )
         plt.close(fig)
 

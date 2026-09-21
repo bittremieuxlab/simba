@@ -21,6 +21,7 @@ from simba.core.data.encoding import (
 )
 from simba.core.data.molecule_pairs import MoleculePairsOpt
 from simba.core.data.preprocessor import Preprocessor
+from simba.core.data.spectral_cosine import DEFAULT_BIN_WIDTH, DEFAULT_MAX_MZ
 from simba.utils.logger_setup import logger
 
 
@@ -43,6 +44,9 @@ class MultitaskDataBuilder:
         precursor_noise_mode: str = "legacy",
         prob_aug: float = 0.50,
         iceberg_spectra_prob: float = 0.0,
+        use_spectral_cosine: bool = False,
+        spectral_cosine_bin_width: float = DEFAULT_BIN_WIDTH,
+        spectral_cosine_max_mz: float = DEFAULT_MAX_MZ,
     ) -> CustomDatasetMultitasking:
         """
         Load data from molecule pairs into a Pytorch dataset for multitask learning.
@@ -222,6 +226,9 @@ class MultitaskDataBuilder:
             training=training,
             prob_aug=prob_aug,
             iceberg_spectra_prob=iceberg_spectra_prob,
+            use_spectral_cosine=use_spectral_cosine,
+            spectral_cosine_bin_width=spectral_cosine_bin_width,
+            spectral_cosine_max_mz=spectral_cosine_max_mz,
             mz=mz,
             intensity=intensity,
             precursor_mass=precursor_mass,

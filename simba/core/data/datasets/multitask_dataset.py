@@ -10,6 +10,11 @@ from simba.core.data.encoding import (
     ION_ACTIVATION,
     IONIZATION_METHODS,
 )
+from simba.core.data.spectral_cosine import (
+    DEFAULT_BIN_WIDTH,
+    DEFAULT_MAX_MZ,
+    pairwise_spectral_cosine,
+)
 
 
 class CustomDatasetMultitasking(Dataset):
@@ -19,6 +24,9 @@ class CustomDatasetMultitasking(Dataset):
         training=False,
         prob_aug=0.50,
         iceberg_spectra_prob=0.0,
+        use_spectral_cosine=False,
+        spectral_cosine_bin_width=DEFAULT_BIN_WIDTH,
+        spectral_cosine_max_mz=DEFAULT_MAX_MZ,
         mz=None,
         intensity=None,
         precursor_mass=None,
@@ -43,6 +51,9 @@ class CustomDatasetMultitasking(Dataset):
         self.training = training
         self.prob_aug = prob_aug
         self.iceberg_spectra_prob = iceberg_spectra_prob
+        self.use_spectral_cosine = use_spectral_cosine
+        self.spectral_cosine_bin_width = spectral_cosine_bin_width
+        self.spectral_cosine_max_mz = spectral_cosine_max_mz
 
         self.mz = mz
         self.intensity = intensity
@@ -329,4 +340,17 @@ class CustomDatasetMultitasking(Dataset):
 
         # normalize
         spectrum_sample = Augmentation.normalize_intensities(spectrum_sample)
+
+        if self.use_spectral_cosine:
+            spectrum_sample["spectral_cosine"] = np.float32(
+                pairwise_spectral_cosine(
+                    spectrum_sample["mz_0"],
+                    spectrum_sample["intensity_0"],
+                    spectrum_sample["mz_1"],
+                    spectrum_sample["intensity_1"],
+                    self.spectral_cosine_bin_width,
+                    self.spectral_cosine_max_mz,
+                )
+            )
+
         return spectrum_sample
