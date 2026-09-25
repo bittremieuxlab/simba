@@ -295,7 +295,9 @@ class TestEmbedderMultitask:
         embedder.eval()
 
         with torch.no_grad():
-            logits_list, emb0, emb1 = embedder._forward_with_embeddings(sample_batch)
+            logits_list, emb0, emb1, tokens0, valid0, tokens1, valid1 = (
+                embedder._forward_with_embeddings(sample_batch)
+            )
 
         assert emb0 is not None
         assert emb1 is not None

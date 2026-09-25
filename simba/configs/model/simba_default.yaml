@@ -68,12 +68,38 @@ tasks:
     temperature: 0.07
     loss_weight: 1.0
     use_projection_head: false
+    use_filip_tokens: false
 
   spectral_cosine:
     enabled: false
     loss_weight: 1.0
     bin_width: 0.01
     max_mz: 1100.0
+
+  filip:
+    enabled: false
+    # Only used when use_cross_attention is false: how each direction's
+    # per-token scores get combined across the other spectrum's valid
+    # tokens. "soft_max" (default): learned-temperature log-mean-exp,
+    # interpolates between the two options below as training adjusts the
+    # temperature. "hard_max": literal max -- the original FILIP paper's
+    # mechanism, no learned parameter for this step. "mean": literal
+    # unweighted average -- no max, no attention at all.
+    aggregation: soft_max
+    # Replace the max/log-mean-exp token aggregation with learned
+    # cross-attention (each spectrum's tokens attend over the other's
+    # valid tokens instead of picking a single best match).
+    use_cross_attention: false
+    # Only meaningful when use_cross_attention is true: combine the raw
+    # cosine-similarity matrix with the learned attention weights (avoids
+    # blending raw token vectors before comparing, which can cancel out
+    # real signal), instead of blending raw tokens then comparing once.
+    cross_attention_weight_similarities: false
+    # Weight the per-token pooling by a learned, independent (sigmoid)
+    # importance gate instead of a plain mean, so a distinctive/diagnostic
+    # peak can matter more than a generic one. Works with either
+    # aggregation mode above.
+    use_importance_weighting: false
 
 # Multitasking
 multitasking:

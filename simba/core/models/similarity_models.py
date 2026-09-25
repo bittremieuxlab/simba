@@ -314,8 +314,14 @@ class SimilarityModelMultitask(SimilarityModel):
         contrastive_temperature=0.07,
         contrastive_loss_weight=1.0,
         contrastive_use_projection_head=False,
+        contrastive_use_filip_tokens=False,  # score the in-batch contrastive loss with FILIP token interaction instead of CLS cosine
         use_spectral_cosine_head=False,
         spectral_cosine_loss_weight=1.0,
+        use_filip_head=False,  # FILIP-style fine-grained token similarity, replaces the CLS-cosine primary score
+        filip_use_cross_attention=False,  # replace the max/log-mean-exp aggregation with learned cross-attention
+        filip_aggregation="soft_max",  # only used when filip_use_cross_attention=False: "soft_max" (learned-temperature log-mean-exp, default), "hard_max" (literal max, the original FILIP paper), or "mean" (literal unweighted average, no max/attention at all)
+        filip_use_importance_weighting=False,  # weight the per-token pooling by a learned, independent (sigmoid) importance gate instead of a plain mean
+        filip_cross_attention_weight_similarities=False,  # combine the raw cosine-similarity matrix with learned attention weights, instead of blending raw tokens then comparing
         use_precursor_mz_for_model=True,
         use_adduct=False,
         use_ce=False,
@@ -377,6 +383,26 @@ class SimilarityModelMultitask(SimilarityModel):
                 nn.ReLU(),
                 nn.Linear(d_model, d_model),
             )
+        self.contrastive_use_filip_tokens = (
+            self.use_contrastive_loss
+            and contrastive_use_filip_tokens
+            and use_filip_head
+        )
+        if self.contrastive_use_filip_tokens:
+            # Dedicated per-token projection (applied independently to each
+            # of the ~100 peak tokens) -- keeps the raw FILIP tokens that
+            # drive the primary MCES regression free from the contrastive
+            # loss's own discrimination pressure, same reasoning as
+            # contrastive_projection/spectral_cosine_projection above.
+            self.filip_contrastive_projection = nn.Sequential(
+                nn.Linear(d_model, d_model),
+                nn.ReLU(),
+                nn.Linear(d_model, d_model),
+            )
+            # Separate learned temperature for this projected token space's
+            # own soft-max aggregation (independent of filip_log_temperature,
+            # which governs the primary, unprojected FILIP score).
+            self.filip_contrastive_log_temperature = nn.Parameter(torch.zeros(1))
 
         self.use_spectral_cosine_head = use_spectral_cosine_head
         self.spectral_cosine_loss_weight = spectral_cosine_loss_weight
@@ -387,9 +413,56 @@ class SimilarityModelMultitask(SimilarityModel):
                 nn.Linear(d_model, d_model),
             )
 
+        self.use_filip_head = use_filip_head
+        self.filip_use_cross_attention = filip_use_cross_attention and use_filip_head
+        self.filip_aggregation = filip_aggregation
+        if self.use_filip_head and self.filip_aggregation == "soft_max":
+            # Learnable temperature for the token-similarity soft-max
+            # (log-sum-exp) aggregation, parameterized in log-space so it
+            # stays positive; starts at temperature=exp(0)=1.0 (a mild
+            # softening of the hard max). Only created for "soft_max";
+            # "hard_max"/"mean" need no learned parameter for this step.
+            self.filip_log_temperature = nn.Parameter(torch.zeros(1))
+        if self.filip_use_cross_attention:
+            # Learned cross-attention alternative to the fixed cosine +
+            # max/log-mean-exp kernel: each spectrum's tokens attend over
+            # the other spectrum's valid tokens with standard scaled-dot-
+            # product attention, giving a learned, context-aware blend
+            # instead of "pick your single best-matching peak." Only Q/K
+            # are learned projections (used purely to derive attention
+            # weights) -- the blended value and the final comparison both
+            # stay in the raw token space, the same shared embedding space
+            # cosine similarity is already used in everywhere else in this
+            # model. (No dedicated V projection: blending a separately-
+            # learned V and then comparing it to Q would require training
+            # to also align two otherwise-unrelated projection spaces for
+            # the cosine comparison to mean anything -- the path of least
+            # resistance there is collapsing W_Q ~= W_V, which would waste
+            # the point of a separate V.)
+            self.filip_attn_q = nn.Linear(d_model, d_model)
+            self.filip_attn_k = nn.Linear(d_model, d_model)
+        self.filip_cross_attention_weight_similarities = (
+            filip_cross_attention_weight_similarities and self.filip_use_cross_attention
+        )
+        self.filip_use_importance_weighting = (
+            filip_use_importance_weighting and use_filip_head
+        )
+        if self.filip_use_importance_weighting:
+            # Per-peak importance gate for pooling: sigmoid (independent
+            # per token, no forced competition between peaks -- unlike
+            # softmax, several peaks can all score highly important at
+            # once), applied to the raw token so a distinctive/diagnostic
+            # peak can matter more than a generic one, instead of every
+            # peak contributing equally to the final averaged score.
+            self.filip_importance_mlp = nn.Sequential(
+                nn.Linear(d_model, d_model),
+                nn.ReLU(),
+                nn.Linear(d_model, 1),
+            )
+
         self.use_precursor_mz_for_model = use_precursor_mz_for_model
 
-    def forward(self, batch, return_spectrum_output=False):
+    def forward(self, batch, return_spectrum_output=False, return_tokens=False):
         # … compute raw emb0, emb1, apply relu, etc. …
 
         # nans to zeros
@@ -481,42 +554,296 @@ class SimilarityModelMultitask(SimilarityModel):
         batch["mz_0"] = torch.nan_to_num(batch["mz_0"], nan=0.0, posinf=0.0, neginf=0.0)
         batch["mz_1"] = torch.nan_to_num(batch["mz_1"], nan=0.0, posinf=0.0, neginf=0.0)
 
-        emb0, _ = self.spectrum_encoder(
+        latent0, pad_mask0 = self.spectrum_encoder(
             mz_array=batch["mz_0"].float(),
             intensity_array=batch["intensity_0"].float(),
             **kwargs_0,
         )
-        emb1, _ = self.spectrum_encoder(
+        latent1, pad_mask1 = self.spectrum_encoder(
             mz_array=batch["mz_1"].float(),
             intensity_array=batch["intensity_1"].float(),
             **kwargs_1,
         )
 
-        emb0 = emb0[:, 0, :]
-        emb1 = emb1[:, 0, :]
-        emb0 = self.relu(emb0)
-        emb1 = self.relu(emb1)
+        emb0 = self.relu(latent0[:, 0, :])
+        emb1 = self.relu(latent1[:, 0, :])
+
+        filip_score = None
+        tokens0 = tokens1 = valid0 = valid1 = None
+        if self.use_filip_head:
+            tokens0 = self.relu(latent0[:, 1:, :])
+            tokens1 = self.relu(latent1[:, 1:, :])
+            valid0 = ~pad_mask0[:, 1:]
+            valid1 = ~pad_mask1[:, 1:]
+            filip_score = self._filip_similarity(tokens0, valid0, tokens1, valid1)
 
         if return_spectrum_output:
-            return (*self.compute_from_embeddings(emb0, emb1), emb0, emb1)
+            result = (
+                *self.compute_from_embeddings(emb0, emb1, filip_score=filip_score),
+                emb0,
+                emb1,
+            )
         else:
-            return self.compute_from_embeddings(emb0, emb1)
+            result = self.compute_from_embeddings(emb0, emb1, filip_score=filip_score)
+
+        if return_tokens:
+            return (*result, tokens0, valid0, tokens1, valid1)
+        return result
+
+    def _filip_similarity(self, tokens0, valid0, tokens1, valid1):
+        if self.filip_use_cross_attention:
+            return self._filip_cross_attention_similarity(
+                tokens0, valid0, tokens1, valid1
+            )
+        return self._filip_soft_max_similarity(tokens0, valid0, tokens1, valid1)
+
+    def _filip_weighted_mean(self, per_token_scores, tokens, valid):
+        """Pool per-token scores over the valid-token axis. Plain masked
+        mean by default; when filip_use_importance_weighting is set,
+        weights each token by a learned, independently-scored (sigmoid,
+        not softmax -- no forced competition between peaks, so several
+        peaks can all matter at once) importance gate instead of treating
+        every peak equally."""
+        if self.filip_use_importance_weighting:
+            importance = torch.sigmoid(self.filip_importance_mlp(tokens).squeeze(-1))
+            importance = torch.where(valid, importance, torch.zeros_like(importance))
+            return (importance * per_token_scores).sum(dim=1) / importance.sum(
+                dim=1
+            ).clamp(min=1e-6)
+        return per_token_scores.sum(dim=1) / valid.sum(dim=1).clamp(min=1)
+
+    def _filip_cross_attention_similarity(self, tokens0, valid0, tokens1, valid1):
+        """Cross-attention alternative to the max/log-mean-exp aggregation:
+        each spectrum's tokens attend over the OTHER spectrum's valid
+        tokens via standard scaled-dot-product attention (masked at
+        padding positions), producing learned attention weights instead of
+        a fixed temperature/max-based combination rule. Q/K are learned
+        projections used only to derive those weights.
+
+        Two ways to combine the weights with the actual token comparison
+        (filip_cross_attention_weight_similarities selects which):
+        - False (default): blend the RAW token vectors by the attention
+          weights first, then take one cosine similarity against the raw
+          query token. Cheaper, but cosine is not linear, so blending
+          vectors that point in different directions before comparing can
+          partially cancel out real per-token signal.
+        - True: compute the full raw-token cosine-similarity matrix first
+          (same object the original soft-max mechanism, the contrastive
+          loss, and the spectral-cosine head all already use), then take
+          the attention-weighted AVERAGE of those scalar similarities.
+          Avoids the vector-cancellation issue since scalars can't
+          destructively interfere, and keeps the comparison itself
+          unchanged from the base cosine kernel -- only the combination
+          rule is learned.
+
+        Either way: averaged over valid tokens (see _filip_weighted_mean),
+        then symmetrically averaged over both directions. Returns (B,)."""
+        d_k = tokens0.shape[-1]
+        scale = d_k**0.5
+        neg_fill = -1e9
+
+        def _direction(q_tokens, q_valid, kv_tokens, kv_valid):
+            q = self.filip_attn_q(q_tokens)  # (B, N, d)
+            k = self.filip_attn_k(kv_tokens)  # (B, M, d)
+            logits = torch.bmm(q, k.transpose(1, 2)) / scale  # (B, N, M)
+            logits = logits.masked_fill(~kv_valid.unsqueeze(1), neg_fill)
+            weights = torch.softmax(logits, dim=2)
+            if self.filip_cross_attention_weight_similarities:
+                q_norm = F.normalize(q_tokens, p=2, dim=-1)
+                kv_norm = F.normalize(kv_tokens, p=2, dim=-1)
+                cos_sim = torch.bmm(q_norm, kv_norm.transpose(1, 2))  # (B, N, M)
+                per_token = (weights * cos_sim).sum(dim=2)  # (B, N)
+            else:
+                attended = torch.bmm(weights, kv_tokens)  # (B, N, d) -- raw values
+                per_token = F.cosine_similarity(
+                    attended, q_tokens, dim=-1
+                )  # (B, N) -- raw query
+            per_token = torch.where(q_valid, per_token, torch.zeros_like(per_token))
+            return self._filip_weighted_mean(per_token, q_tokens, q_valid)
+
+        score_0to1 = _direction(tokens0, valid0, tokens1, valid1)
+        score_1to0 = _direction(tokens1, valid1, tokens0, valid0)
+        return 0.5 * (score_0to1 + score_1to0)
+
+    def _filip_soft_max_similarity(self, tokens0, valid0, tokens1, valid1):
+        """FILIP-style fine-grained token similarity (Yao et al., 2021), no
+        cross-attention: L2-normalize every peak token, build the full
+        pairwise cosine-similarity matrix between the two spectra's token
+        sequences, mask out padding ("decoy") tokens on both sides, then
+        for each direction combine the other side's valid tokens via
+        filip_aggregation ("soft_max" learned log-mean-exp, "hard_max", or
+        "mean" -- see _filip_aggregate_over_j) and pool over this side's
+        valid tokens (see _filip_weighted_mean); the final score is the
+        average of the two directional scores. Returns (B,)."""
+        t0 = F.normalize(tokens0, p=2, dim=-1)  # (B, N, D)
+        t1 = F.normalize(tokens1, p=2, dim=-1)  # (B, M, D)
+        raw_sim = torch.bmm(t0, t1.transpose(1, 2))  # (B, N, M)
+
+        # direction 0 -> 1: combine spectrum 1's valid tokens (last axis).
+        per_peak_0to1 = self._filip_aggregate_over_j(raw_sim, valid1)  # (B, N)
+        per_peak_0to1 = torch.where(
+            valid0, per_peak_0to1, torch.zeros_like(per_peak_0to1)
+        )
+        score_0to1 = self._filip_weighted_mean(per_peak_0to1, tokens0, valid0)
+
+        # direction 1 -> 0: transpose so spectrum 0's tokens are again the
+        # last axis, reusing the exact same aggregation logic.
+        per_peak_1to0 = self._filip_aggregate_over_j(
+            raw_sim.transpose(1, 2), valid0
+        )  # (B, M)
+        per_peak_1to0 = torch.where(
+            valid1, per_peak_1to0, torch.zeros_like(per_peak_1to0)
+        )
+        score_1to0 = self._filip_weighted_mean(per_peak_1to0, tokens1, valid1)
+
+        return 0.5 * (score_0to1 + score_1to0)
+
+    def _filip_aggregate_over_j(self, sim, valid_j):
+        """Combine `sim`'s last axis ("j", the other spectrum's tokens)
+        into one score per remaining token ("i"). sim: (B, N, M); valid_j:
+        (B, M) validity mask for the axis being reduced. filip_aggregation
+        selects the rule:
+        - "hard_max": literal max over valid j -- the original FILIP
+          paper's mechanism, no learned parameter involved in this step.
+        - "mean": literal unweighted average over valid j -- no max, no
+          attention, just the plain average of the raw cosine similarities.
+        - "soft_max" (default): learned-temperature log-mean-exp
+          (temperature * (logsumexp(sim / temperature) - log(n_valid))),
+          interpolating between the two above as training adjusts the
+          temperature. The "- log(n_valid)" correction is essential here
+          (unlike hard_max/mean, which have no such bias): without it, raw
+          log-sum-exp carries a systematic bias proportional to how many
+          valid peaks exist, unrelated to actual similarity.
+        Returns (B, N)."""
+        neg_fill = -1e9
+        mask = valid_j.unsqueeze(1)  # (B, 1, M), broadcasts over N
+        n_valid = valid_j.sum(dim=1, keepdim=True).clamp(min=1).float()  # (B, 1)
+
+        if self.filip_aggregation == "hard_max":
+            sim_masked = sim.masked_fill(~mask, neg_fill)
+            return sim_masked.max(dim=2).values
+
+        if self.filip_aggregation == "mean":
+            sim_zeroed = sim.masked_fill(~mask, 0.0)
+            return sim_zeroed.sum(dim=2) / n_valid
+
+        # "soft_max" (default)
+        sim_masked = sim.masked_fill(~mask, neg_fill)
+        temperature = self.filip_log_temperature.exp().clamp(min=1e-3, max=10.0)
+        return temperature * (
+            torch.logsumexp(sim_masked / temperature, dim=2) - n_valid.log()
+        )
+
+    @staticmethod
+    def _filip_similarity_matrix(tokens_a, valid_a, tokens_b, valid_b, temperature):
+        """Same log-mean-exp FILIP aggregation as _filip_similarity, but
+        computes the full (P, Q) cross matrix between every sequence in
+        `tokens_a` and every sequence in `tokens_b`, instead of a paired
+        (B,) score -- used for the token-level in-batch contrastive loss.
+        tokens_a: (P, N, D), valid_a: (P, N); tokens_b: (Q, M, D), valid_b:
+        (Q, M). Returns (P, Q)."""
+        ta = F.normalize(tokens_a, p=2, dim=-1)  # (P, N, D)
+        tb = F.normalize(tokens_b, p=2, dim=-1)  # (Q, M, D)
+        raw_sim = torch.einsum("pnd,qmd->pqnm", ta, tb)  # (P, Q, N, M)
+
+        neg_fill = -1e9
+        p, q = raw_sim.shape[0], raw_sim.shape[1]
+
+        # direction a -> b: for each token in a, soft-max over b's valid
+        # tokens, then average over a's valid tokens.
+        n_b = valid_b.sum(dim=1).clamp(min=1).float()  # (Q,)
+        mask_b = valid_b[None, :, None, :]  # (1, Q, 1, M)
+        sim_masked_b = raw_sim.masked_fill(~mask_b, neg_fill)
+        soft_ab = temperature * (
+            torch.logsumexp(sim_masked_b / temperature, dim=3)  # (P, Q, N)
+            - n_b.log()[None, :, None]
+        )
+        mask_a_n = valid_a[:, None, :].expand(p, q, valid_a.shape[1])  # (P, Q, N)
+        soft_ab = torch.where(mask_a_n, soft_ab, torch.zeros_like(soft_ab))
+        score_ab = soft_ab.sum(dim=2) / valid_a.sum(dim=1).clamp(min=1)[:, None]
+
+        # direction b -> a: for each token in b, soft-max over a's valid
+        # tokens, then average over b's valid tokens.
+        n_a = valid_a.sum(dim=1).clamp(min=1).float()  # (P,)
+        mask_a = valid_a[:, None, :, None]  # (P, 1, N, 1)
+        sim_masked_a = raw_sim.masked_fill(~mask_a, neg_fill)
+        soft_ba = temperature * (
+            torch.logsumexp(sim_masked_a / temperature, dim=2)  # (P, Q, M)
+            - n_a.log()[:, None, None]
+        )
+        mask_b_m = valid_b[None, :, :].expand(p, q, valid_b.shape[1])  # (P, Q, M)
+        soft_ba = torch.where(mask_b_m, soft_ba, torch.zeros_like(soft_ba))
+        score_ba = soft_ba.sum(dim=2) / valid_b.sum(dim=1).clamp(min=1)[None, :]
+
+        return 0.5 * (score_ab + score_ba)
+
+    def _filip_contrastive_loss_info_nce(
+        self, tokens0, valid0, tokens1, valid1, mol_idx_0, mol_idx_1
+    ):
+        """In-batch InfoNCE, same recipe as _contrastive_loss_info_nce, but
+        scored with the FILIP token-interaction matrix (via a dedicated
+        per-token projection + its own learned temperature) instead of
+        pooled-embedding cosine similarity. Returns (loss_or_None,
+        n_pairs)."""
+        is_self = mol_idx_0.view(-1) == mol_idx_1.view(-1)
+        n_pairs = int(is_self.sum().item())
+        if n_pairs < 2:
+            return None, n_pairs
+
+        proj0 = self.filip_contrastive_projection(tokens0[is_self])
+        proj1 = self.filip_contrastive_projection(tokens1[is_self])
+        valid0_self = valid0[is_self]
+        valid1_self = valid1[is_self]
+
+        temperature = self.filip_contrastive_log_temperature.exp().clamp(
+            min=1e-3, max=10.0
+        )
+        sim_matrix = self._filip_similarity_matrix(
+            proj0, valid0_self, proj1, valid1_self, temperature
+        )  # (n_pairs, n_pairs)
+
+        logits = sim_matrix / self.contrastive_temperature
+        labels = torch.arange(n_pairs, device=logits.device)
+        loss = 0.5 * (
+            F.cross_entropy(logits, labels) + F.cross_entropy(logits.T, labels)
+        )
+        return loss, n_pairs
 
     def _forward_with_embeddings(self, batch):
-        """(logits_list, emb0, emb1) if any embedding-level auxiliary loss
-        (contrastive, spectral-cosine) is enabled, else (logits_list, None, None)."""
-        if self.use_contrastive_loss or self.use_spectral_cosine_head:
+        """(logits_list, emb0, emb1, tokens0, valid0, tokens1, valid1) --
+        emb0/emb1 populated whenever an embedding-level auxiliary loss
+        (contrastive, spectral-cosine) is enabled; tokens0/valid0/tokens1/
+        valid1 populated only when contrastive_use_filip_tokens is active.
+        Unused entries are None."""
+        need_cls = self.use_contrastive_loss or self.use_spectral_cosine_head
+        need_tokens = self.contrastive_use_filip_tokens
+        if need_tokens:
+            *logits_list, emb0, emb1, tokens0, valid0, tokens1, valid1 = self(
+                batch, return_spectrum_output=True, return_tokens=True
+            )
+            return logits_list, emb0, emb1, tokens0, valid0, tokens1, valid1
+        if need_cls:
             *logits_list, emb0, emb1 = self(batch, return_spectrum_output=True)
-            return logits_list, emb0, emb1
-        return self(batch), None, None
+            return logits_list, emb0, emb1, None, None, None, None
+        return self(batch), None, None, None, None, None, None
 
     def training_step(self, batch, batch_idx):
-        logits_list, emb0, emb1 = self._forward_with_embeddings(batch)
+        logits_list, emb0, emb1, tokens0, valid0, tokens1, valid1 = (
+            self._forward_with_embeddings(batch)
+        )
         logits2 = logits_list[0]  # [B] similarity
         target2 = batch["mces"].to(dtype=torch.float32, device=self.device).view(-1)
 
         loss = self.step(
-            batch, batch_idx, logits_list=logits_list, emb0=emb0, emb1=emb1
+            batch,
+            batch_idx,
+            logits_list=logits_list,
+            emb0=emb0,
+            emb1=emb1,
+            tokens0=tokens0,
+            valid0=valid0,
+            tokens1=tokens1,
+            valid1=valid1,
         )
         self.log("train_loss", loss, on_step=True, on_epoch=True, prog_bar=True)
 
@@ -528,12 +855,22 @@ class SimilarityModelMultitask(SimilarityModel):
 
     def validation_step(self, batch, batch_idx, dataloader_idx=0):
         """Validation step — returns loss + predictions for the MCES scatter plot."""
-        logits_list, emb0, emb1 = self._forward_with_embeddings(batch)
+        logits_list, emb0, emb1, tokens0, valid0, tokens1, valid1 = (
+            self._forward_with_embeddings(batch)
+        )
         logits2 = logits_list[0]  # [B] similarity
         target2 = batch["mces"].to(dtype=torch.float32, device=self.device).view(-1)
 
         loss = self.step(
-            batch, batch_idx, logits_list=logits_list, emb0=emb0, emb1=emb1
+            batch,
+            batch_idx,
+            logits_list=logits_list,
+            emb0=emb0,
+            emb1=emb1,
+            tokens0=tokens0,
+            valid0=valid0,
+            tokens1=tokens1,
+            valid1=valid1,
         )
         self.log("validation_loss", loss, on_step=True, on_epoch=True, prog_bar=True)
 
@@ -573,6 +910,10 @@ class SimilarityModelMultitask(SimilarityModel):
         logits_list=None,
         emb0=None,
         emb1=None,
+        tokens0=None,
+        valid0=None,
+        tokens1=None,
+        valid1=None,
     ):
         if logits_list is None:
             logits_list = self(batch)
@@ -603,9 +944,19 @@ class SimilarityModelMultitask(SimilarityModel):
             loss = loss + (self.mces_bucket_loss_weight * loss3)
 
         if self.use_contrastive_loss:
-            loss_contrastive, n_pairs = self._contrastive_loss_info_nce(
-                emb0, emb1, batch["mol_idx_0"], batch["mol_idx_1"]
-            )
+            if self.contrastive_use_filip_tokens:
+                loss_contrastive, n_pairs = self._filip_contrastive_loss_info_nce(
+                    tokens0,
+                    valid0,
+                    tokens1,
+                    valid1,
+                    batch["mol_idx_0"],
+                    batch["mol_idx_1"],
+                )
+            else:
+                loss_contrastive, n_pairs = self._contrastive_loss_info_nce(
+                    emb0, emb1, batch["mol_idx_0"], batch["mol_idx_1"]
+                )
             self.log(
                 "contrastive_n_pairs",
                 float(n_pairs),
@@ -679,13 +1030,21 @@ class SimilarityModelMultitask(SimilarityModel):
         optimizer = torch.optim.Adam(self.parameters(), lr=self.lr)
         return optimizer
 
-    def compute_from_embeddings(self, emb0: torch.Tensor, emb1: torch.Tensor):
+    def compute_from_embeddings(
+        self, emb0: torch.Tensor, emb1: torch.Tensor, filip_score: torch.Tensor = None
+    ):
         """
         Take two activated embeddings (after ReLU, fingerprint fusion, etc.)
         and run all the FC layers + similarity heads to produce the
         emb_sim_2 similarity score (and optional emb_sim_3 bucket logits).
+        When use_filip_head is set, emb_sim_2 is the precomputed FILIP
+        fine-grained token score (see _filip_similarity/forward) instead of
+        the CLS-token cosine similarity.
         """
-        emb_sim_2 = self.cosine_similarity(emb0, emb1)
+        if self.use_filip_head:
+            emb_sim_2 = filip_score
+        else:
+            emb_sim_2 = self.cosine_similarity(emb0, emb1)
 
         if self.use_mces_bucket_head:
             bucket_repr = torch.abs(emb0 - emb1)

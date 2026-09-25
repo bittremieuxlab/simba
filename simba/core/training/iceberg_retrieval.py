@@ -178,13 +178,21 @@ def embed_spectra(model, spectra: list, batch_size: int, device: torch.device):
     similarity head is the identity, so the relu'd CLS-token embedding IS
     both the raw embedding (compute_from_embeddings' emb0/emb1) and, once
     L2-normalized, the cosine-similarity embedding. Returns
-    (normalized, raw)."""
+    (normalized, raw, tokens, valid_mask) -- tokens/valid_mask are only
+    populated (else None) when model.use_filip_head is set: the per-peak
+    embeddings (relu'd, CLS excluded) and their validity mask (True = real
+    peak, False = padding), stored on CPU in fp16 to keep the full
+    candidate-pool footprint manageable (~600k candidates x 100 peaks x
+    d_model is tens of GB even at fp16 -- infeasible to keep resident on
+    GPU, fine on CPU RAM)."""
     enc = model.spectrum_encoder
     use_ion_mode = getattr(enc, "use_ion_mode", False)
     use_adduct = getattr(enc, "use_adduct", False)
     use_ce = getattr(enc, "use_ce", False)
+    use_filip = getattr(model, "use_filip_head", False)
 
     all_embs, all_raw = [], []
+    all_tokens, all_valid = [], []
     for start in tqdm(
         range(0, len(spectra), batch_size), desc="Embedding", unit="batch"
     ):
@@ -197,13 +205,21 @@ def embed_spectra(model, spectra: list, batch_size: int, device: torch.device):
             kwargs["adduct"] = meta["adduct"]
         if use_ce:
             kwargs["ce"] = meta["ce"]
-        emb, _ = model.spectrum_encoder(
+        latent, pad_mask = model.spectrum_encoder(
             mz_array=mz, intensity_array=intensity, **kwargs
         )
-        emb = model.relu(emb[:, 0, :])
+        emb = model.relu(latent[:, 0, :])
         all_raw.append(emb.cpu())
         all_embs.append(F.normalize(emb, p=2, dim=-1).cpu())
-    return torch.cat(all_embs), torch.cat(all_raw)
+        if use_filip:
+            tokens = model.relu(latent[:, 1:, :])
+            valid = ~pad_mask[:, 1:]
+            all_tokens.append(tokens.half().cpu())
+            all_valid.append(valid.cpu())
+
+    tokens_out = torch.cat(all_tokens) if all_tokens else None
+    valid_out = torch.cat(all_valid) if all_valid else None
+    return torch.cat(all_embs), torch.cat(all_raw), tokens_out, valid_out
 
 
 # ── Candidates ───────────────────────────────────────────────────────────────
@@ -312,6 +328,52 @@ def load_all_iceberg_data(mgf, candidates_json, candidate_tsv, iceberg_preds):
 # ── Ranking + Hit@k ──────────────────────────────────────────────────────────
 
 
+def rank_candidates_filip(
+    test_smiles,
+    test_adducts,
+    query_candidates,
+    cand_smi_to_row,
+    test_tokens,
+    test_valid,
+    cand_tokens,
+    cand_valid,
+    model,
+    device,
+    top_k=20,
+):
+    """Same ranking as rank_candidates, but scores each (query, candidate)
+    pair with the model's own FILIP fine-grained token similarity instead
+    of a plain dot product of pooled embeddings -- reuses
+    model._filip_similarity directly, so this is exactly the same scoring
+    mechanism used during training/validation. Only the query's own
+    (typically small) candidate subset is ever moved to GPU at once, since
+    the full candidate-pool token tensors live on CPU."""
+    per_query = []
+    for i, (q_smi, q_adduct) in enumerate(zip(test_smiles, test_adducts)):
+        cand_list = query_candidates.get(canonicalize(q_smi), [])
+        row_idxs, cand_smis = [], []
+        for c in cand_list:
+            row_idx = cand_smi_to_row.get((c, q_adduct))
+            if row_idx is None:
+                continue
+            row_idxs.append(row_idx)
+            cand_smis.append(c)
+        if not row_idxs:
+            per_query.append(None)
+            continue
+
+        n = len(row_idxs)
+        q_tok = test_tokens[i : i + 1].expand(n, -1, -1).to(device).float()
+        q_valid = test_valid[i : i + 1].expand(n, -1).to(device)
+        c_tok = cand_tokens[row_idxs].to(device).float()
+        c_valid = cand_valid[row_idxs].to(device)
+        with torch.no_grad():
+            sims = model._filip_similarity(q_tok, q_valid, c_tok, c_valid)
+        order = torch.argsort(sims, descending=True)
+        per_query.append([cand_smis[j] for j in order.tolist()][:top_k])
+    return per_query
+
+
 def rank_candidates(
     test_smiles,
     test_adducts,
@@ -406,22 +468,38 @@ def compute_iceberg_hit_rates(
 ):
     """(raw_hits, corrected_hits): embeds test + candidate spectra with the
     given model's current weights and computes Hit@k both ways.
-    corrected_hits is None when the model has no mces_bucket head."""
-    test_embs, test_embs_raw = embed_spectra(
+    corrected_hits is None when the model has no mces_bucket head. When the
+    model has a FILIP head, raw_hits is ranked with the model's own
+    fine-grained token similarity instead of pooled-embedding cosine."""
+    test_embs, test_embs_raw, test_tokens, test_valid = embed_spectra(
         model, data["test_spectra"], batch_size, device
     )
-    cand_embs, cand_embs_raw = embed_spectra(
+    cand_embs, cand_embs_raw, cand_tokens, cand_valid = embed_spectra(
         model, data["cand_spectra"], batch_size, device
     )
 
-    ranked_raw = rank_candidates(
-        data["test_smiles"],
-        data["test_adducts"],
-        data["query_candidates"],
-        data["cand_smi_to_row"],
-        test_embs,
-        cand_embs,
-    )
+    if getattr(model, "use_filip_head", False):
+        ranked_raw = rank_candidates_filip(
+            data["test_smiles"],
+            data["test_adducts"],
+            data["query_candidates"],
+            data["cand_smi_to_row"],
+            test_tokens,
+            test_valid,
+            cand_tokens,
+            cand_valid,
+            model,
+            device,
+        )
+    else:
+        ranked_raw = rank_candidates(
+            data["test_smiles"],
+            data["test_adducts"],
+            data["query_candidates"],
+            data["cand_smi_to_row"],
+            test_embs,
+            cand_embs,
+        )
     raw_hits, _ = compute_hit_rates_from_ranking(data["test_smiles"], ranked_raw, ks)
 
     corrected_hits = None
