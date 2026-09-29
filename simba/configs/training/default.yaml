@@ -20,6 +20,13 @@ training:
   accumulate_grad_batches: 1
   early_stopping_patience: 0  # 0 = disabled; set e.g. 5 to stop when val_loss stops improving
 
+  # Full-state resume (optimizer, LR scheduler, epoch/global_step) from a
+  # previous run's checkpoint, via Trainer.fit(ckpt_path=...). Unlike
+  # model.pretrained.load_pretrained (weights only, fresh optimizer/step
+  # count), this continues training exactly where it left off. null =
+  # start fresh, as before.
+  resume_from_checkpoint: null
+
 # Data splits
 data:
   val_split: 0.1

@@ -62,6 +62,12 @@ tasks:
     bin_edges: [2, 4, 6, 8]
     use_mlp: false
     loss_weight: 1.0
+    # Build bucket_repr from abs(mean of valid tokens0 - mean of valid
+    # tokens1) (plain masked mean, no learned weights) instead of
+    # abs(emb0 - emb1) from the CLS embeddings. Everything downstream
+    # (optional use_mlp, the bucket head, CORN loss/target/decode) is
+    # unchanged. Only meaningful when tasks.filip.enabled is also true.
+    use_filip_tokens: false
 
   contrastive:
     enabled: false
@@ -75,6 +81,12 @@ tasks:
     loss_weight: 1.0
     bin_width: 0.01
     max_mz: 1100.0
+    # Score this head with the FILIP token-interaction mechanism (mirroring
+    # whichever aggregation/cross-attention/importance-weighting the
+    # primary filip head uses, via its own dedicated per-token projection
+    # and weights) instead of pooled-CLS-embedding cosine. Only meaningful
+    # when tasks.filip.enabled is also true.
+    use_filip_tokens: false
 
   filip:
     enabled: false

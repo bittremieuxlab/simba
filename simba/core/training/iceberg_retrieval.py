@@ -412,12 +412,29 @@ def rank_candidates_corn_corrected(
     model,
     device,
     top_k=20,
+    test_tokens=None,
+    test_valid=None,
+    cand_tokens=None,
+    cand_valid=None,
 ):
+    """Ranks by CORN-corrected MCES. When the model has a FILIP head,
+    emb_sim_2 (the primary MCES score) must be computed from the model's
+    own fine-grained token similarity, not left as a plain dot product of
+    pooled embeddings -- otherwise compute_from_embeddings would silently
+    return emb_sim_2=None for any FILIP model (it only uses `filip_score`
+    when use_filip_head is set, and this function used to never pass one).
+    Likewise, when mces_bucket_use_filip_tokens is set, emb_sim_3 (the
+    bucket logits) must be built from the same token-mean-pooled
+    representation used during training, not the CLS embeddings -- so
+    test_tokens/test_valid/cand_tokens/cand_valid (from embed_spectra) are
+    threaded through here exactly as rank_candidates_filip already does for
+    the primary score."""
     from simba.core.training.callbacks import (
         _corn_corrected_mces,
         _corn_corrected_ranking_score,
     )
 
+    use_filip = getattr(model, "use_filip_head", False)
     bin_edges = model.mces_bucket_bin_edges.cpu().numpy()
     per_query = []
     for i, (q_smi, q_adduct) in enumerate(zip(test_smiles, test_adducts)):
@@ -433,10 +450,30 @@ def rank_candidates_corn_corrected(
             per_query.append(None)
             continue
 
-        emb0 = test_embs_raw[i : i + 1].expand(len(row_idxs), -1).to(device)
+        n = len(row_idxs)
+        emb0 = test_embs_raw[i : i + 1].expand(n, -1).to(device)
         emb1 = cand_embs_raw[row_idxs].to(device)
+
+        tok0 = tok1 = vl0 = vl1 = None
+        filip_score = None
+        if use_filip:
+            tok0 = test_tokens[i : i + 1].expand(n, -1, -1).to(device).float()
+            vl0 = test_valid[i : i + 1].expand(n, -1).to(device)
+            tok1 = cand_tokens[row_idxs].to(device).float()
+            vl1 = cand_valid[row_idxs].to(device)
+            with torch.no_grad():
+                filip_score = model._filip_similarity(tok0, vl0, tok1, vl1)
+
         with torch.no_grad():
-            emb_sim_2, emb_sim_3 = model.compute_from_embeddings(emb0, emb1)
+            emb_sim_2, emb_sim_3 = model.compute_from_embeddings(
+                emb0,
+                emb1,
+                filip_score=filip_score,
+                tokens0=tok0,
+                valid0=vl0,
+                tokens1=tok1,
+                valid1=vl1,
+            )
         pred_mces = ((1.0 - emb_sim_2) * model.mces_max_value).cpu().numpy()
         bucket_pred = model._corn_decode_bin_generic(emb_sim_3).cpu().numpy()
         corrected = _corn_corrected_mces(pred_mces, bucket_pred, bin_edges)
@@ -513,6 +550,10 @@ def compute_iceberg_hit_rates(
             cand_embs_raw,
             model,
             device,
+            test_tokens=test_tokens,
+            test_valid=test_valid,
+            cand_tokens=cand_tokens,
+            cand_valid=cand_valid,
         )
         corrected_hits, _ = compute_hit_rates_from_ranking(
             data["test_smiles"], ranked_corrected, ks

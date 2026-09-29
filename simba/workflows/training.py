@@ -672,6 +672,7 @@ def setup_model(cfg: DictConfig, weights_mces: np.ndarray) -> SimilarityModelMul
         "mces_bucket_bin_edges": cfg.model.tasks.mces_bucket.bin_edges,
         "mces_bucket_use_mlp": cfg.model.tasks.mces_bucket.use_mlp,
         "mces_bucket_loss_weight": cfg.model.tasks.mces_bucket.loss_weight,
+        "mces_bucket_use_filip_tokens": cfg.model.tasks.mces_bucket.use_filip_tokens,
         "use_contrastive_loss": cfg.model.tasks.contrastive.enabled,
         "contrastive_temperature": cfg.model.tasks.contrastive.temperature,
         "contrastive_loss_weight": cfg.model.tasks.contrastive.loss_weight,
@@ -679,6 +680,7 @@ def setup_model(cfg: DictConfig, weights_mces: np.ndarray) -> SimilarityModelMul
         "contrastive_use_filip_tokens": cfg.model.tasks.contrastive.use_filip_tokens,
         "use_spectral_cosine_head": cfg.model.tasks.spectral_cosine.enabled,
         "spectral_cosine_loss_weight": cfg.model.tasks.spectral_cosine.loss_weight,
+        "spectral_cosine_use_filip_tokens": cfg.model.tasks.spectral_cosine.use_filip_tokens,
         "use_filip_head": cfg.model.tasks.filip.enabled,
         "filip_aggregation": cfg.model.tasks.filip.aggregation,
         "filip_use_cross_attention": cfg.model.tasks.filip.use_cross_attention,
@@ -845,7 +847,12 @@ def train(
         log_every_n_steps=cfg.logging.log_every_n_steps,
     )
 
-    trainer.fit(model, dataloader_train, dataloader_val)
+    trainer.fit(
+        model,
+        dataloader_train,
+        dataloader_val,
+        ckpt_path=cfg.training.resume_from_checkpoint,
+    )
     return trainer
 
 
