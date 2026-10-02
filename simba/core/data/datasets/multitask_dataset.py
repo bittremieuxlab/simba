@@ -220,24 +220,59 @@ class CustomDatasetMultitasking(Dataset):
 
     def __getitem__(self, idx):
         sample = {k: self.data[k][idx] for k in self.keys}
+        idx_0 = int(sample["index_unique_0"][0])
+        idx_1 = int(sample["index_unique_1"][0])
+        return self._assemble_pair(idx_0, idx_1, sample["mces"])
 
-        idx_0 = sample["index_unique_0"]
-        idx_1 = sample["index_unique_1"]
+    def _assemble_single_spectrum(self, mol_idx: int, spec_idx: int) -> dict:
+        """One spectrum's fully augmented/normalized mz/intensity/precursor
+        fields, for a specific caller-chosen `spec_idx` (not resampled).
+        Reuses _assemble_pair's exact per-side assembly/augmentation/
+        normalization code via a trivial self-pair (both sides = this same
+        spec_idx), then keeps only the '_0' side. Used by the molecule-set
+        batch path (molecule_set_dataset.py), which assembles each of its
+        spectra ONCE and reuses it consistently across every comparison it
+        participates in -- unlike _assemble_pair, which independently
+        reassembles/re-augments every pair it's called for."""
+        pair = self._assemble_pair(
+            mol_idx, mol_idx, mces_value=0.0, spec_idx_0=spec_idx, spec_idx_1=spec_idx
+        )
+        return {
+            "mz": pair["mz_0"],
+            "intensity": pair["intensity_0"],
+            "precursor_mass": pair["precursor_mass_0"],
+            "precursor_charge": pair["precursor_charge_0"],
+        }
 
-        if self.training:
-            # select random samples
-            idx_0_original = self._sample_spectrum_index(int(idx_0[0]))
-            idx_1_original = self._sample_spectrum_index(int(idx_1[0]))
-        else:
-            # select the first index
-            idx_0_original = self.df_smiles.loc[int(idx_0[0]), "indexes"][0]
-            # select the last index
-            idx_1_original = self.df_smiles.loc[int(idx_1[0]), "indexes"][-1]
+    def _assemble_pair(
+        self, mol_idx_0, mol_idx_1, mces_value, spec_idx_0=None, spec_idx_1=None
+    ) -> dict:
+        """Assemble one training/eval item from an explicit
+        (mol_idx_0, mol_idx_1, mces_value) triple -- the body of what used
+        to be __getitem__, generalized so it's callable with an arbitrary
+        triple, not just one drawn from self.data at some row `idx`
+        (__getitem__ is now a 3-line wrapper around this). If
+        `spec_idx_0`/`spec_idx_1` aren't given, resolves them the same way
+        __getitem__ always did (random per-molecule sample when training,
+        first/last index otherwise); passing them explicitly lets a caller
+        pick specific spectra instead (see _assemble_single_spectrum)."""
+        if spec_idx_0 is None:
+            if self.training:
+                spec_idx_0 = self._sample_spectrum_index(mol_idx_0)
+            else:
+                spec_idx_0 = self.df_smiles.loc[mol_idx_0, "indexes"][0]
+        if spec_idx_1 is None:
+            if self.training:
+                spec_idx_1 = self._sample_spectrum_index(mol_idx_1)
+            else:
+                spec_idx_1 = self.df_smiles.loc[mol_idx_1, "indexes"][-1]
+        idx_0_original = spec_idx_0
+        idx_1_original = spec_idx_1
 
         # Get the original spectrum based on indexes
         spectrum_sample = {}
-        spectrum_sample["mol_idx_0"] = int(idx_0[0])
-        spectrum_sample["mol_idx_1"] = int(idx_1[0])
+        spectrum_sample["mol_idx_0"] = int(mol_idx_0)
+        spectrum_sample["mol_idx_1"] = int(mol_idx_1)
         spectrum_sample["spec_idx_0"] = int(idx_0_original)
         spectrum_sample["spec_idx_1"] = int(idx_1_original)
         spectrum_sample["mz_0"] = self.mz[idx_0_original].astype(np.float32)
@@ -260,7 +295,7 @@ class CustomDatasetMultitasking(Dataset):
         spectrum_sample["precursor_charge_1"] = self.precursor_charge[
             idx_1_original
         ].astype(np.float32)
-        spectrum_sample["mces"] = sample["mces"].astype(np.float32)
+        spectrum_sample["mces"] = np.asarray(mces_value).astype(np.float32)
 
         if self.instrument is not None:
             spectrum_sample["instrument_0"] = self.instrument[idx_0_original]

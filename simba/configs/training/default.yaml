@@ -80,6 +80,33 @@ sampling:
   mass_tier_quantile: 0.1
   mass_tier_low_share: 0.5
 
+  # Molecule-set training batches (see molecule_set_dataset.py): instead of
+  # drawing independent random pairs, each batch picks n_anchors random
+  # molecules, expands each to its k_nearest nearest neighbors by raw MCES
+  # (literal nearest, no range tiers), giving n = n_anchors*(k_nearest+1)
+  # unique molecules, each with 2 spectra (different when available) --
+  # scored as the full (n,n) cosine cross matrix. training.batch_size is
+  # ignored for training when this is on (n**2 pairs/batch instead);
+  # validation is entirely unaffected. Mutually exclusive with
+  # use_resampling (that scheme doesn't apply here).
+  use_molecule_set_batches: false
+  molecule_set_n_anchors: 4
+  molecule_set_k_nearest: 15
+
+  # General pairwise ranking loss on top of MSE (see
+  # SimilarityModelMultitask._molecule_set_rank_loss), adapted from a
+  # formulation by Gaetan De Waele: for every pair of candidates (j, l)
+  # against an anchor row/column i, if their true MCES order disagrees
+  # with the predicted order (by less than a margin), it's penalized.
+  # Only meaningful when use_molecule_set_batches=true.
+  molecule_set_rank_loss_weight: 0.0  # 0.0 = disabled
+  molecule_set_rank_margin_mode: constant  # "constant" (molecule_set_rank_margin) or "metric_aware" (molecule_set_rank_alpha * true gap)
+  molecule_set_rank_margin: 0.0  # only used when molecule_set_rank_margin_mode == constant
+  molecule_set_rank_alpha: 1.0  # only used when molecule_set_rank_margin_mode == metric_aware
+  # Raw MCES units: pairs of candidates whose true MCES differs by <= this
+  # are ignored entirely (near-ties are noise, not real order signal).
+  molecule_set_rank_dead_zone_c: 0.0
+
 # Augmentation
 augmentation:
   # Probability that a training sample goes through Augmentation.augment

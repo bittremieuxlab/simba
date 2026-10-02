@@ -195,21 +195,30 @@ def _train_with_hydra(cfg: DictConfig) -> None:
 
         mces_sampled = []
         for batch in itertools.islice(dataloader_train, 100):
+            # Batches from the molecule-set path (sampling.use_molecule_set_batches)
+            # carry no flat "mces" field (see molecule_set_dataset.py) -- this
+            # diagnostic doesn't apply there. self.weights is otherwise unused by
+            # the model's loss, so a neutral placeholder is harmless.
+            if "mces" not in batch:
+                break
             mces_sampled = mces_sampled + list(batch["mces"].reshape(-1))
 
-        mces_sampled = np.array(mces_sampled)
-        counting_mces, bins_mces = TrainUtils.count_ranges(
-            mces_sampled,
-            number_bins=5,
-            bin_sim_1=False,
-            max_value=1,
-        )
+        if mces_sampled:
+            mces_sampled = np.array(mces_sampled)
+            counting_mces, bins_mces = TrainUtils.count_ranges(
+                mces_sampled,
+                number_bins=5,
+                bin_sim_1=False,
+                max_value=1,
+            )
 
-        # Calculate weights directly (same as original script)
-        weights_mces = np.array(
-            [np.sum(counting_mces) / c if c != 0 else 0 for c in counting_mces]
-        )
-        weights_mces = weights_mces / np.sum(weights_mces)
+            # Calculate weights directly (same as original script)
+            weights_mces = np.array(
+                [np.sum(counting_mces) / c if c != 0 else 0 for c in counting_mces]
+            )
+            weights_mces = weights_mces / np.sum(weights_mces)
+        else:
+            weights_mces = np.ones(5) / 5
 
         model = setup_model(cfg, weights_mces)
 

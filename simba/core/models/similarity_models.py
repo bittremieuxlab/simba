@@ -230,6 +230,70 @@ def _filip_masked_mean_pool(tokens, valid):
     return (tokens * valid_f).sum(dim=1) / valid_f.sum(dim=1).clamp(min=1)
 
 
+def _filip_cross_attention_matrix(
+    tokens_a,
+    valid_a,
+    tokens_b,
+    valid_b,
+    attn_q,
+    attn_k,
+    weight_similarities,
+    use_importance_weighting,
+    importance_mlp,
+):
+    """Batched cross-batch generalization of
+    _filip_paired_cross_attention_score: computes the full (P, Q) cross
+    matrix between every sequence in `tokens_a` and every sequence in
+    `tokens_b`, instead of a paired (B,) score -- shared by any head using
+    this architecture with its own dedicated weights (the FILIP-token
+    in-batch contrastive loss, and FILIP-scored molecule-set batches).
+    tokens_a: (P, N, D), valid_a: (P, N); tokens_b: (Q, M, D), valid_b:
+    (Q, M). Returns (P, Q)."""
+    d_k = tokens_a.shape[-1]
+    scale = d_k**0.5
+    neg_fill = -1e9
+
+    def _direction(q_tokens, q_valid, kv_tokens, kv_valid):
+        # q_tokens: (P, N, D), kv_tokens: (Q, M, D)
+        q = attn_q(q_tokens)  # (P, N, D)
+        k = attn_k(kv_tokens)  # (Q, M, D)
+        logits = torch.einsum("pnd,qmd->pqnm", q, k) / scale  # (P, Q, N, M)
+        logits = logits.masked_fill(~kv_valid[None, :, None, :], neg_fill)
+        weights = torch.softmax(logits, dim=3)  # (P, Q, N, M)
+
+        if weight_similarities:
+            q_norm = F.normalize(q_tokens, p=2, dim=-1)
+            kv_norm = F.normalize(kv_tokens, p=2, dim=-1)
+            cos_sim = torch.einsum("pnd,qmd->pqnm", q_norm, kv_norm)  # (P, Q, N, M)
+            per_token = (weights * cos_sim).sum(dim=3)  # (P, Q, N)
+        else:
+            attended = torch.einsum(
+                "pqnm,qmd->pqnd", weights, kv_tokens
+            )  # (P, Q, N, D) -- raw values
+            per_token = F.cosine_similarity(
+                attended, q_tokens[:, None, :, :], dim=-1
+            )  # (P, Q, N) -- raw query
+
+        per_token = torch.where(
+            q_valid[:, None, :], per_token, torch.zeros_like(per_token)
+        )
+
+        if use_importance_weighting:
+            importance = torch.sigmoid(importance_mlp(q_tokens).squeeze(-1))  # (P, N)
+            importance = torch.where(q_valid, importance, torch.zeros_like(importance))
+            numer = (importance[:, None, :] * per_token).sum(dim=2)  # (P, Q)
+            denom = importance.sum(dim=1).clamp(min=1e-6)[:, None]  # (P, 1)
+            return numer / denom
+        n_valid = q_valid.sum(dim=1).clamp(min=1).float()[:, None]  # (P, 1)
+        return per_token.sum(dim=2) / n_valid
+
+    score_ab = _direction(tokens_a, valid_a, tokens_b, valid_b)  # (P, Q)
+    score_ba = _direction(tokens_b, valid_b, tokens_a, valid_a).transpose(
+        0, 1
+    )  # (P, Q)
+    return 0.5 * (score_ab + score_ba)
+
+
 class FixedLinearRegression(nn.Module):
     """
     linear layer for computing sum of dot product
@@ -550,6 +614,12 @@ class SimilarityModelMultitask(SimilarityModel):
         use_ion_activation=False,
         use_ion_method=False,
         use_ion_mode=False,
+        use_molecule_set_batches=False,  # training_step consumes "molecule-set" batches (see molecule_set_dataset.py) instead of flat pairs -- validation/metrics are entirely unaffected
+        molecule_set_rank_loss_weight=0.0,  # only used when use_molecule_set_batches=True: weight for the general pairwise ranking loss on top of MSE (see _molecule_set_rank_loss), adapted from a formulation by Gaetan De Waele
+        molecule_set_rank_margin_mode="constant",  # "constant" (molecule_set_rank_margin) or "metric_aware" (molecule_set_rank_alpha * true gap, shifted by the dead zone)
+        molecule_set_rank_margin=0.0,  # only used when molecule_set_rank_margin_mode == "constant"
+        molecule_set_rank_alpha=1.0,  # only used when molecule_set_rank_margin_mode == "metric_aware"
+        molecule_set_rank_dead_zone_c=0.0,  # raw MCES units: pairs of candidates whose true MCES differs by <= this are ignored (near-ties, not real order signal); 0.0 = no dead zone
     ):
         """Initialize the CCSPredictor"""
         super().__init__(
@@ -765,6 +835,12 @@ class SimilarityModelMultitask(SimilarityModel):
         )
 
         self.use_precursor_mz_for_model = use_precursor_mz_for_model
+        self.use_molecule_set_batches = use_molecule_set_batches
+        self.molecule_set_rank_loss_weight = molecule_set_rank_loss_weight
+        self.molecule_set_rank_margin_mode = molecule_set_rank_margin_mode
+        self.molecule_set_rank_margin = molecule_set_rank_margin
+        self.molecule_set_rank_alpha = molecule_set_rank_alpha
+        self.molecule_set_rank_dead_zone_c = molecule_set_rank_dead_zone_c
 
     def forward(self, batch, return_spectrum_output=False, return_tokens=False):
         # … compute raw emb0, emb1, apply relu, etc. …
@@ -910,6 +986,173 @@ class SimilarityModelMultitask(SimilarityModel):
             return (*result, tokens0, valid0, tokens1, valid1)
         return result
 
+    def _encode_side(self, spec):
+        """Encode one side's spectra into pooled CLS embeddings (+ optional
+        FILIP tokens): the same per-side pipeline forward() applies to
+        each of its two paired sides, but written standalone (not shared
+        code) so this -- used only by the molecule-set batch path (see
+        molecule_set_step/_molecule_set_training_step and
+        simba/core/data/datasets/molecule_set_dataset.py) -- can never
+        affect forward()'s existing paired-batch behavior. `spec` is a
+        dict of (N, ...) tensors for N independent spectra (not pairs):
+        mz, intensity, precursor_mass, precursor_charge, and -- only when
+        the corresponding use_* flag is set -- ionmode/adduct/ce/
+        ion_activation/ion_method. Returns (emb, tokens_or_None,
+        valid_or_None)."""
+        precursor_mass = torch.nan_to_num(
+            spec["precursor_mass"], nan=0.0, posinf=0.0, neginf=0.0
+        )
+        precursor_charge = torch.nan_to_num(
+            spec["precursor_charge"], nan=0.0, posinf=0.0, neginf=0.0
+        )
+        if self.use_precursor_mz_for_model:
+            precursor_mass_for_model = precursor_mass.float()
+        else:
+            precursor_mass_for_model = torch.zeros_like(precursor_mass.float())
+        kwargs = {
+            "precursor_mass": precursor_mass_for_model,
+            "precursor_charge": precursor_charge.float(),
+        }
+        if self.use_ion_mode:
+            kwargs["ionmode"] = torch.nan_to_num(
+                spec["ionmode"], nan=0.0, posinf=0.0, neginf=0.0
+            ).float()
+        if self.use_adduct:
+            kwargs["adduct"] = torch.nan_to_num(
+                spec["adduct"], nan=0.0, posinf=0.0, neginf=0.0
+            ).float()
+        if self.use_ce:
+            kwargs["ce"] = torch.nan_to_num(
+                spec["ce"], nan=0.0, posinf=0.0, neginf=0.0
+            ).float()
+        if self.use_ion_activation:
+            kwargs["ion_activation"] = torch.nan_to_num(
+                spec["ion_activation"], nan=0.0, posinf=0.0, neginf=0.0
+            ).float()
+        if self.use_ion_method:
+            kwargs["ion_method"] = torch.nan_to_num(
+                spec["ion_method"], nan=0.0, posinf=0.0, neginf=0.0
+            ).float()
+
+        intensity = torch.nan_to_num(spec["intensity"], nan=0.0, posinf=0.0, neginf=0.0)
+        mz = torch.nan_to_num(spec["mz"], nan=0.0, posinf=0.0, neginf=0.0)
+
+        latent, pad_mask = self.spectrum_encoder(
+            mz_array=mz.float(), intensity_array=intensity.float(), **kwargs
+        )
+        emb = self.relu(latent[:, 0, :])
+
+        tokens = valid = None
+        if self.use_filip_head:
+            tokens = self.relu(latent[:, 1:, :])
+            valid = ~pad_mask[:, 1:]
+        return emb, tokens, valid
+
+    def molecule_set_step(self, view_a, view_b, target_matrix):
+        """MCES regression on a molecule-set batch: each view's n spectra
+        are encoded ONCE (not n^2 times, via _encode_side), then the full
+        (n, n) similarity cross matrix is scored in one shot against the
+        real (n, n) MCES-derived target matrix (batch["mces_target_matrix"]
+        -- already normalized as 1 - mces/mces_max_value, clamped to >= 0,
+        matching LoadMCES.normalize_mces20). No auxiliary heads -- only the
+        batch's composition (which n^2 pairs it trains on) differs from the
+        flat-pair path. When use_filip_head is set, the matrix is the
+        primary head's own FILIP token-interaction score (mirroring
+        whichever aggregation/cross-attention config it uses -- see
+        _filip_molecule_set_matrix) instead of pooled-CLS-embedding cosine
+        -- same duality as the flat-pair path's _filip_similarity. When
+        molecule_set_rank_loss_weight > 0, adds a general pairwise ranking
+        loss on top of the MSE (see _molecule_set_rank_loss). Returns
+        (loss, loss_mces, loss_rank_or_None, pred_matrix)."""
+        emb_a, tokens_a, valid_a = self._encode_side(view_a)
+        emb_b, tokens_b, valid_b = self._encode_side(view_b)
+        if self.use_filip_head:
+            pred_matrix = self._filip_molecule_set_matrix(
+                tokens_a, valid_a, tokens_b, valid_b
+            )
+        else:
+            a_norm = F.normalize(emb_a, p=2, dim=-1)
+            b_norm = F.normalize(emb_b, p=2, dim=-1)
+            pred_matrix = a_norm @ b_norm.T
+        loss_mces = F.mse_loss(pred_matrix, target_matrix)
+
+        loss = loss_mces
+        loss_rank = None
+        if self.molecule_set_rank_loss_weight > 0:
+            loss_rank = self._molecule_set_rank_loss(pred_matrix, target_matrix)
+            loss = loss + (self.molecule_set_rank_loss_weight * loss_rank)
+        return loss, loss_mces, loss_rank, pred_matrix
+
+    def _molecule_set_rank_loss(self, pred_matrix, target_matrix):
+        """General pairwise ranking loss over every (j, l) column pair per
+        row (and, symmetrically, every row pair per column) -- not just
+        self-vs-others -- adapted from a formulation by Gaetan De Waele.
+
+        For anchor i and any two other items j, l: true_gap = target[i,l]
+        - target[i,j] (positive => l is the truer match than j, so l
+        should score higher). Any triple whose true gap, in RAW MCES
+        units, is <= molecule_set_rank_dead_zone_c is dropped entirely
+        (near-ties are noise, not order signal). Surviving triples are
+        penalized whenever the predicted gap doesn't agree with the true
+        gap's sign by at least a margin:
+        - molecule_set_rank_margin_mode == "constant": fixed
+          molecule_set_rank_margin for every triple.
+        - == "metric_aware": molecule_set_rank_alpha * (true gap -
+          dead_zone), so the margin grows from 0 at the edge of the dead
+          zone and badly-separated pairs get pushed apart harder than
+          near-ties. alpha=1 means "the predicted gap must be at least
+          the true gap, in the right direction."
+
+        Our (n, n) cross matrix (view_a x view_b) has no trivial
+        "spectrum-vs-itself" entry to exclude (unlike a single unified
+        2n x 2n matrix would need): the diagonal is already the
+        meaningful self/sibling pair, so it's included in the general
+        (j, l) enumeration like any other column/row -- a self-involving
+        triple is only dropped if it falls inside the dead zone, same as
+        any other triple, same mechanism, no special-casing.
+
+        Symmetric: computed once with rows as anchors, once with columns
+        as anchors (via the transpose), averaged. O(n^3) -- fine up to a
+        few hundred molecules; would need chunking or subsampling well
+        beyond that. Returns a scalar."""
+        c_normalized = self.molecule_set_rank_dead_zone_c / self.mces_max_value
+
+        def _direction(pred, target):
+            true_gap = target.unsqueeze(1) - target.unsqueeze(
+                2
+            )  # [i,j,l] = target[i,l]-target[i,j]
+            pred_gap = pred.unsqueeze(1) - pred.unsqueeze(2)
+            sign = torch.sign(true_gap) * (true_gap.abs() > c_normalized)
+
+            if self.molecule_set_rank_margin_mode == "metric_aware":
+                margin = self.molecule_set_rank_alpha * (true_gap.abs() - c_normalized)
+            else:
+                margin = self.molecule_set_rank_margin
+
+            violation = F.relu(margin - sign * pred_gap)
+            mask = sign != 0
+            return (violation * mask).sum() / mask.sum().clamp(min=1)
+
+        loss_rows = _direction(pred_matrix, target_matrix)
+        loss_cols = _direction(pred_matrix.T, target_matrix.T)
+        return 0.5 * (loss_rows + loss_cols)
+
+    def _molecule_set_training_step(self, batch, batch_idx):
+        loss, loss_mces, loss_rank, _ = self.molecule_set_step(
+            batch["view_a"], batch["view_b"], batch["mces_target_matrix"]
+        )
+        self.log("loss_mces", loss_mces, on_step=True, on_epoch=True, prog_bar=False)
+        if loss_rank is not None:
+            self.log(
+                "loss_rank",
+                loss_rank,
+                on_step=True,
+                on_epoch=True,
+                prog_bar=False,
+            )
+        self.log("train_loss", loss, on_step=True, on_epoch=True, prog_bar=True)
+        return loss
+
     def _filip_similarity(self, tokens0, valid0, tokens1, valid1):
         """Primary head's paired FILIP score -- see _filip_paired_score."""
         return _filip_paired_score(
@@ -1001,10 +1244,9 @@ class SimilarityModelMultitask(SimilarityModel):
     def _filip_contrastive_cross_attention_matrix(
         self, tokens_a, valid_a, tokens_b, valid_b
     ):
-        """Batched cross-batch generalization of
-        _filip_cross_attention_similarity, used for the FILIP-scored in-batch
-        contrastive loss when the primary head also uses cross-attention.
-        Mirrors filip_cross_attention_weight_similarities /
+        """FILIP-scored in-batch contrastive loss's batched cross-attention
+        matrix -- see _filip_cross_attention_matrix. Mirrors
+        filip_cross_attention_weight_similarities /
         filip_use_importance_weighting via the dedicated
         filip_contrastive_weight_similarities /
         filip_contrastive_use_importance_weighting flags, using fully
@@ -1013,53 +1255,47 @@ class SimilarityModelMultitask(SimilarityModel):
         primary head, but this loss can never warp the primary head's own
         projections/gate. tokens_a: (P, N, D), valid_a: (P, N); tokens_b:
         (Q, M, D), valid_b: (Q, M). Returns (P, Q)."""
-        d_k = tokens_a.shape[-1]
-        scale = d_k**0.5
-        neg_fill = -1e9
+        return _filip_cross_attention_matrix(
+            tokens_a,
+            valid_a,
+            tokens_b,
+            valid_b,
+            attn_q=self.filip_contrastive_attn_q,
+            attn_k=self.filip_contrastive_attn_k,
+            weight_similarities=self.filip_contrastive_weight_similarities,
+            use_importance_weighting=self.filip_contrastive_use_importance_weighting,
+            importance_mlp=getattr(self, "filip_contrastive_importance_mlp", None),
+        )
 
-        def _direction(q_tokens, q_valid, kv_tokens, kv_valid):
-            # q_tokens: (P, N, D), kv_tokens: (Q, M, D)
-            q = self.filip_contrastive_attn_q(q_tokens)  # (P, N, D)
-            k = self.filip_contrastive_attn_k(kv_tokens)  # (Q, M, D)
-            logits = torch.einsum("pnd,qmd->pqnm", q, k) / scale  # (P, Q, N, M)
-            logits = logits.masked_fill(~kv_valid[None, :, None, :], neg_fill)
-            weights = torch.softmax(logits, dim=3)  # (P, Q, N, M)
-
-            if self.filip_contrastive_weight_similarities:
-                q_norm = F.normalize(q_tokens, p=2, dim=-1)
-                kv_norm = F.normalize(kv_tokens, p=2, dim=-1)
-                cos_sim = torch.einsum("pnd,qmd->pqnm", q_norm, kv_norm)  # (P, Q, N, M)
-                per_token = (weights * cos_sim).sum(dim=3)  # (P, Q, N)
-            else:
-                attended = torch.einsum(
-                    "pqnm,qmd->pqnd", weights, kv_tokens
-                )  # (P, Q, N, D) -- raw values
-                per_token = F.cosine_similarity(
-                    attended, q_tokens[:, None, :, :], dim=-1
-                )  # (P, Q, N) -- raw query
-
-            per_token = torch.where(
-                q_valid[:, None, :], per_token, torch.zeros_like(per_token)
+    def _filip_molecule_set_matrix(self, tokens_a, valid_a, tokens_b, valid_b):
+        """Batched (n, n) FILIP score matrix for a molecule-set batch,
+        mirroring the primary head's own configuration (filip_aggregation /
+        filip_use_cross_attention / filip_cross_attention_weight_similarities
+        / filip_use_importance_weighting) and using its own weights
+        directly (no dedicated copies needed here, unlike the contrastive
+        loss: this computes the primary MCES-regression score itself, not
+        an auxiliary loss that could warp it). Same dispatch as
+        _filip_similarity, just the batched (P, Q) cross-matrix version
+        instead of the paired (B,) one. tokens_a/tokens_b: (n, N, D),
+        valid_a/valid_b: (n, N). Returns (n, n)."""
+        if self.filip_use_cross_attention:
+            return _filip_cross_attention_matrix(
+                tokens_a,
+                valid_a,
+                tokens_b,
+                valid_b,
+                attn_q=self.filip_attn_q,
+                attn_k=self.filip_attn_k,
+                weight_similarities=self.filip_cross_attention_weight_similarities,
+                use_importance_weighting=self.filip_use_importance_weighting,
+                importance_mlp=getattr(self, "filip_importance_mlp", None),
             )
-
-            if self.filip_contrastive_use_importance_weighting:
-                importance = torch.sigmoid(
-                    self.filip_contrastive_importance_mlp(q_tokens).squeeze(-1)
-                )  # (P, N)
-                importance = torch.where(
-                    q_valid, importance, torch.zeros_like(importance)
-                )
-                numer = (importance[:, None, :] * per_token).sum(dim=2)  # (P, Q)
-                denom = importance.sum(dim=1).clamp(min=1e-6)[:, None]  # (P, 1)
-                return numer / denom
-            n_valid = q_valid.sum(dim=1).clamp(min=1).float()[:, None]  # (P, 1)
-            return per_token.sum(dim=2) / n_valid
-
-        score_ab = _direction(tokens_a, valid_a, tokens_b, valid_b)  # (P, Q)
-        score_ba = _direction(tokens_b, valid_b, tokens_a, valid_a).transpose(
-            0, 1
-        )  # (P, Q)
-        return 0.5 * (score_ab + score_ba)
+        temperature = None
+        if self.filip_aggregation == "soft_max":
+            temperature = self.filip_log_temperature.exp().clamp(min=1e-3, max=10.0)
+        return self._filip_similarity_matrix(
+            tokens_a, valid_a, tokens_b, valid_b, self.filip_aggregation, temperature
+        )
 
     def _filip_contrastive_loss_info_nce(
         self, tokens0, valid0, tokens1, valid1, mol_idx_0, mol_idx_1
@@ -1128,6 +1364,9 @@ class SimilarityModelMultitask(SimilarityModel):
         return self(batch), None, None, None, None, None, None
 
     def training_step(self, batch, batch_idx):
+        if self.use_molecule_set_batches:
+            return self._molecule_set_training_step(batch, batch_idx)
+
         logits_list, emb0, emb1, tokens0, valid0, tokens1, valid1 = (
             self._forward_with_embeddings(batch)
         )

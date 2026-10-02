@@ -509,8 +509,37 @@ def prepare_data(
     )
 
     # Validation always uses a full, unweighted, sequential pass regardless
-    # of use_resampling -- val_sampler stays None either way.
-    if cfg.sampling.use_resampling:
+    # of use_resampling/use_molecule_set_batches -- val_sampler and
+    # dataset_val stay untouched either way.
+    if cfg.sampling.get("use_molecule_set_batches", False):
+        from simba.core.data.datasets.molecule_set_dataset import (
+            MoleculeSetDataset,
+            build_dense_mces_matrix,
+        )
+
+        # extra_distances is already normalized (1 - raw_mces/max_value,
+        # clamped >= 0 -- see LoadMCES.normalize_mces20); reconstruct raw
+        # MCES for the KNN/dense-matrix machinery, which works in raw
+        # units throughout (matches mces_sampling_bin_edges' convention
+        # above). Lossless where it matters: every raw value > max_value
+        # was already collapsed to the same normalized 0, and re-normalizing
+        # the reconstructed max_value gives that same 0 right back.
+        mces_max_value = cfg.model.tasks.mces.max_value
+        raw_mces_train = (1.0 - molecule_pairs_train.extra_distances) * mces_max_value
+        dense_mces_train = build_dense_mces_matrix(
+            molecule_pairs_train.pair_distances,
+            raw_mces_train,
+            n_molecules=len(molecule_pairs_train.df_smiles),
+        )
+        dataset_train = MoleculeSetDataset(
+            dataset_train,
+            dense_mces_train,
+            n_anchors=cfg.sampling.molecule_set_n_anchors,
+            k_nearest=cfg.sampling.molecule_set_k_nearest,
+            mces_max_value=mces_max_value,
+        )
+        train_sampler = None
+    elif cfg.sampling.use_resampling:
         train_sampler = CustomWeightedRandomSampler(
             weights=weights_tr, num_samples=len(dataset_train), replacement=True
         )
@@ -543,14 +572,27 @@ def create_dataloaders(
     Returns:
         Tuple of (dataloader_train, dataloader_val)
     """
-    dataloader_train = DataLoader(
-        dataset_train,
-        batch_size=cfg.training.batch_size,
-        shuffle=(train_sampler is None),
-        sampler=train_sampler,
-        num_workers=cfg.hardware.num_workers,
-        persistent_workers=cfg.hardware.num_workers > 0,
-    )
+    from simba.core.data.datasets.molecule_set_dataset import MoleculeSetDataset
+
+    if isinstance(dataset_train, MoleculeSetDataset):
+        # Already yields one fully-assembled batch per iteration (n**2
+        # pairs from n molecules) -- no further batching/collation, no
+        # sampler (its own anchor sampling replaces one).
+        dataloader_train = DataLoader(
+            dataset_train,
+            batch_size=None,
+            num_workers=cfg.hardware.num_workers,
+            persistent_workers=cfg.hardware.num_workers > 0,
+        )
+    else:
+        dataloader_train = DataLoader(
+            dataset_train,
+            batch_size=cfg.training.batch_size,
+            shuffle=(train_sampler is None),
+            sampler=train_sampler,
+            num_workers=cfg.hardware.num_workers,
+            persistent_workers=cfg.hardware.num_workers > 0,
+        )
 
     dataloader_val = DataLoader(
         dataset_val,
@@ -694,6 +736,18 @@ def setup_model(cfg: DictConfig, weights_mces: np.ndarray) -> SimilarityModelMul
         "use_ion_activation": cfg.model.features.use_ion_activation,
         "use_ion_method": cfg.model.features.use_ion_method,
         "use_ion_mode": cfg.model.features.use_ion_mode,
+        "use_molecule_set_batches": cfg.sampling.get("use_molecule_set_batches", False),
+        "molecule_set_rank_loss_weight": cfg.sampling.get(
+            "molecule_set_rank_loss_weight", 0.0
+        ),
+        "molecule_set_rank_margin_mode": cfg.sampling.get(
+            "molecule_set_rank_margin_mode", "constant"
+        ),
+        "molecule_set_rank_margin": cfg.sampling.get("molecule_set_rank_margin", 0.0),
+        "molecule_set_rank_alpha": cfg.sampling.get("molecule_set_rank_alpha", 1.0),
+        "molecule_set_rank_dead_zone_c": cfg.sampling.get(
+            "molecule_set_rank_dead_zone_c", 0.0
+        ),
     }
 
     # Load pretrained weights if specified
