@@ -197,7 +197,7 @@ def _train_with_hydra(cfg: DictConfig) -> None:
         counting_mces, bins_mces = TrainUtils.count_ranges(
             mces_sampled,
             number_bins=5,
-            bin_sim_1=False,
+            bin_sim_1=True,
             max_value=1,
         )
 

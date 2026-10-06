@@ -360,7 +360,7 @@ def configure_sensitivity_features(cfg: DictConfig, use_only_adduct_analysis: bo
         return set_metadata_features(
             cfg,
             use_adduct=0,
-            use_ion_mode=0,
+            use_ion_mode=1,
             use_ce=1,
             use_ion_activation=1,
             use_ion_method=1,

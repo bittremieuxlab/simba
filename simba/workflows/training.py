@@ -212,7 +212,7 @@ def prepare_data(
         use_edit_distance=cfg.model.tasks.edit_distance.enabled,
         use_multitask=cfg.model.multitasking.enabled,
         add_high_similarity_pairs=cfg.sampling.add_high_similarity_pairs,
-        remove_percentage=0.0,
+        remove_percentage=0.95,
     )
     indexes_tani_multitasking_train = _remove_duplicates_array(
         indexes_tani_multitasking_train
@@ -423,6 +423,7 @@ def setup_model(cfg: DictConfig, weights_mces: np.ndarray) -> SimilarityModelMul
         "use_ion_activation": cfg.model.features.use_ion_activation,
         "use_ion_method": cfg.model.features.use_ion_method,
         "use_ion_mode": cfg.model.features.use_ion_mode,
+        "strict":False,
     }
 
     # Load pretrained weights if specified

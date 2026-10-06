@@ -32,13 +32,15 @@ def run_analog_discovery(cfg: DictConfig) -> dict:
 
     # Load spectra using Hydra config
     all_spectrums_query = load_spectra(
-        str(query_spectra), cfg, use_gnps_format=cfg.analog_discovery.use_gnps_format
+        str(query_spectra), cfg, use_gnps_format=cfg.analog_discovery.use_gnps_format,
+        use_only_protonized_adducts=cfg.model.features.use_only_protonized_adducts, 
     )
 
     all_spectrums_reference = load_spectra(
         str(reference_spectra),
         cfg,
         use_gnps_format=cfg.analog_discovery.use_gnps_format,
+        use_only_protonized_adducts=cfg.model.features.use_only_protonized_adducts, 
     )
 
     if len(all_spectrums_query) == 0:

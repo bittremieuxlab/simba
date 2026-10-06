@@ -274,7 +274,7 @@ def get_edit_distance_from_smiles(smiles1, smiles2, return_nans=True):
     return simba_get_edit_distance(mol1, mol2, return_nans=return_nans)
 
 
-def simba_get_edit_distance(mol1, mol2, return_nans=True):
+def simba_get_edit_distance(mol1, mol2, return_nans=True, timeout=10):
     """
     Calculate the edit distance between two molecules.
 
@@ -293,7 +293,7 @@ def simba_get_edit_distance(mol1, mol2, return_nans=True):
         Edit distance between mol1 and mol2.
     """
 
-    mcs1 = rdFMCS.FindMCS([mol1, mol2])
+    mcs1 = rdFMCS.FindMCS([mol1, mol2], timeout=timeout)
     mcs_mol = Chem.MolFromSmarts(mcs1.smartsString)
     if return_nans:
         if (

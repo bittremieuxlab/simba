@@ -38,12 +38,13 @@ class MolecularSimilarityMetrics:
                     s1,
                     threshold=threshold,
                     i=0,
-                    # solver='CPLEX_CMD',       # or another fast solver you have installed
+                    #solver='CPLEX_CMD',       # or another fast solver you have installed
                     solver="PULP_CBC_CMD",
                     solver_options={
                         "threads": 1,
                         "msg": False,
-                        "timeLimit": 10,  # Stop CBC after 1 seconds
+                        "timeLimit": 100,  # Stop CBC after 1 seconds
+                        #"timeLimit": 1,
                     },
                     no_ilp_threshold=False,  # allow the ILP to stop early once the threshold is exceeded
                     always_stronger_bound=False,  # use dynamic bounding for speed

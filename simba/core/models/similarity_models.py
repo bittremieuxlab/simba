@@ -4,6 +4,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+
 from simba.core.data.weighted_sampling import SimilarityWeightSampler
 from simba.core.models.spectrum_encoder import (
     SpectrumTransformerEncoderCustom,
@@ -11,10 +12,13 @@ from simba.core.models.spectrum_encoder import (
 from simba.utils.logger_setup import logger
 
 
+
+
 class FixedLinearRegression(nn.Module):
     """
     linear layer for computing sum of dot product
     """
+
 
     def __init__(self, d_model):
         super().__init__()
@@ -23,16 +27,21 @@ class FixedLinearRegression(nn.Module):
         )  # Fixed weight initialized to 1
         self.bias = nn.Parameter(torch.zeros(1))  # Bias initialized to 0
 
+
         # Freeze the parameters
         self.weight.requires_grad = False
         self.bias.requires_grad = False
+
 
     def forward(self, x):
         return torch.matmul(x, self.weight.t()) + self.bias
 
 
+
+
 class SimilarityModel(pl.LightningModule):
     """It receives a set of pairs of molecules and it must train the similarity model based on it. Embed spectra."""
+
 
     def __init__(
         self,
@@ -53,11 +62,13 @@ class SimilarityModel(pl.LightningModule):
         super().__init__()
         self.weights = weights
 
+
         # Add a linear layer for projection
         self.use_element_wise = use_element_wise
         self.linear = nn.Linear(d_model, d_model)
         self.linear_regression = nn.Linear(d_model, 1)
         self.fixed_linear_regression = FixedLinearRegression(d_model)
+
 
         self.relu = nn.ReLU()
         self.use_adduct = use_adduct
@@ -65,6 +76,7 @@ class SimilarityModel(pl.LightningModule):
         self.use_ion_activation = use_ion_activation
         self.use_ion_method = use_ion_method
         self.use_ion_mode = use_ion_mode
+
 
         self.spectrum_encoder = SpectrumTransformerEncoderCustom(
             d_model=d_model,
@@ -77,8 +89,10 @@ class SimilarityModel(pl.LightningModule):
             use_ion_mode= use_ion_mode,
         )
 
+
         self.regression_loss = nn.MSELoss()
         self.dropout = nn.Dropout(p=dropout)
+
 
         self.train_loss_list = []
         self.val_loss_list = []
@@ -87,23 +101,30 @@ class SimilarityModel(pl.LightningModule):
         if self.use_cosine_distance:
             self.linear_cosine = nn.Linear(d_model, d_model)
 
+
         self.cosine_similarity = nn.CosineSimilarity(dim=1)
+
 
         self.use_cosine_library = True
 
+
         # print(f"Using cosine library from Pytorch?: {self.use_cosine_library}")
+
 
     def normalized_dot_product(self, a, b):
         # Normalize inputs
         a_norm = torch.nn.functional.normalize(a, p=2, dim=-1)
         b_norm = torch.nn.functional.normalize(b, p=2, dim=-1)
 
+
         # Compute dot product
         dot_product = torch.sum(a_norm * b_norm, dim=-1)
         return dot_product
 
+
     def forward(self, batch):
         """The inference pass"""
+
 
         kwargs_0 = {
             "precursor_mass": batch["precursor_mass_0"].float(),
@@ -123,19 +144,24 @@ class SimilarityModel(pl.LightningModule):
             kwargs_0["adduct"] = batch["adduct_0"].float()
             kwargs_1["adduct"] = batch["adduct_1"].float()
 
+
         if self.use_ce:
             logger.info("Using CE in the model")
             kwargs_0["ce"] = batch["ce_0"].float()
             kwargs_1["ce"] = batch["ce_1"].float()
+
 
         if self.use_ion_activation:
             kwargs_0["ion_activation"] = batch["ion_activation_0"].float()
             kwargs_1["ion_activation"] = batch["ion_activation_1"].float()
 
 
+
+
         if self.use_ion_method:
             kwargs_0["ion_method"] = batch["ion_method_0"].float()
             kwargs_1["ion_method"] = batch["ion_method_1"].float()
+
 
         # ensure there are no nans
         batch["mz_0"] = torch.nan_to_num(batch["mz_0"], nan=0.0, posinf=0.0, neginf=0.0)
@@ -146,6 +172,7 @@ class SimilarityModel(pl.LightningModule):
         batch["intensity_1"] = torch.nan_to_num(
             batch["intensity_1"], nan=0.0, posinf=0.0, neginf=0.0
         )
+
 
         emb0, _ = self.spectrum_encoder(
             mz_array=batch["mz_0"].float(),
@@ -158,18 +185,23 @@ class SimilarityModel(pl.LightningModule):
             **kwargs_1,
         )
 
+
         emb0 = emb0[:, 0, :]
         emb1 = emb1[:, 0, :]
 
+
         emb0 = self.relu(emb0)
         emb1 = self.relu(emb1)
+
 
         if self.use_cosine_distance:
             if self.use_cosine_library:
                 emb = self.cosine_similarity(emb0, emb1)
 
+
                 # Reshape the tensor
                 emb = emb.reshape(-1, 1)
+
 
             else:
                 # ensure the embeddings are positive
@@ -179,6 +211,7 @@ class SimilarityModel(pl.LightningModule):
                 emb = self.fixed_linear_regression(emb)
                 # emb = (emb+1)/2
 
+
         else:
             emb = emb0 + emb1
             emb = self.linear(emb)
@@ -186,20 +219,26 @@ class SimilarityModel(pl.LightningModule):
             emb = self.relu(emb)
             emb = self.linear_regression(emb)
 
+
         return emb
+
 
     def step(self, batch, batch_idx, threshold=0.5):
         """A training/validation/inference step."""
         spec = self(batch)
 
+
         target = torch.tensor(batch["similarity"]).to(self.device)
         target = target.view(-1)
+
 
         # adjust scale
         # target = 2*(target-0.5)
         loss = self.regression_loss(spec.float(), target.view(-1, 1).float()).float()
 
+
         return loss.float()
+
 
     def training_step(self, batch, batch_idx):
         """A training step"""
@@ -208,12 +247,14 @@ class SimilarityModel(pl.LightningModule):
         self.log("train_loss", loss, on_step=True, on_epoch=True, prog_bar=True)
         return loss
 
+
     def validation_step(self, batch, batch_idx):
         """A validation step"""
         loss = self.step(batch, batch_idx)
         # self.val_loss_list.append(loss.item())
         self.log("validation_loss", loss, on_step=True, on_epoch=True, prog_bar=True)
         return loss
+
 
     def predict_step(self, batch, batch_idx):
         """A predict step"""
@@ -222,6 +263,7 @@ class SimilarityModel(pl.LightningModule):
         # spec= (spec+1)/2
         return spec
 
+
     def configure_optimizers(self):
         """Configure the optimizer for training."""
         # optimizer = DAdaptAdam(self.parameters(), lr=1)
@@ -229,15 +271,18 @@ class SimilarityModel(pl.LightningModule):
         # optimizer = torch.optim.RAdam(self.parameters(), lr=1e-3)
         return optimizer
 
+
     def load_weights(self):
         weights = {}
         for name, param in self.named_parameters():
             weights[name] = np.array(param.data)
         return weights
 
+
     def load_pretrained_maldi_embedder(self, model_path):
         # original weights
         original_weights = self.load_weights()
+
 
         # Load weights from the checkpoint
         checkpoint = torch.load(
@@ -245,25 +290,30 @@ class SimilarityModel(pl.LightningModule):
             map_location="cpu",
         )
 
+
         # Load weights into model B from the checkpoint
         checkpoint_keys = checkpoint["state_dict"].keys()
         original_embedder_keys = (
             self.state_dict().keys()
         )  # Assuming `model` is your target model
 
+
         # Load weights for shared layers
         for key in checkpoint_keys:
             if key in original_embedder_keys:
                 self.state_dict()[key].copy_(checkpoint["state_dict"][key])
 
+
         # new weights
         new_weights = self.load_weights()
+
 
         ## sanity check (the weights of the model changed?):
         if not (self.are_weights_changed(original_weights, new_weights)):
             print("INFO: Correctly loaded pretrained Maldi Model")
         else:
             raise ValueError("ERROR!!!: Error loading Maldi model")
+
 
     def are_weights_changed(
         self,
@@ -273,6 +323,7 @@ class SimilarityModel(pl.LightningModule):
     ):
         return np.array_equal(original_weights[layer_test], new_weights[layer_test])
 
+
     def set_freeze_layers(self, layer_names_to_freeze, freeze):
         # Freeze specified layers
         for name, param in self.named_parameters():
@@ -281,6 +332,7 @@ class SimilarityModel(pl.LightningModule):
             else:
                 param.requires_grad = True
 
+
     def get_maldi_embedder_keys(self, model_path):
         # Load weights from the checkpoint
         checkpoint = torch.load(
@@ -288,15 +340,19 @@ class SimilarityModel(pl.LightningModule):
             map_location="cpu",
         )
 
+
         # Load weights into model B from the checkpoint
         return checkpoint["state_dict"].keys()
+
 
     def get_all_keys(self):
         return self.state_dict().keys()
 
 
+
+
 class CustomizedCrossEntropyLoss(nn.Module):
-    def __init__(self, n_classes=6):
+    def __init__(self, n_classes=6, penalize_false_positives=True):
         super().__init__()
         # Construct the penalty matrix using absolute differences.
         # With this design, a correct prediction (i == j) gets a penalty of 0,
@@ -305,15 +361,45 @@ class CustomizedCrossEntropyLoss(nn.Module):
         penalty_matrix = np.array(
             [[abs(i - j) for j in range(n_classes)] for i in range(n_classes)]
         )
+       
+
+
         penalty_matrix = (n_classes - 1) - penalty_matrix
         penalty_matrix = penalty_matrix**2
 
+
+        if penalize_false_positives:
+
+            #original
+            #penalty_matrix[0,1:]=0
+
+            penalty_matrix[0,0]=1
+            penalty_matrix[1,0]=1
+            penalty_matrix[2,0]=1
+            penalty_matrix[3,0]=1
+            penalty_matrix[4,0]=1
+
+            penalty_matrix[0,1:]=0
+            penalty_matrix[1,1:]=0
+            penalty_matrix[2,1:]=0
+            penalty_matrix[3,1:]=0
+            penalty_matrix[4,1:]=0
+
+            penalty_matrix[5,0:-1]=0
+            penalty_matrix[5,5]=1
+
         # Normalize each row so that the row sums to 1
         row_sums = penalty_matrix.sum(axis=1, keepdims=True)
+
+
+
+
         penalty_matrix = penalty_matrix / row_sums
+
 
         self.n_classes = n_classes
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
 
         # Normalize the penalty matrix so that the maximum penalty (for the farthest misclassification)
         # becomes 1; this keeps the values in a controlled range.
@@ -321,15 +407,18 @@ class CustomizedCrossEntropyLoss(nn.Module):
             self.device
         )
 
+
         max_value = np.max(penalty_matrix)
         if max_value > 0:
             self.penalty_matrix = self.penalty_matrix / max_value
+
 
     def forward(self, logits, target):
         batch_size = logits.size(0)
         # Compute the log probabilities
         log_probs = F.log_softmax(logits, dim=-1).to(self.device)
         # For each sample, select the penalty row that corresponds to its true class.
+
 
         target = target.to(torch.int64).to(self.device)
         self.penalty_matrix = self.penalty_matrix.to(self.device)
@@ -340,8 +429,11 @@ class CustomizedCrossEntropyLoss(nn.Module):
         return cross_entropy_loss
 
 
+
+
 class SimilarityModelMultitask(SimilarityModel):
     """It receives a set of pairs of molecules and it must train the similarity model based on it. Embeds spectra."""
+
 
     def __init__(
         self,
@@ -367,6 +459,9 @@ class SimilarityModelMultitask(SimilarityModel):
         use_ion_activation=False,
         use_ion_method=False,
         use_ion_mode=False,
+        use_edit_contrastive_loss=True,
+        contrastive_weight=0.05,
+        contrastive_margin=0.2,
     ):
         """Initialize the CCSPredictor"""
         super().__init__(
@@ -385,15 +480,19 @@ class SimilarityModelMultitask(SimilarityModel):
         )
         self.weights = weights
 
+
         # Add a linear layer for projection
         self.classifier = nn.Linear(d_model, n_classes)
+
 
         self.loss_fn = nn.CrossEntropyLoss()
         self.regression_loss = nn.MSELoss()
         self.customised_ce = CustomizedCrossEntropyLoss()
 
+
         self.dropout = nn.Dropout(p=dropout)
         self.use_gumbel = use_gumbel
+
 
         if self.use_gumbel:
             self.tau_gumbel_softmax = tau_gumbel_softmax
@@ -402,17 +501,21 @@ class SimilarityModelMultitask(SimilarityModel):
             print(f"Using TAU GUMBEL reg weight: {self.gumbel_reg_weight}")
         self.weights_sim2 = weights_sim2
 
+
         self.linear1 = nn.Linear(d_model, d_model)
         self.linear1_2 = nn.Linear(d_model, d_model)
+
 
         self.linear2 = nn.Linear(d_model, d_model)
         self.linear2_cossim = nn.Linear(
             d_model, d_model
         )  # Extra linear layer if cosine similarity is used
 
+
         self.use_edit_distance_regresion = use_edit_distance_regresion
         if self.use_edit_distance_regresion:
             self.linear1_cossim = nn.Linear(d_model, d_model)
+
 
         self.use_mces20_log_loss = use_mces20_log_loss
         self.use_fingerprints = use_fingerprints
@@ -426,16 +529,26 @@ class SimilarityModelMultitask(SimilarityModel):
             self.norm_mix = nn.LayerNorm(d_model)
         self.use_precursor_mz_for_model = use_precursor_mz_for_model
 
+        # Optional auxiliary contrastive loss for the edit-distance representation.
+        # Disabled by default. These are plain attributes, not trainable parameters,
+        # so they do not change checkpoint parameter names/shapes or inference outputs.
+        self.use_edit_contrastive_loss = use_edit_contrastive_loss
+        self.contrastive_weight = contrastive_weight
+        self.contrastive_margin = contrastive_margin
+
+
         # Initialize learnable log variance parameters for each loss
         self.USE_LEARNABLE_MULTITASK = USE_LEARNABLE_MULTITASK
         if USE_LEARNABLE_MULTITASK:
-            initial_log_sigma1= 0.0 
+            initial_log_sigma1= 0.0
             initial_log_sigma2 = -5.3  
             self.log_sigma1 = nn.Parameter(torch.tensor(initial_log_sigma1))
             self.log_sigma2 = nn.Parameter(torch.tensor(initial_log_sigma2))
 
+
     def forward(self, batch, return_spectrum_output=False):
         # … compute raw emb0, emb1, apply relu, fingerprints, etc. …
+
 
         # nans to zeros
         batch["precursor_mass_0"] = torch.nan_to_num(
@@ -450,6 +563,7 @@ class SimilarityModelMultitask(SimilarityModel):
         batch["precursor_charge_1"] = torch.nan_to_num(
             batch["precursor_charge_1"], nan=0.0, posinf=0.0, neginf=0.0
         )
+
 
         """The inference pass"""
         if self.use_precursor_mz_for_model:
@@ -467,6 +581,7 @@ class SimilarityModelMultitask(SimilarityModel):
             "precursor_charge": batch["precursor_charge_1"].float(),
         }
 
+
         batch["ionmode_0"] = torch.nan_to_num(
             batch["ionmode_0"], nan=0.0, posinf=0.0, neginf=0.0
         )
@@ -482,8 +597,10 @@ class SimilarityModelMultitask(SimilarityModel):
             batch["adduct_1"], nan=0.0, posinf=0.0, neginf=0.0
         )
 
+
         kwargs_0["adduct"] = batch["adduct_0"].float()
         kwargs_1["adduct"] = batch["adduct_1"].float()
+
 
         batch["ce_0"] = torch.nan_to_num(
             batch["ce_0"], nan=0.0, posinf=0.0, neginf=0.0
@@ -494,6 +611,7 @@ class SimilarityModelMultitask(SimilarityModel):
         kwargs_0["ce"] = batch["ce_0"].float()
         kwargs_1["ce"] = batch["ce_1"].float()
 
+
         batch["ion_activation_0"] = torch.nan_to_num(
             batch["ion_activation_0"], nan=0.0, posinf=0.0, neginf=0.0
         )
@@ -503,12 +621,14 @@ class SimilarityModelMultitask(SimilarityModel):
         kwargs_0["ion_activation"] = batch["ion_activation_0"].float()
         kwargs_1["ion_activation"] = batch["ion_activation_1"].float()
 
+
         batch["ion_method_0"] = torch.nan_to_num(
             batch["ion_method_0"], nan=0.0, posinf=0.0, neginf=0.0
         )
         batch["ion_method_1"] = torch.nan_to_num(
             batch["ion_method_1"], nan=0.0, posinf=0.0, neginf=0.0
         )
+
 
         kwargs_0["ion_method"] = batch["ion_method_0"].float()
         kwargs_1["ion_method"] = batch["ion_method_1"].float()
@@ -522,6 +642,7 @@ class SimilarityModelMultitask(SimilarityModel):
         batch["mz_0"] = torch.nan_to_num(batch["mz_0"], nan=0.0, posinf=0.0, neginf=0.0)
         batch["mz_1"] = torch.nan_to_num(batch["mz_1"], nan=0.0, posinf=0.0, neginf=0.0)
 
+
         emb0, _ = self.spectrum_encoder(
             mz_array=batch["mz_0"].float(),
             intensity_array=batch["intensity_0"].float(),
@@ -533,10 +654,12 @@ class SimilarityModelMultitask(SimilarityModel):
             **kwargs_1,
         )
 
+
         emb0 = emb0[:, 0, :]
         emb1 = emb1[:, 0, :]
         emb0 = self.relu(emb0)
         emb1 = self.relu(emb1)
+
 
         if self.use_fingerprints:
             fp0 = batch["fingerprint_0"].float()  # (B, 2048)
@@ -544,11 +667,13 @@ class SimilarityModelMultitask(SimilarityModel):
             joint = torch.cat([emb0, fp_proj], dim=-1)  # (B, d_model + d_model//2)
             emb0 = self.dropout(self.norm_mix(self.relu(self.linear_mix(joint))))
 
+
         if return_spectrum_output:
             emb, emb_sim_2 = self.compute_from_embeddings(emb0, emb1)
             return emb, emb_sim_2, emb0, emb1
         else:
             return self.compute_from_embeddings(emb0, emb1)
+
 
     def calculate_weight_loss2(self):
         if self.use_edit_distance_regresion:
@@ -556,6 +681,7 @@ class SimilarityModelMultitask(SimilarityModel):
         else:
             weight_loss2 = 200
         return weight_loss2
+
 
     def compute_adjacent_diffs(self, gumbel_probs_1, batch_size):
         adjacent_diffs = gumbel_probs_1[:, 1:] - gumbel_probs_1[:, :-1]
@@ -571,6 +697,7 @@ class SimilarityModelMultitask(SimilarityModel):
         ) / batch_size
         return diff_penalty
 
+
     def ordinal_loss(self, logits, target):
         batch_size, num_classes = logits.size()
         prob = torch.sigmoid(logits)
@@ -581,14 +708,75 @@ class SimilarityModelMultitask(SimilarityModel):
         loss = F.binary_cross_entropy(prob, target_matrix, reduction="mean")
         return loss
 
+
+    def compute_edit_embeddings(self, emb0, emb1):
+        """Return the latent representations used by the edit-distance head."""
+        if self.use_edit_distance_regresion:
+            def transform1(x):
+                x = self.dropout(self.relu(self.linear1(x)))
+                return self.relu(self.linear1_cossim(x))
+
+            e0 = transform1(emb0)
+            e1 = transform1(emb1)
+        else:
+            e0 = self.linear1_2(self.relu(self.linear1(emb0)))
+            e1 = self.linear1_2(self.relu(self.linear1(emb1)))
+
+        return e0, e1
+
+    def edit_contrastive_loss(self, e0, e1, edit_distance):
+        """
+        Auxiliary contrastive loss for the edit-distance representation.
+
+        ED == 5 is the ONLY positive class:
+            cosine similarity is pushed toward 1.
+
+        ED 0..4 are negatives:
+            cosine similarity is penalized only when it is above
+            self.contrastive_margin.
+
+        All samples participate in the loss.
+        """
+        edit_distance = edit_distance.view(-1)
+
+        positive_mask = edit_distance == 5
+        negative_mask = edit_distance != 5
+
+        cosine_sim = F.cosine_similarity(e0, e1, dim=1, eps=1e-8)
+
+        # Positive pairs: minimum loss when cosine similarity == 1.
+        positive_loss = 1.0 - cosine_sim
+
+        # Negative pairs: no penalty once cosine similarity <= margin.
+        negative_loss = F.relu(cosine_sim - self.contrastive_margin)
+
+        loss = torch.zeros_like(cosine_sim)
+        loss[positive_mask] = positive_loss[positive_mask]
+        loss[negative_mask] = negative_loss[negative_mask]
+
+        return loss.mean()
+
     def step(self, batch, batch_idx, threshold=0.5, weight_loss2=None):
-        logits_list = self(batch)
-        logits1 = logits_list[0]
-        logits2 = logits_list[1]
+        if self.use_edit_contrastive_loss:
+            logits1, logits2, emb0, emb1 = self(
+                batch, return_spectrum_output=True
+            )
+        else:
+            logits_list = self(batch)
+            logits1 = logits_list[0]
+            logits2 = logits_list[1]
+
         target1 = batch["ed"].to(dtype=torch.long, device=self.device)
         target1 = target1.view(-1)
         target2 = batch["mces"].to(dtype=torch.float32, device=self.device)
         target2 = target2.view(-1)
+
+        if self.use_edit_contrastive_loss:
+            edit_emb0, edit_emb1 = self.compute_edit_embeddings(emb0, emb1)
+            loss3 = self.edit_contrastive_loss(edit_emb0, edit_emb1, target1)
+        else:
+            loss3 = None
+
 
         if self.use_edit_distance_regresion:
             target1 = target1 / 5
@@ -614,10 +802,12 @@ class SimilarityModelMultitask(SimilarityModel):
             else:
                 loss1 = self.customised_ce(logits1, target1)
 
+
         def log_conversion(x, a=5):
             scaling_factor = np.log(a + 1)
             logits2_for_loss = torch.log((a + 1) - (a * x)) / scaling_factor
             return 1 - logits2_for_loss
+
 
         if self.use_mces20_log_loss:
             logits2_for_loss = log_conversion(logits2)
@@ -625,6 +815,7 @@ class SimilarityModelMultitask(SimilarityModel):
         else:
             logits2_for_loss = logits2
             target2_for_loss = target2
+
 
         if self.weights_sim2 is not None:
             squared_diff = (
@@ -635,7 +826,7 @@ class SimilarityModelMultitask(SimilarityModel):
                 molecule_pairs=None,
                 weights=self.weights_sim2,
                 use_molecule_pair_object=False,
-                bining_sim1=False,
+                bining_sim1=True,
                 targets=target2.cpu().numpy(),
                 normalize=False,
             )
@@ -647,12 +838,15 @@ class SimilarityModelMultitask(SimilarityModel):
             ) ** 2
             loss2 = squared_diff.view(-1, 1).mean()
 
+
         weight_loss2 = self.calculate_weight_loss2()
         # loss = loss1 + (weight_loss2 * loss2)
+
 
         # Recompute sigma values dynamically so a fresh graph is built.
         # sigma1 = torch.nn.functional.softplus(self.sigma1_param)
         # sigma2 = torch.nn.functional.softplus(self.sigma2_param)
+
 
         # Combine the losses using learned weights:
         if self.USE_LEARNABLE_MULTITASK:
@@ -663,13 +857,19 @@ class SimilarityModelMultitask(SimilarityModel):
                 + self.log_sigma2
             )
 
+
             # loss = (loss1 / (2 * sigma1 ** 2) +
             #    loss2 / (2 * sigma2 ** 2) +
             #    torch.log(sigma1) +
             #    torch.log(sigma2))
         else:
             loss = loss1 + (weight_loss2 * loss2)
+
+        if self.use_edit_contrastive_loss:
+            loss = loss + self.contrastive_weight * loss3
+
         return loss
+
 
     def step_mse(self, batch, batch_idx, threshold=0.5):
         logits = self(batch)
@@ -681,8 +881,10 @@ class SimilarityModelMultitask(SimilarityModel):
         loss = self.regression_loss(predicted_value, target)
         return loss
 
+
     def gumbel_softmax(self, logits, temperature=0.2, hard=True):
         return F.gumbel_softmax(logits, tau=temperature, hard=hard)
+
 
     def ordinal_cross_entropy(self, pred, target):
         batch_size = pred.size(0)
@@ -692,14 +894,17 @@ class SimilarityModelMultitask(SimilarityModel):
         loss = -torch.sum(target_matrix * F.log_softmax(pred, dim=1), dim=1).mean()
         return loss
 
+
     def configure_optimizers(self):
         optimizer = torch.optim.Adam(self.parameters(), lr=self.lr)
         return optimizer
+
 
     def compute_from_embeddings(self, emb0: torch.Tensor, emb1: torch.Tensor):
         """
         Take two activated embeddings (after ReLU, fingerprint fusion, etc.)
         and run all the FC layers + similarity heads to produce:
+
 
         - emb: the class–probability (or regression) output
         - emb_sim_2: the second similarity score (cosine or regression)
@@ -714,6 +919,7 @@ class SimilarityModelMultitask(SimilarityModel):
                 x = self.relu(x)
                 return self.relu(self.linear2_cossim(x))
 
+
             e0 = transform(emb0)
             e1 = transform(emb1)
             emb_sim_2 = self.cosine_similarity(e0, e1)
@@ -722,11 +928,14 @@ class SimilarityModelMultitask(SimilarityModel):
             # clamp to ≤1
             emb_sim_2 = x - self.relu(x - 1)
 
+
         if self.use_edit_distance_regresion:
+
 
             def transform1(x):
                 x = self.dropout(self.relu(self.linear1(x)))
                 return self.relu(self.linear1_cossim(x))
+
 
             e0 = transform1(emb0)
             e1 = transform1(emb1)
@@ -740,6 +949,8 @@ class SimilarityModelMultitask(SimilarityModel):
         return emb, emb_sim_2
 
 
+
+
 class EmbeddingExtractor(pl.LightningModule):
     def __init__(self, model_path, D_MODEL, N_LAYERS, multitasking=False, config=None):
         super().__init__()
@@ -750,11 +961,13 @@ class EmbeddingExtractor(pl.LightningModule):
         ).spectrum_encoder
         self.relu = nn.ReLU()
 
+
     def load_twin_network(self, model_path, D_MODEL, N_LAYERS, strict=False):
         lr = self.config.optimizer.lr
         use_cosine_distance = (
             self.config.model.tasks.cosine_similarity.use_cosine_distance
         )
+
 
         if self.multitasking:
             n_classes = self.config.model.tasks.edit_distance.n_classes
@@ -776,6 +989,7 @@ class EmbeddingExtractor(pl.LightningModule):
                 use_ion_mode=self.config.model.features.use_ion_mode,
             )
 
+
         else:
             return SimilarityModel.load_from_checkpoint(
                 model_path,
@@ -792,15 +1006,17 @@ class EmbeddingExtractor(pl.LightningModule):
                 use_ion_mode=self.config.model.features.use_ion_mode,
             )
 
+
     def forward(self, batch):
         """The inference pass"""
+
 
         # extra data
         kwargs = {
             "precursor_mass": batch["precursor_mass"].float(),
             "precursor_charge": batch["precursor_charge"].float(),
         }
-        
+       
         # Add metadata fields if present in batch
         if "ionmode" in batch:
             kwargs["ionmode"] = batch["ionmode"].float()
@@ -814,16 +1030,21 @@ class EmbeddingExtractor(pl.LightningModule):
             kwargs["ion_method"] = batch["ion_method"].float()
 
 
+
+
         emb, _ = self.model(
             mz_array=batch["mz"].float(),
             intensity_array=batch["intensity"].float(),
             **kwargs,
         )
 
+
         emb = emb[:, 0, :]
         emb = self.relu(emb)
 
+
         return emb
+
 
     def get_embeddings(self, dataloader_spectrums, device="gpu"):
         predictor = pl.Trainer(
@@ -835,7 +1056,12 @@ class EmbeddingExtractor(pl.LightningModule):
         )
         return self.flat_predictions(embeddings)
 
+
     def flat_predictions(self, preds):
         # flat the results
         concatenated_tensor = torch.cat(preds, dim=0)
         return concatenated_tensor.detach().numpy()
+
+
+
+
