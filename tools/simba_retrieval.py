@@ -1,0 +1,805 @@
+"""
+SIMBA retrieval baseline: SIMBA-embedding NN transfer + Tanimoto candidate ranking.
+
+For each test spectrum:
+  1. Find nearest train spectrum by cosine similarity of SIMBA embeddings.
+  2. Transfer that train molecule's Morgan fingerprint as the predicted FP.
+  3. Rank leaderboard candidates by Tanimoto similarity to the transferred FP.
+
+Usage:
+    uv run python tools/simba_retrieval.py \\
+        --checkpoint /mnt/data/nkubrakov/experiments_3_dataset/training/msg_max_lb_hdf5_mces40/checkpoint-epoch=06-step=70000.ckpt \\
+        --mgf /mnt/data2/nkubrakov/massspecgym/data/auxiliary/MassSpecGym.mgf \\
+        --candidates /mnt/data2/nkubrakov/massspecgym/data/molecules/MassSpecGym_retrieval_candidates_mass.json \\
+        --split test
+"""
+
+import argparse
+import ast
+import copy
+import json
+from pathlib import Path
+
+import matchms
+import numpy as np
+import torch
+import torch.nn.functional as F
+import yaml
+from rdkit import Chem
+from rdkit.Chem import AllChem, DataStructs
+from rdkit.Chem.Descriptors import ExactMolWt
+from tqdm.auto import tqdm
+
+from simba.core.chemistry.chem_utils import ADDUCT_TO_MASS, theoretical_precursor_mz
+from simba.core.data.encoding import encode_adduct_mass
+from simba.core.data.preprocessor import Preprocessor
+from simba.core.data.spectrum import SpectrumExt
+from simba.core.models.similarity_models import SimilarityModelMultitask
+
+
+MAX_PEAKS = 100  # must match model.transformer.context_length
+N_ADDUCTS = len(ADDUCT_TO_MASS)
+
+
+# ── Model ─────────────────────────────────────────────────────────────────────
+
+
+def _parse_hparam_list(v):
+    """tb_logs/version_*/hparams.yaml stringifies list-valued config entries
+    (e.g. "'[2, 4, 6, 8]'") -- literal_eval turns them back into real lists."""
+    return ast.literal_eval(v) if isinstance(v, str) else v
+
+
+def model_kwargs_from_hparams(hparams_path: str) -> dict:
+    """Reconstruct the exact SimilarityModelMultitask constructor kwargs a
+    checkpoint was trained with, from its own run's
+    tb_logs/version_*/hparams.yaml (the fully-resolved Hydra config Lightning
+    logs at training time -- ground truth, not a guess from state_dict shapes
+    or a hand-copied SLURM script). Mirrors
+    simba/workflows/training.py::setup_model's own cfg -> kwargs mapping
+    key-for-key, so this generalizes to any experiment's checkpoint, not just
+    one hand-ported case. Getting any of this wrong doesn't raise -- strict=
+    False in load_model below silently drops the mismatched weights instead
+    -- so this is read from the one source that's guaranteed to match what
+    was actually trained, not re-derived or guessed."""
+    with open(hparams_path) as f:
+        raw = yaml.safe_load(f)
+
+    def g(key, default=None):
+        return raw.get(key, default)
+
+    return {
+        "d_model": g("model.transformer.d_model"),
+        "n_layers": g("model.transformer.n_layers"),
+        "use_element_wise": g("model.features.use_element_wise", True),
+        "use_cosine_distance": g(
+            "model.tasks.cosine_similarity.use_cosine_distance", True
+        ),
+        "mces_max_value": float(g("model.tasks.mces.max_value", 40.0)),
+        "use_mces_bucket_head": g("model.tasks.mces_bucket.enabled", False),
+        "mces_bucket_bin_edges": _parse_hparam_list(
+            g("model.tasks.mces_bucket.bin_edges")
+        ),
+        "mces_bucket_use_mlp": g("model.tasks.mces_bucket.use_mlp", False),
+        "mces_bucket_loss_weight": g("model.tasks.mces_bucket.loss_weight", 1.0),
+        "mces_bucket_use_filip_tokens": g(
+            "model.tasks.mces_bucket.use_filip_tokens", False
+        ),
+        "use_contrastive_loss": g("model.tasks.contrastive.enabled", False),
+        "contrastive_temperature": g("model.tasks.contrastive.temperature", 0.07),
+        "contrastive_loss_weight": g("model.tasks.contrastive.loss_weight", 1.0),
+        "contrastive_use_projection_head": g(
+            "model.tasks.contrastive.use_projection_head", False
+        ),
+        "contrastive_use_filip_tokens": g(
+            "model.tasks.contrastive.use_filip_tokens", False
+        ),
+        "use_spectral_cosine_head": g("model.tasks.spectral_cosine.enabled", False),
+        "spectral_cosine_loss_weight": g(
+            "model.tasks.spectral_cosine.loss_weight", 1.0
+        ),
+        "spectral_cosine_use_filip_tokens": g(
+            "model.tasks.spectral_cosine.use_filip_tokens", False
+        ),
+        "use_filip_head": g("model.tasks.filip.enabled", False),
+        "filip_aggregation": g("model.tasks.filip.aggregation", "soft_max"),
+        "filip_use_cross_attention": g("model.tasks.filip.use_cross_attention", False),
+        "filip_cross_attention_weight_similarities": g(
+            "model.tasks.filip.cross_attention_weight_similarities", False
+        ),
+        "filip_use_importance_weighting": g(
+            "model.tasks.filip.use_importance_weighting", False
+        ),
+        "use_adduct": g("model.features.use_adduct", False),
+        "use_precursor_mz_for_model": g("model.features.use_precursor_mz", True),
+        "use_ce": g("model.features.use_ce", False),
+        "use_ion_activation": g("model.features.use_ion_activation", False),
+        "use_ion_method": g("model.features.use_ion_method", False),
+        "use_ion_mode": g("model.features.use_ion_mode", False),
+    }
+
+
+def load_model(
+    checkpoint_path: str,
+    device: torch.device,
+    hparams_path: str,
+    **override_kwargs,
+) -> SimilarityModelMultitask:
+    """Load a checkpoint with the exact architecture its own run was trained
+    with (see model_kwargs_from_hparams). override_kwargs can force specific
+    values on top (e.g. for a quick one-off experiment), but the normal path
+    needs none."""
+    model_kwargs = model_kwargs_from_hparams(hparams_path)
+    model_kwargs.update(override_kwargs)
+    model_kwargs.setdefault("weights", None)
+    model_kwargs.setdefault("lr", 1e-4)
+    model = SimilarityModelMultitask.load_from_checkpoint(
+        checkpoint_path,
+        map_location=device,
+        strict=False,
+        **model_kwargs,
+    )
+    model.eval()
+    return model.to(device)
+
+
+# ── Spectrum loading ───────────────────────────────────────────────────────────
+
+
+def _to_spectrum_ext(
+    spec: matchms.Spectrum, fold: str, precursor_mass_mode: str = "measured"
+) -> SpectrumExt:
+    """Wrap a matchms Spectrum as a SpectrumExt so it can go through Preprocessor.
+
+    precursor_mass_mode: "measured" reads the MGF's own PRECURSOR_MZ/PEPMASS
+    field (historical default); "theoretical" recomputes it from the true
+    SMILES (RDKit ExactMolWt) and adduct instead, discarding the measured
+    value -- mirrors multitask_dataset_builder.py's training-time behavior,
+    which every checkpoint from experiment 010 onward was trained under.
+    """
+    charge = spec.get("charge")
+    charge = int(charge) if charge else 1
+
+    ce_val = spec.get("ce") or spec.get("collision_energy")
+    ce = None
+    if ce_val is not None:
+        try:
+            ce = int(float(ce_val))
+        except (ValueError, TypeError):
+            ce = None
+
+    ionmode = spec.get("ionmode")
+    ionmode = ionmode.lower() if ionmode else "none"
+
+    if precursor_mass_mode == "theoretical":
+        mol = Chem.MolFromSmiles(spec.get("smiles"))
+        neutral_mass = ExactMolWt(mol)
+        precursor_mz = theoretical_precursor_mz(neutral_mass, spec.get("adduct"))
+    else:
+        precursor_mz = float(spec.get("precursor_mz") or 0.0)
+
+    return SpectrumExt(
+        identifier=str(spec.get("scans") or ""),
+        precursor_mz=precursor_mz,
+        precursor_charge=charge,
+        mz=np.asarray(spec.peaks.mz, dtype=np.float64),
+        intensity=np.asarray(spec.peaks.intensities, dtype=np.float64),
+        retention_time=np.nan,
+        params={},
+        library=None,
+        inchi=None,
+        smiles=spec.get("smiles"),
+        ionmode=ionmode,
+        adduct=spec.get("adduct"),
+        ce=ce,
+        ion_activation=None,
+        ionization_method=None,
+        bms=None,
+        superclass=None,
+        classe=None,
+        subclass=None,
+        fold=fold,
+    )
+
+
+def load_spectra(mgf_path: str, fold: str, precursor_mass_mode: str = "measured"):
+    """Return (smiles, spectra) for the given fold from the MGF file.
+
+    Peaks are still raw at this point — preprocessing happens in
+    spectra_to_tensors below.
+    """
+    smiles_list, spectra = [], []
+    for spec in tqdm(
+        matchms.importing.load_from_mgf(mgf_path), desc=f"Loading {fold}", unit="spec"
+    ):
+        if spec.get("fold") != fold:
+            continue
+        smi = spec.get("smiles")
+        if not smi:
+            continue
+        if spec.peaks is None or len(spec.peaks.mz) < 1:
+            continue
+        smiles_list.append(smi)
+        spectra.append(_to_spectrum_ext(spec, fold, precursor_mass_mode))
+    return smiles_list, spectra
+
+
+def canonicalize(smi: str) -> str:
+    mol = Chem.MolFromSmiles(smi)
+    return Chem.MolToSmiles(mol) if mol else smi
+
+
+# ── Embedding ─────────────────────────────────────────────────────────────────
+
+
+def _encode_ionmode(ionmode_val: str | None) -> float:
+    # MassSpecGym has no ionmode field, so this is always the literal string
+    # "none" rather than None — which doesn't match "positive" either, so it
+    # ends up -1.0 whenever ion mode isn't explicitly positive.
+    if ionmode_val is None or ionmode_val == "None":
+        return 0.0
+    return 1.0 if ionmode_val == "positive" else -1.0
+
+
+def spectra_to_tensors(specs: list[SpectrumExt], device: torch.device):
+    """Pad a list of SpectrumExt to (B, MAX_PEAKS) tensors plus metadata."""
+    pp = Preprocessor()
+    B = len(specs)
+    mz_t = torch.zeros(B, MAX_PEAKS, dtype=torch.float32)
+    int_t = torch.zeros(B, MAX_PEAKS, dtype=torch.float32)
+    prec_t = torch.zeros(B, dtype=torch.float32)
+    charge_t = torch.ones(B, dtype=torch.float32)  # default +1
+    ionmode_t = torch.zeros(B, dtype=torch.float32)
+    adduct_t = torch.zeros(B, N_ADDUCTS, dtype=torch.float32)
+    ce_t = torch.zeros(B, dtype=torch.float32)
+
+    for i, spec in enumerate(specs):
+        processed = pp.preprocess_spectrum(
+            copy.copy(spec),
+            fragment_tol_mass=10,
+            fragment_tol_mode="ppm",
+            min_intensity=0.01,
+            max_num_peaks=MAX_PEAKS,
+            scale_intensity=None,
+        )
+        mz = np.asarray(processed.mz, dtype=np.float32)
+        intensity = np.asarray(processed.intensity, dtype=np.float32)
+        n = len(mz)
+        mz_t[i, :n] = torch.from_numpy(mz)
+        int_t[i, :n] = torch.from_numpy(intensity)
+        prec_t[i] = float(spec.precursor_mz or 0.0)
+
+        if spec.precursor_charge:
+            charge_t[i] = float(spec.precursor_charge)
+
+        ionmode_t[i] = _encode_ionmode(spec.ionmode)
+
+        if spec.adduct:
+            adduct_t[i] = torch.tensor(
+                encode_adduct_mass(spec.adduct), dtype=torch.float32
+            )
+
+        ce_t[i] = 0.0 if spec.ce is None else float(spec.ce)
+
+    # sqrt-compress then L2-normalize each spectrum's intensities.
+    int_t = torch.sqrt(int_t.clamp(min=0.0))
+    norms = int_t.pow(2).sum(dim=1, keepdim=True).sqrt().clamp(min=1e-8)
+    int_t = int_t / norms
+
+    meta = {
+        "ionmode": ionmode_t.to(device),
+        "adduct": adduct_t.to(device),
+        "ce": ce_t.to(device),
+    }
+    return (
+        mz_t.to(device),
+        int_t.to(device),
+        prec_t.to(device),
+        charge_t.to(device),
+        meta,
+    )
+
+
+@torch.no_grad()
+def embed_spectra(
+    model: SimilarityModelMultitask,
+    spectra: list,
+    batch_size: int,
+    device: torch.device,
+    force_ce_zero: bool = False,
+    return_raw: bool = False,
+    return_tokens: bool = False,
+):
+    """
+    Encode spectra via model._encode_side -- the model's own per-side
+    encoding path (shared with molecule_set_step/training), not a hand-rolled
+    reimplementation of forward()'s internals, so this can't silently drift
+    from whatever a given checkpoint's architecture actually does (FILIP
+    cross-attention, importance weighting, etc. are all handled inside
+    _encode_side already).
+
+    Returns L2-normalized (N, d_model) embeddings — normalized so that a
+    plain matmul against another such set gives cosine similarity directly.
+
+    force_ce_zero: zero out CE for all spectra before passing to the encoder.
+    Useful for diagnosing CE-induced embedding collapse: with CE conditioning,
+    the model clusters spectra by CE energy rather than molecular structure,
+    hurting retrieval. Setting CE=0 everywhere gives CE-agnostic embeddings.
+
+    return_raw: also return the pre-normalize embedding (the exact tensor
+    compute_from_embeddings expects as emb0/emb1). The final L2-normalize
+    changes magnitude, which corrupts the MCES-bucket head's output (it's
+    magnitude-sensitive, unlike the cosine-similarity head which
+    re-normalizes internally) -- so the bucket head must be run on this raw
+    tensor, not the normalized one.
+
+    return_tokens: also return (tokens, valid) per-peak embeddings, needed
+    whenever model.use_filip_head is set (the primary FILIP score and/or
+    mces_bucket_use_filip_tokens both need per-token access, not just the
+    pooled CLS embedding). None/None when the model has no FILIP head.
+
+    Return shape depends on which flags are set: always starts with the
+    normalized embedding, then raw (if requested), then tokens+valid (if
+    requested) -- a bare tensor when neither extra is requested, a tuple
+    otherwise.
+    """
+    if model.use_ion_activation or model.use_ion_method:
+        raise NotImplementedError(
+            "embed_spectra: this checkpoint was trained with "
+            "use_ion_activation/use_ion_method, but spectra_to_tensors "
+            "doesn't produce those fields -- not needed by any experiment "
+            "this pipeline has been run against so far."
+        )
+
+    all_norm, all_raw, all_tokens, all_valid = [], [], [], []
+    for start in tqdm(
+        range(0, len(spectra), batch_size), desc="Embedding", unit="batch"
+    ):
+        batch = spectra[start : start + batch_size]
+        mz, intensity, prec, charge, meta = spectra_to_tensors(batch, device)
+
+        if force_ce_zero:
+            meta["ce"] = torch.zeros_like(meta["ce"])
+
+        spec = {
+            "mz": mz,
+            "intensity": intensity,
+            "precursor_mass": prec,
+            "precursor_charge": charge,
+        }
+        if model.use_ion_mode:
+            spec["ionmode"] = meta["ionmode"]
+        if model.use_adduct:
+            spec["adduct"] = meta["adduct"]
+        if model.use_ce:
+            spec["ce"] = meta["ce"]
+
+        emb, tokens, valid = model._encode_side(spec)
+
+        if return_raw:
+            all_raw.append(emb.cpu())
+        if return_tokens and tokens is not None:
+            all_tokens.append(tokens.cpu())
+            all_valid.append(valid.cpu())
+        emb = F.normalize(emb, p=2, dim=-1)
+        all_norm.append(emb.cpu())
+
+    normalized = torch.cat(all_norm)  # (N, d_model)
+    result = [normalized]
+    if return_raw:
+        result.append(torch.cat(all_raw))
+    if return_tokens:
+        if all_tokens:
+            result.append(torch.cat(all_tokens))
+            result.append(torch.cat(all_valid))
+        else:
+            result.append(None)
+            result.append(None)
+    return tuple(result) if len(result) > 1 else result[0]
+
+
+# ── Nearest-neighbor transfer ─────────────────────────────────────────────────
+
+
+def nearest_neighbor_transfer(
+    test_embs: torch.Tensor,
+    train_embs: torch.Tensor,
+    train_fps: torch.Tensor,
+    chunk_size: int = 512,
+) -> tuple[torch.Tensor, torch.Tensor]:
+    """
+    For each test embedding find nearest train embedding by cosine similarity.
+    Returns (transferred_fps, nn_indices): both (N_test,) / (N_test, nbits) tensors.
+    """
+    transferred = []
+    all_indices = []
+    for start in tqdm(
+        range(0, len(test_embs), chunk_size), desc="NN transfer", unit="chunk"
+    ):
+        chunk = test_embs[start : start + chunk_size]  # (C, d)
+        sims = chunk @ train_embs.T  # (C, N_train)
+        nn_idx = sims.argmax(dim=1)
+        transferred.append(train_fps[nn_idx])
+        all_indices.append(nn_idx)
+    return torch.cat(transferred), torch.cat(all_indices)  # (N_test, nbits), (N_test,)
+
+
+def nearest_neighbor_transfer_corn_corrected(
+    test_embs_raw: torch.Tensor,
+    train_embs_raw: torch.Tensor,
+    train_fps: torch.Tensor,
+    model: SimilarityModelMultitask,
+    device: torch.device,
+    test_chunk_size: int = 128,
+    train_chunk_size: int = 8192,
+) -> tuple[torch.Tensor, torch.Tensor]:
+    """CORN-corrected variant of nearest_neighbor_transfer: for each test
+    spectrum, finds the train spectrum with the LOWEST CORN-corrected
+    ranking score (same corrected*1000+raw formula as
+    tools/simba_retrieval_iceberg.py's rank_candidates_corn_corrected)
+    instead of highest plain cosine similarity.
+
+    Genuinely pairwise -- the bucket head needs abs(emb0-emb1) on raw,
+    magnitude-sensitive embeddings, not decomposable into a cached matmul --
+    so this chunks both test and train to bound memory (train is usually
+    tens of thousands of unique molecules after dedup, too large to
+    broadcast against a full test chunk in one shot).
+    """
+    from simba_retrieval_iceberg import (
+        _corn_corrected_ranking_score,
+        _corn_decode_bucket,
+    )
+
+    n_test = len(test_embs_raw)
+    n_train = len(train_embs_raw)
+    best_score = torch.full((n_test,), float("inf"))
+    best_idx = torch.zeros(n_test, dtype=torch.long)
+
+    for t_start in tqdm(
+        range(0, n_test, test_chunk_size), desc="CORN NN transfer", unit="test-chunk"
+    ):
+        t_end = min(t_start + test_chunk_size, n_test)
+        t_chunk = test_embs_raw[t_start:t_end].to(device)  # (T, d)
+        T = t_chunk.shape[0]
+        chunk_best_score = torch.full((T,), float("inf"), device=device)
+        chunk_best_idx = torch.zeros(T, dtype=torch.long, device=device)
+
+        for tr_start in range(0, n_train, train_chunk_size):
+            tr_end = min(tr_start + train_chunk_size, n_train)
+            tr_chunk = train_embs_raw[tr_start:tr_end].to(device)  # (K, d)
+            K = tr_chunk.shape[0]
+
+            emb0 = t_chunk.unsqueeze(1).expand(T, K, -1).reshape(T * K, -1)
+            emb1 = tr_chunk.unsqueeze(0).expand(T, K, -1).reshape(T * K, -1)
+            with torch.no_grad():
+                _, emb_sim_2, emb_sim_3 = model.compute_from_embeddings(emb0, emb1)
+            pred_mces = (1.0 - emb_sim_2) * model.mces_max_value
+            bucket_pred = _corn_decode_bucket(emb_sim_3)
+            score = _corn_corrected_ranking_score(
+                pred_mces.cpu().numpy(), bucket_pred.cpu().numpy()
+            )
+            score = torch.from_numpy(score).to(device).view(T, K)
+
+            chunk_min, chunk_argmin = score.min(dim=1)
+            improved = chunk_min < chunk_best_score
+            chunk_best_score = torch.where(improved, chunk_min, chunk_best_score)
+            chunk_best_idx = torch.where(
+                improved, chunk_argmin + tr_start, chunk_best_idx
+            )
+
+        best_score[t_start:t_end] = chunk_best_score.cpu()
+        best_idx[t_start:t_end] = chunk_best_idx.cpu()
+
+    return train_fps[best_idx], best_idx
+
+
+# ── Morgan fingerprints ───────────────────────────────────────────────────────
+
+
+def morgan_fp(smi: str, radius: int = 2, nbits: int = 2048) -> np.ndarray:
+    mol = Chem.MolFromSmiles(smi)
+    if mol is None:
+        return np.zeros(nbits, dtype=np.uint8)
+    fp = AllChem.GetMorganFingerprintAsBitVect(mol, radius, nBits=nbits)
+    arr = np.zeros(nbits, dtype=np.uint8)
+    DataStructs.ConvertToNumpyArray(fp, arr)
+    return arr
+
+
+def build_fp_lookup(smiles_iter, nbits: int = 2048) -> dict:
+    return {s: morgan_fp(s, nbits=nbits) for s in tqdm(smiles_iter, desc="Morgan FPs")}
+
+
+# ── Tanimoto scoring + hit rates ──────────────────────────────────────────────
+
+
+def tanimoto_scores(query_fp: np.ndarray, cand_fps: np.ndarray) -> np.ndarray:
+    inter = (query_fp & cand_fps).sum(axis=1)
+    union = (query_fp | cand_fps).sum(axis=1)
+    return np.where(union > 0, inter / union, 0.0)
+
+
+def compute_hit_rates(
+    test_smiles: list,
+    cand_lists: list,
+    transferred_fps: torch.Tensor,
+    fp_lookup: dict,
+    ks: tuple = (1, 5, 20),
+) -> dict:
+    hits = dict.fromkeys(ks, 0)
+    n = 0
+
+    for q_smi, cands, q_fp_t in zip(test_smiles, cand_lists, transferred_fps):
+        if not cands:
+            continue
+        q_fp = q_fp_t.numpy().astype(np.uint8)
+        cand_fp_mat = np.stack([fp_lookup[c] for c in cands])
+        scores = tanimoto_scores(q_fp, cand_fp_mat)
+        ranked_cands = [cands[i] for i in np.argsort(-scores)]
+
+        q_canon = canonicalize(q_smi)
+        for k in ks:
+            if any(canonicalize(c) == q_canon for c in ranked_cands[:k]):
+                hits[k] += 1
+        n += 1
+
+    return {f"hit@{k}": hits[k] / n if n > 0 else 0.0 for k in ks}
+
+
+# ── Main ──────────────────────────────────────────────────────────────────────
+
+
+def save_intermediates(
+    out_dir: Path,
+    split: str,
+    train_smiles,
+    test_smiles,
+    train_embs,
+    test_embs,
+    nn_indices,
+):
+    out_dir.mkdir(parents=True, exist_ok=True)
+    torch.save(train_embs, out_dir / "train_embeddings.pt")
+    torch.save(test_embs, out_dir / f"{split}_embeddings.pt")
+    torch.save(nn_indices, out_dir / f"{split}_nn_indices.pt")
+    (out_dir / "train_smiles.json").write_text(json.dumps(train_smiles))
+    (out_dir / f"{split}_smiles.json").write_text(json.dumps(test_smiles))
+    print(f"Intermediates saved to {out_dir}/")
+
+
+def run(
+    checkpoint: str,
+    mgf: str,
+    candidates: str,
+    split: str = "test",
+    batch_size: int = 256,
+    output_tsv: str | None = None,
+    intermediates_dir: str | None = None,
+    force_ce_zero: bool = False,
+    head_mode: str = "cosine_relu",
+    precursor_mass_mode: str = "measured",
+    corn_corrected: bool = False,
+    mces_bucket_use_mlp: bool = False,
+    mces_bucket_use_product: bool = False,
+    d_model: int = 256,
+    n_layers: int = 5,
+):
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    print(f"Device: {device}")
+
+    print(f"\nLoading candidate JSON from {candidates} ...")
+    with open(candidates) as fh:
+        candidate_json = json.load(fh)
+
+    print(
+        f"\nLoading spectra (split={split}, ref=train, "
+        f"precursor_mass_mode={precursor_mass_mode}) ..."
+    )
+    train_smiles, train_spectra = load_spectra(mgf, "train", precursor_mass_mode)
+    test_smiles, test_spectra = load_spectra(mgf, split, precursor_mass_mode)
+    print(f"  train: {len(train_smiles)}  {split}: {len(test_smiles)}")
+
+    # Deduplicate training: keep first spectrum per unique canonical SMILES.
+    # This ensures each training molecule is represented exactly once,
+    # so argmax cosine-sim maps unambiguously to a unique molecule.
+    print("Deduplicating training spectra (first per unique molecule) ...")
+    _seen: set[str] = set()
+    _dedup_smi, _dedup_spec = [], []
+    for _smi, _spec in zip(train_smiles, train_spectra):
+        _c = canonicalize(_smi)
+        if _c not in _seen:
+            _seen.add(_c)
+            _dedup_smi.append(_smi)
+            _dedup_spec.append(_spec)
+    train_smiles, train_spectra = _dedup_smi, _dedup_spec
+    print(f"  After dedup: {len(train_smiles)} unique training molecules")
+
+    # Build candidate lists aligned to test spectra, canonicalize keys
+    print("\nBuilding candidate lists ...")
+    cand_json_canon = {canonicalize(k): v for k, v in candidate_json.items()}
+    cand_lists = [cand_json_canon.get(canonicalize(s), []) for s in test_smiles]
+    n_missing = sum(1 for c in cand_lists if not c)
+    if n_missing:
+        print(f"  Warning: {n_missing}/{len(test_smiles)} queries have no candidates")
+
+    # Fingerprints for all unique SMILES
+    print("\nComputing Morgan fingerprints ...")
+    all_smiles = set(train_smiles) | {c for lst in cand_lists for c in lst}
+    fp_lookup = build_fp_lookup(all_smiles)
+    train_fps = torch.from_numpy(
+        np.stack([fp_lookup[s] for s in train_smiles])
+    )  # (N_train, 2048)
+
+    # Load model and embed
+    print(
+        f"\nLoading SIMBA checkpoint: {checkpoint} (head_mode={head_mode}, "
+        f"corn_corrected={corn_corrected})"
+    )
+    model = load_model(
+        checkpoint,
+        device,
+        head_mode=head_mode,
+        use_mces_bucket_head=corn_corrected,
+        mces_bucket_use_mlp=mces_bucket_use_mlp,
+        mces_bucket_use_product=mces_bucket_use_product,
+        d_model=d_model,
+        n_layers=n_layers,
+    )
+
+    if force_ce_zero:
+        print("  [CE=0 mode] CE zeroed out for all spectra — CE-agnostic embeddings.")
+
+    print("\nEmbedding train spectra ...")
+    train_embs, train_embs_raw = embed_spectra(
+        model,
+        train_spectra,
+        batch_size,
+        device,
+        force_ce_zero=force_ce_zero,
+        return_raw=True,
+    )
+    print("\nEmbedding test spectra ...")
+    test_embs, test_embs_raw = embed_spectra(
+        model,
+        test_spectra,
+        batch_size,
+        device,
+        force_ce_zero=force_ce_zero,
+        return_raw=True,
+    )
+
+    # NN transfer
+    print(
+        f"\nNearest-neighbor transfer ({'CORN-corrected' if corn_corrected else 'cosine'}) ..."
+    )
+    if corn_corrected:
+        transferred_fps, nn_indices = nearest_neighbor_transfer_corn_corrected(
+            test_embs_raw, train_embs_raw, train_fps, model, device
+        )
+    else:
+        transferred_fps, nn_indices = nearest_neighbor_transfer(
+            test_embs, train_embs, train_fps
+        )
+
+    # Save intermediates before scoring so they're available even if scoring is re-run
+    if intermediates_dir:
+        save_intermediates(
+            Path(intermediates_dir),
+            split,
+            train_smiles,
+            test_smiles,
+            train_embs,
+            test_embs,
+            nn_indices,
+        )
+
+    # Evaluate
+    print("\nScoring candidates ...")
+    results = compute_hit_rates(test_smiles, cand_lists, transferred_fps, fp_lookup)
+
+    print(f"\n=== SIMBA retrieval ({split}, n={len(test_smiles)}) ===")
+    for k, v in results.items():
+        print(f"  {k}: {v:.4f} ({v * 100:.2f}%)")
+
+    if output_tsv:
+        import pandas as pd
+
+        pd.DataFrame(
+            [
+                {
+                    "split": split,
+                    "model": Path(checkpoint).parent.name,
+                    "corn_corrected": corn_corrected,
+                    "precursor_mass_mode": precursor_mass_mode,
+                    "n": len(test_smiles),
+                    **results,
+                }
+            ]
+        ).to_csv(output_tsv, sep="\t", index=False)
+        print(f"\nSaved to {output_tsv}")
+
+    return results
+
+
+def main():
+    p = argparse.ArgumentParser(
+        description="SIMBA retrieval: embedding NN transfer + Tanimoto ranking",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
+    p.add_argument("--checkpoint", required=True, help="SIMBA .ckpt file")
+    p.add_argument("--mgf", required=True, help="MassSpecGym MGF file")
+    p.add_argument(
+        "--candidates", required=True, help="Candidate JSON {smiles: [cands]}"
+    )
+    p.add_argument("--split", default="test", choices=["val", "test"])
+    p.add_argument("--batch_size", type=int, default=256)
+    p.add_argument("--output_tsv", default=None)
+    p.add_argument(
+        "--intermediates_dir",
+        default=None,
+        help="Directory to save embeddings and NN indices",
+    )
+    p.add_argument(
+        "--force_ce_zero",
+        action="store_true",
+        help="Zero out CE for all spectra — CE-agnostic embedding diagnostic",
+    )
+    p.add_argument(
+        "--head_mode",
+        default="cosine_relu",
+        choices=HEAD_MODES,
+        help="Must match the head_mode the checkpoint was trained with",
+    )
+    p.add_argument(
+        "--precursor_mass_mode",
+        default="measured",
+        choices=["measured", "theoretical"],
+        help=(
+            "'measured' reads the MGF's own PRECURSOR_MZ (historical default); "
+            "'theoretical' recomputes it from the true SMILES+adduct instead, "
+            "matching what every checkpoint from experiment 010 onward was "
+            "trained with."
+        ),
+    )
+    p.add_argument(
+        "--corn_corrected",
+        action="store_true",
+        help=(
+            "Find the nearest train spectrum by CORN-corrected MCES (pairwise "
+            "bucket-head forward pass) instead of plain embedding cosine "
+            "similarity. Requires a checkpoint trained with "
+            "model.tasks.mces_bucket.enabled=true (013, 014_1-4) -- pass "
+            "--mces_bucket_use_mlp/--mces_bucket_use_product matching that "
+            "checkpoint's own training config."
+        ),
+    )
+    p.add_argument(
+        "--mces_bucket_use_mlp",
+        action="store_true",
+        help="Must match the checkpoint's model.tasks.mces_bucket.use_mlp (true for 014_2)",
+    )
+    p.add_argument(
+        "--mces_bucket_use_product",
+        action="store_true",
+        help="Must match the checkpoint's model.tasks.mces_bucket.use_product",
+    )
+    p.add_argument(
+        "--d_model",
+        type=int,
+        default=256,
+        help="Must match the checkpoint's model.transformer.d_model -- the checkpoint "
+        "itself doesn't record this, so a mismatch silently drops weights (strict=False) "
+        "instead of erroring",
+    )
+    p.add_argument(
+        "--n_layers",
+        type=int,
+        default=5,
+        help="Must match the checkpoint's model.transformer.n_layers (see --d_model)",
+    )
+    args = p.parse_args()
+    run(**vars(args))
+
+
+if __name__ == "__main__":
+    main()
