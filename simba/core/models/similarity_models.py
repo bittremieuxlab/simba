@@ -370,9 +370,21 @@ class CustomizedCrossEntropyLoss(nn.Module):
 
         if penalize_false_positives:
 
-            #original
+            # new penalty matrix v1
+            # if its an unrelated or identical pair, do not give weight for doing a mistake
             #penalty_matrix[0,1:]=0
+            #penalty_matrix[5,0:-1]=0
+            #penalty_matrix[0:-1,5]=0
+            #penalty_matrix[1:,0]=0
 
+            # new penalty matrix v2
+            # if its an unrelated or identical pair, do not give weight for doing a mistake
+            penalty_matrix[0,2:]=0
+            penalty_matrix[5,0:-1]=0
+            penalty_matrix[0:-1,5]=0
+            penalty_matrix[1:-1,0]=0
+
+            '''
             penalty_matrix[0,0]=1
             penalty_matrix[1,0]=1
             penalty_matrix[2,0]=1
@@ -387,7 +399,7 @@ class CustomizedCrossEntropyLoss(nn.Module):
 
             penalty_matrix[5,0:-1]=0
             penalty_matrix[5,5]=1
-
+            '''
         # Normalize each row so that the row sums to 1
         row_sums = penalty_matrix.sum(axis=1, keepdims=True)
 
@@ -459,7 +471,7 @@ class SimilarityModelMultitask(SimilarityModel):
         use_ion_activation=False,
         use_ion_method=False,
         use_ion_mode=False,
-        use_edit_contrastive_loss=True,
+        use_edit_contrastive_loss=False,
         contrastive_weight=0.05,
         contrastive_margin=0.2,
     ):

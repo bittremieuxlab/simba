@@ -201,11 +201,20 @@ def _train_with_hydra(cfg: DictConfig) -> None:
             max_value=1,
         )
 
-        # Calculate weights directly (same as original script)
+        # Calculate weights for the first 4 bins
         weights_mces = np.array(
-            [np.sum(counting_mces) / c if c != 0 else 0 for c in counting_mces]
+            [1.0 / c if c != 0 else 0.0 for c in counting_mces],
+            dtype=float
         )
-        weights_mces = weights_mces / np.sum(weights_mces)
+
+        # The identity pairs are allocated less weight to compensate for his presence in the data
+        weights_mces[-2] = 1/counting_mces[-2]
+        weights_mces[-1] = weights_mces[-2]* (counting_mces[-2]/counting_mces[-1])
+
+        
+        # Normalize so the total weights sum to 1
+        weights_mces /= weights_mces.sum()
+
 
         model = setup_model(cfg, weights_mces)
 

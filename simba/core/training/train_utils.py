@@ -572,6 +572,7 @@ class TrainUtils:
             ]
             counts.append(len(list_elements_temp))
             bins.append(low)
+            
         return counts, bins
 
     @staticmethod
