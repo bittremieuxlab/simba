@@ -33,6 +33,8 @@ from simba.weight_sampling_tools.custom_weighted_random_sampler import (
     CustomWeightedRandomSampler,
 )
 from simba.plotting import Plotting
+from lightning.pytorch.loggers import TensorBoardLogger
+from simba.training_diagnostics_callback import TrainingDiagnosticsCallback
 import sys
 import simba
 
@@ -437,8 +439,30 @@ checkpoint_n_steps_callback = pl.callbacks.ModelCheckpoint(
 # checkpoint_callback = SaveBestModelCallback(file_path=config.best_model_path)
 progress_bar_callback = ProgressBar()
 
+# TensorBoard (off by default; scalars already logged via pl_module.log
+# reach it for free once attached, figures need the explicit add_figure
+# calls wired into LossCallback/TrainingDiagnosticsCallback below)
+tb_logger = None
+if config.USE_TENSORBOARD_LOGGING:
+    tb_log_dir = config.TENSORBOARD_LOG_DIR or config.CHECKPOINT_DIR
+    tb_logger = TensorBoardLogger(save_dir=tb_log_dir, name="tb_logs")
+
 # loss callback
-losscallback = LossCallback(file_path=config.CHECKPOINT_DIR + f"loss.png")
+losscallback = LossCallback(file_path=config.CHECKPOINT_DIR + f"loss.png", tb_logger=tb_logger)
+
+extra_callbacks = []
+if config.LOG_DIAGNOSTICS_DURING_TRAINING:
+    diagnostics_callback = TrainingDiagnosticsCallback(
+        preprocessing_dir_train=config.PREPROCESSING_DIR_TRAIN,
+        dataset_path=dataset_path,
+        mces20_max_value=config.MCES20_MAX_VALUE,
+        n_regression_classes=config.EDIT_DISTANCE_N_CLASSES,
+        analog_discovery_data_dir=config.ANALOG_DISCOVERY_DATA_DIR,
+        analog_discovery_searches=config.ANALOG_DISCOVERY_SEARCHES,
+        analog_discovery_k_values=config.ANALOG_DISCOVERY_K_VALUES,
+    )
+    extra_callbacks.append(diagnostics_callback)
+
 print("define model")
 
 
@@ -467,6 +491,10 @@ model = EmbedderMultitask(
     use_extra_metadata=config.USE_EXTRA_METADATA_MODEL,
     use_categorical_adducts=config.USE_CATEGORICAL_ADDUCTS,
     adduct_info_csv= config.ADDUCT_INFO_CSV,
+    use_contrastive_loss=config.USE_CONTRASTIVE_LOSS,
+    contrastive_loss_weight=config.CONTRASTIVE_LOSS_WEIGHT,
+    contrastive_temperature=config.CONTRASTIVE_LOSS_TEMPERATURE,
+    use_contrastive_projection_head=config.USE_CONTRASTIVE_PROJECTION_HEAD,
 )
 
 # Create a model:
@@ -492,6 +520,10 @@ if config.load_pretrained:
             use_extra_metadata=config.USE_EXTRA_METADATA_MODEL,
             use_categorical_adducts=config.USE_CATEGORICAL_ADDUCTS,
             adduct_info_csv= config.ADDUCT_INFO_CSV,
+            use_contrastive_loss=config.USE_CONTRASTIVE_LOSS,
+            contrastive_loss_weight=config.CONTRASTIVE_LOSS_WEIGHT,
+            contrastive_temperature=config.CONTRASTIVE_LOSS_TEMPERATURE,
+            use_contrastive_projection_head=config.USE_CONTRASTIVE_PROJECTION_HEAD,
         )
         print("loaded full model!!")
     except:
@@ -521,9 +553,10 @@ trainer = pl.Trainer(
     # max_steps=100000,
     val_check_interval=config.VAL_CHECK_INTERVAL,
     max_epochs=config.epochs,
-    callbacks=[checkpoint_callback, checkpoint_n_steps_callback, losscallback],
+    callbacks=[checkpoint_callback, checkpoint_n_steps_callback, losscallback] + extra_callbacks,
     enable_progress_bar=enable_progress_bar,
     accelerator=config.ACCELERATOR,
+    logger=tb_logger if tb_logger is not None else True,
     # val_check_interval= config.validate_after_ratio,
 )
 # trainer = pl.Trainer(max_steps=100,  callbacks=[checkpoint_callback, losscallback], enable_progress_bar=enable_progress_bar)

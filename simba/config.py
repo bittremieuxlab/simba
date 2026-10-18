@@ -105,7 +105,29 @@ class Config:
         ## ADDUCT HANDLING
         self.USE_CATEGORICAL_ADDUCTS=False ## input adduct info as categorical variables
         self.ADDUCT_INFO_CSV= "/Users/sebas/projects/metabolomics/data/ion_modes_with_adducts_with_M.csv"
-        
+
+        ## TENSORBOARD LOGGING (off by default -- current CSV/figure-to-disk
+        ## behavior is unchanged when this is False)
+        self.USE_TENSORBOARD_LOGGING = False
+        self.TENSORBOARD_LOG_DIR = None  # defaults to CHECKPOINT_DIR + "tb_logs" if None
+
+        ## IN-BATCH INFONCE CONTRASTIVE ("RETRIEVAL") LOSS (off by default,
+        ## zero effect on training when USE_CONTRASTIVE_LOSS is False)
+        self.USE_CONTRASTIVE_LOSS = False
+        self.CONTRASTIVE_LOSS_WEIGHT = 0.1
+        self.CONTRASTIVE_LOSS_TEMPERATURE = 0.1
+        self.USE_CONTRASTIVE_PROJECTION_HEAD = False
+
+        ## PERIODIC DIAGNOSTIC LOGGING DURING TRAINING (off by default): the
+        ## Supplementary-Figure-1-style MCES hexbin + edit-distance confusion
+        ## matrix, plus the SIMBA-only analog-discovery panels (reusing the
+        ## exact-MCES ground truth already built in simba-paper), logged at
+        ## every validation epoch end.
+        self.LOG_DIAGNOSTICS_DURING_TRAINING = False
+        self.ANALOG_DISCOVERY_K_VALUES = [1, 5, 10, 20, 40, 80, 100]
+        self.ANALOG_DISCOVERY_SEARCHES = ["A", "B"]
+        self.ANALOG_DISCOVERY_DATA_DIR = "/mnt/data2/nkubrakov/analog_discovery"
+
     def derived_variables(self):
         self.MODEL_CODE = f"{self.D_MODEL}_units_{self.N_LAYERS}_layers_{self.epochs}_epochs_{self.LR}_lr_{self.BATCH_SIZE}_bs{self.extra_info}"
 

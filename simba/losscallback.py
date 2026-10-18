@@ -3,12 +3,13 @@ from lightning.pytorch.callbacks import Callback
 
 
 class LossCallback(Callback):
-    def __init__(self, file_path, n_val_sanity_checks=2):
+    def __init__(self, file_path, n_val_sanity_checks=2, tb_logger=None):
         self.val_loss = []
         self.val_loss_step = []
         self.train_loss = []
         self.file_path = file_path
         self.n_val_sanity_checks = n_val_sanity_checks
+        self.tb_logger = tb_logger
 
     # def on_validation_batch_end(self, trainer, pl_module, outputs):
     #    self.val_outs.append(outputs)
@@ -24,7 +25,9 @@ class LossCallback(Callback):
     def on_validation_end(self, trainer, pl_module):
         self.val_loss.append(float(trainer.callback_metrics["validation_loss_epoch"]))
         self.val_loss_step.append(float(trainer.callback_metrics["validation_loss"]))
-        self.plot_loss(file_path=self.file_path)
+        fig = self.plot_loss(file_path=self.file_path)
+        if self.tb_logger is not None and fig is not None:
+            self.tb_logger.experiment.add_figure("losses", fig, global_step=trainer.global_step)
 
     def plot_loss(self, file_path="./loss.png"):
 
@@ -62,6 +65,7 @@ class LossCallback(Callback):
         # Adjust layout to prevent overlapping
         plt.tight_layout()
         plt.savefig(file_path)
+        return fig
 
 
 from lightning.pytorch.callbacks import Callback

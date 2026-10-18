@@ -200,6 +200,13 @@ class CustomDatasetMultitasking(Dataset):
         sample["similarity"] = sample_unique["similarity"].astype(np.float32)
         sample["similarity2"] = sample_unique["similarity2"].astype(np.float32)
 
+        # Molecule identity, for the optional in-batch contrastive loss (two
+        # different rows whose mol_idx_0 match are two different spectra of
+        # the same molecule -- a "self-pair"). Already computed above to
+        # resolve which spectrum to sample; just not previously kept.
+        sample["mol_idx_0"] = int(indexes_unique_0[0])
+        sample["mol_idx_1"] = int(indexes_unique_1[0])
+
         if self.use_fingerprints:
 
             ind= int(indexes_unique_0[0])

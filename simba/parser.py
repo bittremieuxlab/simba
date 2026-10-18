@@ -27,6 +27,10 @@ class Parser:
                 or (at == "PREPROCESSING_NUM_WORKERS")
                 or (at == "TRAINING_NUM_WORKERS")
                 or (at == "VAL_CHECK_INTERVAL")
+                or (at == "USE_TENSORBOARD_LOGGING")
+                or (at == "USE_CONTRASTIVE_LOSS")
+                or (at == "USE_CONTRASTIVE_PROJECTION_HEAD")
+                or (at == "LOG_DIAGNOSTICS_DURING_TRAINING")
             )
 
             is_string_attribute = at in [
@@ -44,6 +48,8 @@ class Parser:
                 "PREPROCESSING_DIR_VAL_TEST",
                 "PREPROCESSING_PICKLE_FILE",
                 "ADDUCT_INFO_CSV",
+                "TENSORBOARD_LOG_DIR",
+                "ANALOG_DISCOVERY_DATA_DIR",
             ]
             if is_integer_attribute:
                 self.parser.add_argument(f"--{at}", type=int, help=at, default=None)

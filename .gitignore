@@ -18,6 +18,13 @@ lightning_logs/
 temp/
 
 model_checkpoints*
+
+data/gnps/
+data/massspecgym/
+data/analog_discovery/
+.venv/
+requirements-paper.txt
+simba.egg-info/
 .ipynb_checkpoints/
 
 notebooks_local/
