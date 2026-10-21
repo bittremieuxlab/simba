@@ -31,6 +31,8 @@ class Parser:
                 or (at == "USE_CONTRASTIVE_LOSS")
                 or (at == "USE_CONTRASTIVE_PROJECTION_HEAD")
                 or (at == "LOG_DIAGNOSTICS_DURING_TRAINING")
+                or (at == "DIAGNOSTICS_EVERY_N_STEPS")
+                or (at == "USE_EXPLICIT_LOSS_WEIGHTS")
             )
 
             is_string_attribute = at in [

@@ -118,6 +118,15 @@ class Config:
         self.CONTRASTIVE_LOSS_TEMPERATURE = 0.1
         self.USE_CONTRASTIVE_PROJECTION_HEAD = False
 
+        ## EXPLICIT TASK LOSS WEIGHTS (off by default).
+        self.USE_EXPLICIT_LOSS_WEIGHTS = 0
+        self.LOSS_WEIGHT_ED = 1.0
+        self.LOSS_WEIGHT_MCES = 1.0
+
+        ## GRADIENT CLIPPING (off by default: 0.0 = no clipping, same as before;
+        ## e.g. 1.0 clips the global grad norm to 1.0, matching exp/triplet-loss)
+        self.GRADIENT_CLIP_VAL = 0.0
+
         ## PERIODIC DIAGNOSTIC LOGGING DURING TRAINING (off by default): the
         ## Supplementary-Figure-1-style MCES hexbin + edit-distance confusion
         ## matrix, plus the SIMBA-only analog-discovery panels (reusing the
@@ -127,6 +136,9 @@ class Config:
         self.ANALOG_DISCOVERY_K_VALUES = [1, 5, 10, 20, 40, 80, 100]
         self.ANALOG_DISCOVERY_SEARCHES = ["A", "B"]
         self.ANALOG_DISCOVERY_DATA_DIR = "/mnt/data2/nkubrakov/analog_discovery"
+        # 0 = diagnostics at every validation (as before); N = at most once
+        # per N training steps, so VAL_CHECK_INTERVAL can be smaller.
+        self.DIAGNOSTICS_EVERY_N_STEPS = 0
 
     def derived_variables(self):
         self.MODEL_CODE = f"{self.D_MODEL}_units_{self.N_LAYERS}_layers_{self.epochs}_epochs_{self.LR}_lr_{self.BATCH_SIZE}_bs{self.extra_info}"

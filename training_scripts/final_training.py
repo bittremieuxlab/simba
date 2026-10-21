@@ -460,6 +460,7 @@ if config.LOG_DIAGNOSTICS_DURING_TRAINING:
         analog_discovery_data_dir=config.ANALOG_DISCOVERY_DATA_DIR,
         analog_discovery_searches=config.ANALOG_DISCOVERY_SEARCHES,
         analog_discovery_k_values=config.ANALOG_DISCOVERY_K_VALUES,
+        every_n_steps=config.DIAGNOSTICS_EVERY_N_STEPS,
     )
     extra_callbacks.append(diagnostics_callback)
 
@@ -473,6 +474,10 @@ if config.USE_LOSS_WEIGHTS_SECOND_SIMILARITY:
     weights_sim2 = np.array(weights2)
 else:
     weights_sim2 = None
+
+explicit_loss_weights = (
+    (config.LOSS_WEIGHT_ED, config.LOSS_WEIGHT_MCES) if config.USE_EXPLICIT_LOSS_WEIGHTS else None
+)
 
 model = EmbedderMultitask(
     d_model=int(config.D_MODEL),
@@ -495,6 +500,7 @@ model = EmbedderMultitask(
     contrastive_loss_weight=config.CONTRASTIVE_LOSS_WEIGHT,
     contrastive_temperature=config.CONTRASTIVE_LOSS_TEMPERATURE,
     use_contrastive_projection_head=config.USE_CONTRASTIVE_PROJECTION_HEAD,
+    explicit_loss_weights=explicit_loss_weights,
 )
 
 # Create a model:
@@ -524,6 +530,7 @@ if config.load_pretrained:
             contrastive_loss_weight=config.CONTRASTIVE_LOSS_WEIGHT,
             contrastive_temperature=config.CONTRASTIVE_LOSS_TEMPERATURE,
             use_contrastive_projection_head=config.USE_CONTRASTIVE_PROJECTION_HEAD,
+            explicit_loss_weights=explicit_loss_weights,
         )
         print("loaded full model!!")
     except:
@@ -557,6 +564,7 @@ trainer = pl.Trainer(
     enable_progress_bar=enable_progress_bar,
     accelerator=config.ACCELERATOR,
     logger=tb_logger if tb_logger is not None else True,
+    gradient_clip_val=config.GRADIENT_CLIP_VAL or None,
     # val_check_interval= config.validate_after_ratio,
 )
 # trainer = pl.Trainer(max_steps=100,  callbacks=[checkpoint_callback, losscallback], enable_progress_bar=enable_progress_bar)

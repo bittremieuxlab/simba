@@ -84,6 +84,7 @@ class EmbedderMultitask(Embedder):
         contrastive_loss_weight=0.0,
         contrastive_temperature=0.1,
         use_contrastive_projection_head=False,
+        explicit_loss_weights=None,  # (w_ed, w_mces): loss = w_ed*CE + w_mces*MSE
     ):
         """Initialize the CCSPredictor"""
         super().__init__(
@@ -151,6 +152,7 @@ class EmbedderMultitask(Embedder):
             self.log_sigma1 = torch.tensor(float(initial_log_sigma1), dtype=torch.float32)
             self.log_sigma2 = torch.tensor(float(initial_log_sigma2), dtype=torch.float32)
         self.use_extra_metadata= use_extra_metadata
+        self.explicit_loss_weights = explicit_loss_weights
 
         # In-batch InfoNCE contrastive ("retrieval") loss: off by default,
         # zero effect on training/inference when use_contrastive_loss=False.
@@ -338,26 +340,56 @@ class EmbedderMultitask(Embedder):
         #sigma2 = torch.nn.functional.softplus(self.sigma2_param)
 
         # Combine the losses using learned weights:
-        if self.USE_LEARNABLE_MULTITASK:
+        if self.explicit_loss_weights is not None:
+            weight_ed, weight_mces = self.explicit_loss_weights
+            loss = weight_ed * loss1 + weight_mces * loss2
+        elif self.USE_LEARNABLE_MULTITASK:
             loss = (torch.exp(-self.log_sigma1) * loss1 + self.log_sigma1 +
                     torch.exp(-self.log_sigma2) * loss2 + self.log_sigma2)
-            
+            weight_ed, weight_mces = torch.exp(-self.log_sigma1), torch.exp(-self.log_sigma2)
+
             #loss = (loss1 / (2 * sigma1 ** 2) +
             #    loss2 / (2 * sigma2 ** 2) +
             #    torch.log(sigma1) +
             #    torch.log(sigma2))
         else:
             loss = loss1 + (weight_loss2 * loss2)
+            weight_ed, weight_mces = 1.0, weight_loss2
+
+        loss_parts = {
+            "loss_ed": loss1.detach(),
+            "loss_mces": loss2.detach(),
+            "contrib_ed": (weight_ed * loss1).detach(),
+            "contrib_mces": (weight_mces * loss2).detach(),
+        }
 
         if self.use_contrastive_loss:
             loss_contrastive, n_pairs = self.compute_contrastive_loss(
                 emb0, emb1, batch["mol_idx_0"], batch["mol_idx_1"]
             )
-            self.log("contrastive_n_pairs", float(n_pairs), on_step=True, on_epoch=False, prog_bar=False)
+            loss_parts["contrastive_n_pairs"] = float(n_pairs)
             if loss_contrastive is not None:
-                self.log("loss_contrastive", loss_contrastive, on_step=True, on_epoch=True, prog_bar=False)
                 loss = loss + (self.contrastive_loss_weight * loss_contrastive)
+                loss_parts["loss_contrastive"] = loss_contrastive.detach()
+                loss_parts["contrib_contrastive"] = (self.contrastive_loss_weight * loss_contrastive).detach()
 
+        loss_parts["loss_total"] = loss.detach()
+        self._loss_parts = loss_parts
+        return loss
+
+    def training_step(self, batch, batch_idx):
+        loss = self.step(batch, batch_idx)
+        self.log("train_loss", loss, on_step=True, on_epoch=True, prog_bar=True)
+        self.log_dict({f"train/{k}": v for k, v in self._loss_parts.items()}, on_step=True, on_epoch=False)
+        return loss
+
+    def validation_step(self, batch, batch_idx):
+        loss = self.step(batch, batch_idx)
+        # Kept for ModelCheckpoint/LossCallback (monitor validation_loss_epoch).
+        self.log("validation_loss", loss, on_step=True, on_epoch=True, prog_bar=True)
+        # Epoch-only: one averaged point per validation run, at the training
+        # global step (on_step val logs are indexed by val-batch count instead).
+        self.log_dict({f"val/{k}": v for k, v in self._loss_parts.items()}, on_step=False, on_epoch=True)
         return loss
 
     def step_mse(self, batch, batch_idx, threshold=0.5):

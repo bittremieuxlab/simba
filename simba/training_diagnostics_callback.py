@@ -76,7 +76,13 @@ class TrainingDiagnosticsCallback(Callback):
         analog_discovery_searches: list[str] | None = None,
         analog_discovery_k_values: list[int] | None = None,
         gnps_mgf: str | None = None,
+        every_n_steps: int = 0,
     ):
+        # 0 = run at every validation; N = only when >= N training steps have
+        # passed since the last run (validation can then be more frequent
+        # than these ~10 min diagnostics).
+        self.every_n_steps = every_n_steps
+        self._last_run_step = None
         self.mces20_max_value = mces20_max_value
         self.n_regression_classes = n_regression_classes
         self.analog_discovery_data_dir = Path(analog_discovery_data_dir)
@@ -203,6 +209,9 @@ class TrainingDiagnosticsCallback(Callback):
         # (validation metrics are already closed out by that point).
         tb_logger = _tb_logger(trainer)
         step = trainer.global_step
+        if self.every_n_steps and self._last_run_step is not None and step - self._last_run_step < self.every_n_steps:
+            return
+        self._last_run_step = step
         pl_module.eval()
         with torch.no_grad():
             for split in ("test", "val"):
