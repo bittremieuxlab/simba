@@ -21,12 +21,38 @@ import argparse
 from pathlib import Path
 
 import numpy as np
+import torch
 from torch.utils.data import DataLoader
 
 from casmi_sets import SEARCHES, SetLoader, canonical, check_order
 from simba.analog_discovery.fc_layers_analog_discovery import FcLayerAnalogDiscovery
+from simba.ordinal_classification.embedder_multitask import EmbedderMultitask
 from simba.transformers.encoder import Encoder
 from simba.transformers.load_data_encoder import LoadDataEncoder
+
+
+def compute_all_combinations(checkpoint, emb0, emb1, config):
+    """His FcLayerAnalogDiscovery.compute_all_combinations, with the full model
+    loaded on the CPU. His version does not set map_location, so on a GPU node
+    the weights land on cuda while it builds the inputs on the CPU; he ran it
+    on a CPU-only machine, which this reproduces.
+    -> (edit-distance logits (n0, n1, n_classes), MCES similarity (n0, n1))"""
+    model = EmbedderMultitask.load_from_checkpoint(
+        checkpoint, d_model=config.D_MODEL, n_layers=config.N_LAYERS, weights=None,
+        n_classes=config.EDIT_DISTANCE_N_CLASSES, use_gumbel=config.EDIT_DISTANCE_USE_GUMBEL, lr=config.LR,
+        use_cosine_distance=config.use_cosine_distance, strict=False, use_fingerprints=config.USE_FINGERPRINT,
+        map_location="cpu",
+    )
+    model.eval()
+    similarities_ed = np.zeros((emb0.shape[0], emb1.shape[0], config.EDIT_DISTANCE_N_CLASSES))
+    similarities_mces = np.zeros((emb0.shape[0], emb1.shape[0]))
+    with torch.no_grad():
+        for index, emb_row in enumerate(emb0):
+            emb_tiled = np.tile(emb_row, (emb1.shape[0], 1))
+            sim_ed, sim_mces = FcLayerAnalogDiscovery.compute_emb_from_existing_embeddings(model, emb_tiled, emb1)
+            similarities_ed[index] = sim_ed.numpy()
+            similarities_mces[index] = sim_mces.numpy().reshape(-1)
+    return similarities_ed, similarities_mces
 
 
 def compute_ranking(similarities1, similarities1_integer, similarities2_integer):
@@ -68,7 +94,7 @@ def main():
         emb_q, emb_lib = embed(queries), embed(library)
         print(f"Search {search}: embedded {emb_q.shape} queries, {emb_lib.shape} library spectra", flush=True)
         # his naming: similarities2 = edit-distance logits, similarities1 = MCES similarity
-        similarities2, similarities1 = FcLayerAnalogDiscovery.compute_all_combinations(args.checkpoint, emb_q, emb_lib, config)
+        similarities2, similarities1 = compute_all_combinations(args.checkpoint, emb_q, emb_lib, config)
         ed_class = np.argmax(similarities2, axis=2)
         del similarities2
         ranking = compute_ranking(similarities1, np.round(similarities1 * 40), ed_class)

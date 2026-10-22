@@ -166,10 +166,12 @@ $VENVS/ms2deepscore-2.5.0/bin/python $TOOLS/ms2deepscore/experiments/simba_train
     --model-path $CKPTS/ms2deepscore_v2_5_0_data/models_paper_settings/ms2deepscore_model.pt \
     --output-dir $WORK/baseline_scores/ms2deepscore_ours/search_A
 
-# DreaMS (GPU); for the paper checkpoint use --checkpoint-type paper_embedding --backbone-ckpt <ssl_model.ckpt>
+# DreaMS (GPU); for the paper checkpoint use --checkpoint-type paper_embedding --checkpoint-path <embedding_model.ckpt>.
+# --backbone-ckpt replaces the backbone path stored inside the checkpoint (the machine it was trained on).
 $VENVS/dreams/bin/python $TOOLS/DreaMS/experiments/simba_finetune/05_score_analog_discovery.py $IO \
     --checkpoint-type finetuned \
     --checkpoint-path $CKPTS/checkpoints/SimbaContrastiveFineTune/simba_mona_recipe_lr8.66e-6_bs96_margin0.1/last.ckpt \
+    --backbone-ckpt $CKPTS/dreams-pretrained/ssl_model.ckpt \
     --output-dir $WORK/baseline_scores/dreams_ours/search_A
 ```
 
@@ -213,6 +215,19 @@ similarity); lower is better.
 - **ROC AUC:** pooled over all (query, library spectrum) pairs that have a
   ground truth. A pair is positive when its distance is < 0.3; the score is
   minus the spectrum's rank within its query.
+
+### Utility: ground truth in the notebook format
+
+`export_gt_notebook_format.py` writes the step-2 ground truth as
+`mces_similarity_casmi_NEURIPS[_gnps]_..._unknown_compounds.pkl`. That is the
+format Sebastian's `precision_candidates.ipynb` loads: queries × library
+spectra in his order, 0 where not computed. With `--compare_dir`, it also
+plots old against new values.
+
+```bash
+.venv/bin/python tools/analog_discovery_benchmark/export_gt_notebook_format.py \
+    --gt_dir $WORK/gt_results --sets_dir $WORK/gt_inputs --out_dir $WORK/for_sebastian --compare_dir <dir with his old files>
+```
 
 ## Notes
 

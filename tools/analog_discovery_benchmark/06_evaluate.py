@@ -39,6 +39,15 @@ TOP_N_ANALOG = 10
 POSITIVE_DISTANCE = 0.3
 QUANTILES = {"q05": 5, "q25": 25, "median": 50, "q75": 75, "q95": 95}
 SEARCH_LABELS = {"A": "Search A (NIST20 + MassSpecGym)", "B": "Search B (GNPS)"}
+# One color per tool (paper figure palette); "(paper)" checkpoints are drawn dashed.
+ORACLE_COLOR = "#4C72B0"
+TOOL_COLORS = {"modified cosine": "#DD8452", "spec2vec": "#55A868", "ms2deepscore": "#8172B2",
+               "dreams": "#937860", "simba": "#C44E52"}
+
+
+def method_style(label):
+    color = next((c for tool, c in TOOL_COLORS.items() if label.lower().startswith(tool)), "#333333")
+    return color, "--" if "(paper" in label.lower() else "-"
 
 
 def load_scores(method_dir: Path, search: str, n_q: int, n_spec: int) -> np.ndarray:
@@ -124,25 +133,37 @@ def main():
             "methods": {k: {kk: vv for kk, vv in v.items() if not kk.startswith("_")} for k, v in res.items()},
         }
 
-        ax_box, ax_roc, ax_prec = axes[row]
+        ax_vio, ax_roc, ax_prec = axes[row]
         data = [oracle[~np.isnan(oracle)]] + [r["_dist10"] for r in res.values()]
-        names = ["Best candidate\n(oracle)"] + [k.replace(" ", "\n", 1) for k in res]
-        ax_box.boxplot(data, labels=names, showfliers=False, whis=(5, 95))
-        ax_box.set_ylabel("Normalized MCES distance, best of top-10 (lower = better)")
-        ax_box.set_title(f"{SEARCH_LABELS[search]}: retrieved analogs")
-        ax_box.tick_params(axis="x", labelsize=8)
+        names = ["Best candidate\n(oracle)"] + [k.replace(" (", "\n(", 1) for k in res]
+        colors = [ORACLE_COLOR] + [method_style(k)[0] for k in res]
+        for i, (values, color) in enumerate(zip(data, colors), 1):  # violin + inner box, as in the paper figure
+            body = ax_vio.violinplot([values], positions=[i], showmeans=False, showmedians=False, showextrema=False)["bodies"][0]
+            body.set_facecolor(color)
+            body.set_edgecolor("black")
+            body.set_linewidth(0.6)
+            body.set_alpha(0.85)
+        ax_vio.boxplot(data, widths=0.1, showfliers=True, medianprops=dict(color="black", linewidth=1.5),
+                       flierprops=dict(marker="o", markersize=2, markerfacecolor="none"))
+        ax_vio.set_xticks(range(1, len(names) + 1), names, fontsize=8)
+        ax_vio.set(ylabel="Normalized MCES distance", ylim=(-0.05, 1.1),
+                   title=f"{SEARCH_LABELS[search]}: best of top-{TOP_N_ANALOG} retrieved")
         for label, r in res.items():
+            color, linestyle = method_style(label)
             fpr, tpr = r["_roc"]
-            ax_roc.plot(fpr, tpr, label=f"{label} (AUC {r['roc_auc']:.3f})")
-            ax_prec.plot(K_VALUES, [r["precision_at_k"][k] for k in K_VALUES], marker="*", label=label)
+            ax_roc.plot(fpr, tpr, color=color, ls=linestyle, lw=1.6, label=f"{label} (AUC {r['roc_auc']:.3f})")
+            ax_prec.plot(K_VALUES, [r["precision_at_k"][k] for k in K_VALUES], color=color, ls=linestyle,
+                         marker="*", markersize=7, label=label)
         ax_roc.plot([0, 1], [0, 1], color="grey", lw=0.8, ls=":")
-        ax_roc.set(xlabel="False positive rate", ylabel="True positive rate",
+        ax_roc.set(xlabel="False positive rate", ylabel="True positive rate", xlim=(0, 1), ylim=(0, 1),
                    title=f"ROC, positive = distance < {POSITIVE_DISTANCE}")
         ax_roc.legend(fontsize=8, loc="lower right")
         ax_prec.set(xlabel="K candidates", ylabel="Precision", xlim=(0, 100), ylim=(0, None),
                     title=f"Precision@K ({int(include.sum())} queries)")
-        ax_prec.grid(True)
         ax_prec.legend(fontsize=8, loc="lower right")
+        for ax in (ax_vio, ax_roc, ax_prec):
+            ax.grid(True, alpha=0.6, color="gray", linewidth=0.6)
+            ax.set_axisbelow(True)
 
     fig.tight_layout()
     fig.savefig(out / "analog_discovery.png", dpi=150)
