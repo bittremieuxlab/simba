@@ -216,10 +216,10 @@ def run_molecular_networking(all_spectra, output_dir, simba_model) -> dict:
 
     network = SimilarityNetwork(
         identifier_key="spectrum_id",
-        top_n=20,
+        top_n=10,
         max_links=10,
-        score_cutoff=0.75,
-        link_method="single",
+        score_cutoff=0.90,
+        link_method="mutual",
         keep_unconnected_nodes=True,
     )
     network.create_network(scores, score_name=score_name)
