@@ -2,29 +2,17 @@
 truth (Johnson similarity of the actual MCES, output of
 02_mces_ground_truth.py combine; NaN = not computed).
 
-Ground truth is per (query, library molecule); every method's score matrix is
-per (query, library spectrum) in 01_build_sets.py order. Higher score = better
-(SIMBA: his ranking matrix; baselines: similarity; NaN score = ranked last).
-
-Metrics per method and search (s = Johnson similarity, distance = normalized MCES distance = 1 - s):
-  best-of-10 distance (his analog plot): per query, min distance over the
-    top-10 retrieved spectra (ignoring NaN GT); median and q05/q25/q75/q95
-    over queries. "Oracle" = the query's true best analog.
-  precision@K (his obtain_precision_k_candidates, min threshold 0): the true
-    best = argmax of the per-spectrum GT row (first spectrum on ties); queries
-    with best similarity <= 0 are skipped; hit if the best molecule is among
-    the molecules of the top-K retrieved spectra. K = 5, 10, 20, 40, 80, 100.
-  ROC AUC: pooled over all (query, spectrum) pairs with GT; positive =
-    distance < 0.3; score = -rank of the spectrum in the query's ranking.
+Metric definitions: see benchmark_metrics.py.
 
 --methods takes Label=dir pairs; each dir holds search_{A,B}/ranking.npy (SIMBA,
-step 5) or search_{A,B}/similarity.npy (baselines, step 4).
-Output: <out_dir>/summary.json and <out_dir>/analog_discovery.png
+step 5) or search_{A,B}/similarity.npy (baselines, step 4). A label starting
+with a tool name (SIMBA, Spec2Vec, MS2DeepScore, DreaMS, Modified cosine) gets
+that tool's color; "(paper ...)" labels are drawn dashed.
+Output: <out_dir>/summary.json and <out_dir>/analog_discovery.{png,svg}
 """
 
 import argparse
 import json
-import warnings
 from pathlib import Path
 
 import matplotlib
@@ -32,68 +20,8 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
 import numpy as np  # noqa: E402
-from sklearn.metrics import roc_auc_score, roc_curve  # noqa: E402
 
-K_VALUES = [5, 10, 20, 40, 80, 100]
-TOP_N_ANALOG = 10
-POSITIVE_DISTANCE = 0.3
-QUANTILES = {"q05": 5, "q25": 25, "median": 50, "q75": 75, "q95": 95}
-SEARCH_LABELS = {"A": "Search A (NIST20 + MassSpecGym)", "B": "Search B (GNPS)"}
-# One color per tool (paper figure palette); "(paper)" checkpoints are drawn dashed.
-ORACLE_COLOR = "#4C72B0"
-TOOL_COLORS = {"modified cosine": "#DD8452", "spec2vec": "#55A868", "ms2deepscore": "#8172B2",
-               "dreams": "#937860", "simba": "#C44E52"}
-
-
-def method_style(label):
-    color = next((c for tool, c in TOOL_COLORS.items() if label.lower().startswith(tool)), "#333333")
-    return color, "--" if "(paper" in label.lower() else "-"
-
-
-def load_scores(method_dir: Path, search: str, n_q: int, n_spec: int) -> np.ndarray:
-    d = method_dir / f"search_{search}"
-    path = d / "ranking.npy" if (d / "ranking.npy").exists() else d / "similarity.npy"
-    scores = np.load(path).astype(np.float32)
-    if scores.shape != (n_q, n_spec):
-        raise SystemExit(f"{path}: shape {scores.shape}, expected {(n_q, n_spec)}")
-    return np.where(np.isnan(scores), -np.inf, scores)
-
-
-def evaluate_method(scores, gt, mol_idx, best_mol, include):
-    n_q, n_spec = scores.shape
-    order = np.argsort(-scores, axis=1, kind="stable")
-    top_mols = mol_idx[order[:, : max(K_VALUES + [TOP_N_ANALOG])]]
-
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore", RuntimeWarning)  # all-NaN top-10 rows -> NaN, counted below
-        best10 = np.nanmax(np.take_along_axis(gt, top_mols[:, :TOP_N_ANALOG], axis=1), axis=1)
-    dist10 = 1 - best10
-    valid = ~np.isnan(dist10)
-
-    precision = {}
-    for k in K_VALUES:
-        hits = (top_mols[include, :k] == best_mol[include, None]).any(axis=1)
-        precision[k] = float(hits.mean())
-
-    ranks = np.empty((n_q, n_spec), dtype=np.float32)
-    rows = np.arange(n_q)[:, None]
-    ranks[rows, order] = np.arange(n_spec, dtype=np.float32)[None, :]
-    gt_spec = gt[:, mol_idx]
-    has_gt = ~np.isnan(gt_spec)
-    labels = (1 - gt_spec[has_gt]) < POSITIVE_DISTANCE
-    score = -ranks[has_gt]
-    auc = float(roc_auc_score(labels, score))
-    fpr, tpr, _ = roc_curve(labels, score)
-    step = max(1, len(fpr) // 2000)
-    return {
-        "best_of_10_distance": {name: float(np.percentile(dist10[valid], q)) for name, q in QUANTILES.items()},
-        "n_queries_without_gt_in_top10": int((~valid).sum()),
-        "roc_auc": auc,
-        "tpr_at_fpr_0.05": float(np.interp(0.05, fpr, tpr)),
-        "precision_at_k": precision,
-        "_dist10": dist10[valid],
-        "_roc": (fpr[::step], tpr[::step]),
-    }
+from benchmark_metrics import QUANTILES, GroundTruth, draw_search  # noqa: E402
 
 
 def main():
@@ -104,69 +32,29 @@ def main():
     ap.add_argument("--searches", nargs="+", default=["A", "B"], choices=["A", "B"])
     ap.add_argument("--out_dir", required=True)
     args = ap.parse_args()
-    gt_dir, sets_dir, out = Path(args.gt_dir), Path(args.sets_dir), Path(args.out_dir)
+    out = Path(args.out_dir)
     out.mkdir(parents=True, exist_ok=True)
     methods = [m.split("=", 1) for m in args.methods]
 
     summary = {}
     fig, axes = plt.subplots(len(args.searches), 3, figsize=(18, 5.5 * len(args.searches)), squeeze=False)
     for row, search in enumerate(args.searches):
-        gt = np.load(gt_dir / f"search_{search}" / "gt_sim.npy")
-        mol_idx = np.load(sets_dir / f"search_{search}" / "spectrum_mol_idx.npy")
-        n_q, n_spec = gt.shape[0], len(mol_idx)
-        gt_spec_best = np.where(np.isnan(gt), -np.inf, gt)[:, mol_idx]
-        best_spec = np.argmax(gt_spec_best, axis=1)  # his rule: first spectrum with the max value
-        best_val = gt_spec_best[np.arange(n_q), best_spec]
-        best_mol = mol_idx[best_spec]
-        include = best_val > 0
-        del gt_spec_best
-        oracle = 1 - np.nanmax(gt, axis=1)
-
-        res = {}
-        for label, rel in methods:
+        gt = GroundTruth(args.gt_dir, args.sets_dir, search)
+        results = {}
+        for label, method_dir in methods:
             print(f"search {search}: {label}", flush=True)
-            res[label] = evaluate_method(load_scores(Path(rel), search, n_q, n_spec), gt, mol_idx, best_mol, include)
+            results[label] = gt.evaluate(gt.load_scores(method_dir))
         summary[search] = {
-            "n_queries": n_q,
-            "n_queries_in_precision": int(include.sum()),
-            "oracle_best_distance": {name: float(np.nanpercentile(oracle, q)) for name, q in QUANTILES.items()},
-            "methods": {k: {kk: vv for kk, vv in v.items() if not kk.startswith("_")} for k, v in res.items()},
+            "n_queries": gt.n_queries,
+            "n_queries_in_precision": int(gt.include.sum()),
+            "oracle_best_distance": {name: float(np.nanpercentile(gt.oracle, q)) for name, q in QUANTILES.items()},
+            "methods": {k: {kk: vv for kk, vv in v.items() if not kk.startswith("_")} for k, v in results.items()},
         }
-
-        ax_vio, ax_roc, ax_prec = axes[row]
-        data = [oracle[~np.isnan(oracle)]] + [r["_dist10"] for r in res.values()]
-        names = ["Best candidate\n(oracle)"] + [k.replace(" (", "\n(", 1) for k in res]
-        colors = [ORACLE_COLOR] + [method_style(k)[0] for k in res]
-        for i, (values, color) in enumerate(zip(data, colors), 1):  # violin + inner box, as in the paper figure
-            body = ax_vio.violinplot([values], positions=[i], showmeans=False, showmedians=False, showextrema=False)["bodies"][0]
-            body.set_facecolor(color)
-            body.set_edgecolor("black")
-            body.set_linewidth(0.6)
-            body.set_alpha(0.85)
-        ax_vio.boxplot(data, widths=0.1, showfliers=True, medianprops=dict(color="black", linewidth=1.5),
-                       flierprops=dict(marker="o", markersize=2, markerfacecolor="none"))
-        ax_vio.set_xticks(range(1, len(names) + 1), names, fontsize=8)
-        ax_vio.set(ylabel="Normalized MCES distance", ylim=(-0.05, 1.1),
-                   title=f"{SEARCH_LABELS[search]}: best of top-{TOP_N_ANALOG} retrieved")
-        for label, r in res.items():
-            color, linestyle = method_style(label)
-            fpr, tpr = r["_roc"]
-            ax_roc.plot(fpr, tpr, color=color, ls=linestyle, lw=1.6, label=f"{label} (AUC {r['roc_auc']:.3f})")
-            ax_prec.plot(K_VALUES, [r["precision_at_k"][k] for k in K_VALUES], color=color, ls=linestyle,
-                         marker="*", markersize=7, label=label)
-        ax_roc.plot([0, 1], [0, 1], color="grey", lw=0.8, ls=":")
-        ax_roc.set(xlabel="False positive rate", ylabel="True positive rate", xlim=(0, 1), ylim=(0, 1),
-                   title=f"ROC, positive = distance < {POSITIVE_DISTANCE}")
-        ax_roc.legend(fontsize=8, loc="lower right")
-        ax_prec.set(xlabel="K candidates", ylabel="Precision", xlim=(0, 100), ylim=(0, None),
-                    title=f"Precision@K ({int(include.sum())} queries)")
-        ax_prec.legend(fontsize=8, loc="lower right")
-        for ax in (ax_vio, ax_roc, ax_prec):
-            ax.grid(True, alpha=0.6, color="gray", linewidth=0.6)
-            ax.set_axisbelow(True)
+        draw_search(axes[row], gt, results)
 
     fig.tight_layout()
     fig.savefig(out / "analog_discovery.png", dpi=150)
+    fig.savefig(out / "analog_discovery.svg")
     (out / "summary.json").write_text(json.dumps(summary, indent=1) + "\n")
     for search, s in summary.items():
         print(f"\n== Search {search} ({s['n_queries']} queries) | oracle median {s['oracle_best_distance']['median']:.4f}")

@@ -5,9 +5,12 @@ notebooks/precision_candidates.ipynb (branch simba_v1). The order of the
 returned lists is the row/column order of his ground-truth matrices
 (verified: Search A 132 x 328,555 spectra, Search B 148 x 53,618 spectra).
 
-  queries   CASMI 2022 spectra (LoadData.get_all_spectrums_casmi) that keep
-            >= 6 peaks after preprocessing, minus the queries whose molecule
-            is in that search's library (exclusion is per search).
+  queries   one query set, minus the queries whose molecule is in that
+            search's library (exclusion is per search):
+              casmi   CASMI 2022 spectra (LoadData.get_all_spectrums_casmi),
+                      >= 6 peaks after preprocessing (his precision notebook)
+              msnlib  MSnLib ENAMDISC spectra (PreprocessingSimba.load_spectra,
+                      as in his analog notebook), >= 6 peaks
   library A train + val + test spectrums_original of the SIMBA training
             dataset pickle (NIST20 + MassSpecGym), >= 6 peaks.
   library B GNPS spectra loaded with PreprocessingSimba.load_spectra(
@@ -37,7 +40,10 @@ from simba.simba.preprocessing_simba import PreprocessingSimba  # noqa: E402
 
 RDLogger.DisableLog("rdApp.*")
 SEARCHES = ("A", "B")
-EXPECTED_SIZES = {"A": (132, 328555), "B": (148, 53618)}  # (queries, library spectra) of his matrices
+QUERY_SETS = ("casmi", "msnlib")
+# (queries, library spectra) per search; casmi = the shapes of his ground-truth matrices
+EXPECTED_SIZES = {"casmi": {"A": (132, 328555), "B": (148, 53618)},
+                  "msnlib": {"A": (490, 328555), "B": (491, 53618)}}
 
 
 def filter_spectra(spectra, pp):
@@ -58,15 +64,30 @@ def filter_spectra(spectra, pp):
 
 
 class SetLoader:
-    def __init__(self, dataset_pkl, casmi_pkl, gnps_mgf):
+    def __init__(self, dataset_pkl, casmi_pkl, gnps_mgf, queries="casmi", msnlib_mgf=None):
+        if queries not in QUERY_SETS or (queries == "msnlib" and not msnlib_mgf):
+            raise SystemExit(f"queries must be one of {QUERY_SETS}; msnlib needs msnlib_mgf")
         self.dataset_pkl, self.casmi_pkl, self.gnps_mgf = str(dataset_pkl), str(casmi_pkl), str(gnps_mgf)
+        self.query_set, self.msnlib_mgf = queries, msnlib_mgf and str(msnlib_mgf)
         self.config, self.pp = Config(), Preprocessor()
         self._queries = None
 
     def candidate_queries(self):
         if self._queries is None:
-            self._queries = filter_spectra(LoadData.get_all_spectrums_casmi(self.casmi_pkl, config=self.config), self.pp)
+            if self.query_set == "casmi":
+                spectra = LoadData.get_all_spectrums_casmi(self.casmi_pkl, config=self.config)
+            else:
+                spectra = PreprocessingSimba.load_spectra(self.msnlib_mgf, self.config)
+            self._queries = filter_spectra(spectra, self.pp)
         return self._queries
+
+    def all_query_smiles(self):
+        """Canonical SMILES of every query molecule in the input file, before any
+        filtering (to compute ground truth for spectra the loader drops too)."""
+        if self.query_set == "casmi":
+            return list(dict.fromkeys(canonical(LoadData.get_all_spectrums_casmi(self.casmi_pkl, config=self.config))))
+        smiles = [line.strip().split("=", 1)[1] for line in open(self.msnlib_mgf) if line.startswith("SMILES=")]
+        return list(dict.fromkeys(Chem.CanonSmiles(s) for s in smiles))
 
     def library(self, search):
         if search == "A":
@@ -87,9 +108,10 @@ class SetLoader:
         library = self.library(search)
         library_molecules = {Chem.CanonSmiles(s.smiles) for s in library}
         queries = [s for s in self.candidate_queries() if Chem.CanonSmiles(s.smiles) not in library_molecules]
-        if (len(queries), len(library)) != EXPECTED_SIZES[search]:
-            raise SystemExit(f"Search {search}: {len(queries)} queries x {len(library)} spectra, "
-                             f"expected {EXPECTED_SIZES[search]} -- different input files?")
+        expected = EXPECTED_SIZES[self.query_set][search]
+        if (len(queries), len(library)) != expected:
+            raise SystemExit(f"Search {search} ({self.query_set}): {len(queries)} queries x {len(library)} spectra, "
+                             f"expected {expected} -- different input files?")
         return queries, library
 
 

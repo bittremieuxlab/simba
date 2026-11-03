@@ -6,6 +6,7 @@ from simba.molecule_pairs_opt import MoleculePairsOpt
 import copy
 from simba.ordinal_classification.ordinal_classification import OrdinalClassification
 from simba.tanimoto import Tanimoto
+from simba.precursor_mass import instrument_ppm_tolerance, theoretical_precursor_mz
 
 
 class LoadDataMultitasking:
@@ -21,9 +22,17 @@ class LoadDataMultitasking:
         N_classes=6,
         use_fingerprints=False,
         use_extra_metadata=False,
+        precursor_mass_mode="measured",
+        precursor_noise_mode="legacy",
     ):
         """
         preprocess the spectra and convert it for being used in Pytorch
+
+        precursor_mass_mode: "measured" (default) uses each spectrum's stored
+        precursor m/z; "theoretical" recomputes it from the SMILES and adduct
+        (falls back to the stored value when that is impossible).
+        precursor_noise_mode: training-time precursor augmentation, see
+        Augmentation.augment ("legacy" (default), "mist_cf" or "none").
         """
         # copy spectrums to avoid overwriting
         molecule_pairs = MoleculePairsOpt(
@@ -70,6 +79,13 @@ class LoadDataMultitasking:
             
 
 
+        precursor_tol_ppm = np.array(
+            [instrument_ppm_tolerance(s) for s in molecule_pairs.spectrums_original], dtype=np.float32
+        )
+        if precursor_mass_mode not in ("measured", "theoretical"):
+            raise ValueError(f"Unknown precursor_mass_mode: {precursor_mass_mode!r}")
+        mass_cache, n_fallback = {}, 0
+
         print("loading data")
         for i, l in enumerate(molecule_pairs.spectrums_original):
             # check for maximum length
@@ -80,11 +96,21 @@ class LoadDataMultitasking:
             intensity[i, 0:length] = np.array(l.intensity[0:length])
 
             precursor_mass[i] = l.precursor_mz
+            if precursor_mass_mode == "theoretical":
+                theoretical = theoretical_precursor_mz(l, mass_cache)
+                if theoretical is None:
+                    n_fallback += 1
+                else:
+                    precursor_mass[i] = theoretical
             precursor_charge[i] = l.precursor_charge
 
             if use_extra_metadata:
                 ionization_mode_precursor[i]= 1.00 if l.params['ionmode'].lower == 'positive' else -1
                 adduct_mass_precursor[i]= float(l.params['adduct_mass'])
+
+        if precursor_mass_mode == "theoretical":
+            print(f"Theoretical precursor m/z: {len(precursor_mass) - n_fallback} spectra, "
+                  f"{n_fallback} kept their stored value (no usable SMILES/adduct)")
 
         print("Normalizing intensities")
         # Normalize the intensity array
@@ -130,6 +156,8 @@ class LoadDataMultitasking:
                 fingerprint_0=fingerprint_0,
                 max_num_peaks=max_num_peaks,
                 use_extra_metadata=use_extra_metadata,
+                precursor_noise_mode=precursor_noise_mode,
+                precursor_tol_ppm=precursor_tol_ppm,
                 ionization_mode_precursor=ionization_mode_precursor,
                 adduct_mass_precursor=adduct_mass_precursor,
             )
@@ -146,5 +174,6 @@ class LoadDataMultitasking:
                 fingerprint_0=fingerprint_0,
                 max_num_peaks=max_num_peaks,
                 use_extra_metadata=use_extra_metadata,
-                
+                precursor_noise_mode=precursor_noise_mode,
+                precursor_tol_ppm=precursor_tol_ppm,
             )

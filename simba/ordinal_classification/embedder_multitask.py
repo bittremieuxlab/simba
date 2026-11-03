@@ -85,6 +85,14 @@ class EmbedderMultitask(Embedder):
         contrastive_temperature=0.1,
         use_contrastive_projection_head=False,
         explicit_loss_weights=None,  # (w_ed, w_mces): loss = w_ed*CE + w_mces*MSE
+        # Round-3 options; the defaults leave training unchanged.
+        contrastive_analog_max_mces=0.0,  # >0: pairs within this many MCES bonds are extra InfoNCE positives
+        contrastive_analog_weight=0.5,    # weight of those analog rows (same-molecule rows weigh 1)
+        mces_bin_balance_power=0.0,       # >0: MCES MSE weighted by (count of the 2-bond bin in the batch)^-power
+        use_ed_ordinal_loss=False,        # cumulative (ordinal) loss on the 6 ED logits instead of the custom CE
+        aug_peak_dropout=0.0,             # training only: probability of dropping each peak
+        aug_intensity_noise=0.0,          # training only: sigma of the log-normal intensity factor
+        aug_mz_noise=0.0,                 # training only: sigma (Da) of the Gaussian m/z shift per peak
     ):
         """Initialize the CCSPredictor"""
         super().__init__(
@@ -164,6 +172,13 @@ class EmbedderMultitask(Embedder):
             self.contrastive_projection = nn.Sequential(
                 nn.Linear(d_model, d_model), nn.ReLU(), nn.Linear(d_model, d_model)
             )
+        self.contrastive_analog_max_mces = contrastive_analog_max_mces
+        self.contrastive_analog_weight = contrastive_analog_weight
+        self.mces_bin_balance_power = mces_bin_balance_power
+        self.use_ed_ordinal_loss = use_ed_ordinal_loss
+        self.aug_peak_dropout = aug_peak_dropout
+        self.aug_intensity_noise = aug_intensity_noise
+        self.aug_mz_noise = aug_mz_noise
 
     def forward(self, batch, return_spectrum_output=False):
         # … compute raw emb0, emb1, apply relu, fingerprints, etc. …
@@ -247,15 +262,24 @@ class EmbedderMultitask(Embedder):
         loss = F.binary_cross_entropy(prob, target_matrix, reduction="mean")
         return loss
 
-    def compute_contrastive_loss(self, emb0, emb1, mol_idx_0, mol_idx_1):
+    def compute_contrastive_loss(self, emb0, emb1, mol_idx_0, mol_idx_1, sim_mces=None):
         """In-batch InfoNCE over the batch's self-pairs (same molecule, two
         different spectra): symmetric cross-entropy over the N x N
         cosine-similarity matrix of their embeddings, true match on the
-        diagonal. Returns (loss_or_None, n_pairs) -- loss is None when fewer
-        than 2 self-pairs landed in this batch (can't form negatives)."""
+        diagonal. With contrastive_analog_max_mces > 0, pairs of different
+        molecules at most that many MCES bonds apart are positives too, their
+        rows weighted by contrastive_analog_weight. Returns (loss_or_None,
+        n_pairs) -- loss is None when fewer than 2 positive pairs landed in
+        this batch (can't form negatives)."""
         mol_idx_0 = mol_idx_0.view(-1)
         mol_idx_1 = mol_idx_1.view(-1)
         is_self = mol_idx_0 == mol_idx_1
+        row_weight = torch.ones_like(is_self, dtype=torch.float32)
+        if self.contrastive_analog_max_mces > 0 and sim_mces is not None:
+            # similarity s = 1 - MCES/40; s = 0.5 marks threshold-censored pairs, never close
+            is_analog = (~is_self) & (sim_mces.view(-1) >= 1 - self.contrastive_analog_max_mces / 40)
+            row_weight = torch.where(is_analog, torch.full_like(row_weight, self.contrastive_analog_weight), row_weight)
+            is_self = is_self | is_analog
         n_pairs = int(is_self.sum().item())
         if n_pairs < 2:
             return None, n_pairs
@@ -269,10 +293,46 @@ class EmbedderMultitask(Embedder):
         positive = F.normalize(emb1_self, p=2, dim=-1)
         logits = (anchor @ positive.T) / self.contrastive_temperature
         labels = torch.arange(n_pairs, device=logits.device)
+        w = row_weight[is_self]
         loss = 0.5 * (
-            F.cross_entropy(logits, labels) + F.cross_entropy(logits.T, labels)
-        )
+            (F.cross_entropy(logits, labels, reduction="none") * w).sum()
+            + (F.cross_entropy(logits.T, labels, reduction="none") * w).sum()
+        ) / w.sum()
         return loss, n_pairs
+
+    def ordinal_ed_loss(self, logits, target):
+        """Cumulative-link loss on the 6 ED class logits: P(class >= k) = sum of
+        the softmax over classes >= k, binary cross-entropy against 1[target >= k]
+        for k = 1..5, summed over k and averaged over the batch. Same logits and
+        argmax prediction as before, so inference is unchanged."""
+        probs = F.softmax(logits.float(), dim=-1)
+        cum = torch.flip(torch.cumsum(torch.flip(probs, [1]), 1), [1])[:, 1:].clamp(1e-6, 1 - 1e-6)
+        k = torch.arange(1, logits.size(1), device=logits.device)
+        target_cum = (target.view(-1, 1) >= k).float()
+        return F.binary_cross_entropy(cum, target_cum, reduction="none").sum(1).mean()
+
+    def augment(self, batch):
+        """Training-time spectrum augmentation, independently for both spectra of
+        each pair: peak dropout (dropped peaks become padding: m/z = intensity = 0),
+        log-normal intensity noise (each spectrum rescaled back to its original
+        maximum) and Gaussian m/z noise on the real peaks."""
+        batch = dict(batch)
+        for side in ("0", "1"):
+            mz, intensity = batch[f"mz_{side}"].float().clone(), batch[f"intensity_{side}"].float().clone()
+            real = (mz != 0) | (intensity != 0)
+            if self.aug_peak_dropout > 0:
+                drop = real & (torch.rand_like(mz) < self.aug_peak_dropout)
+                drop &= real.sum(1, keepdim=True) > 1  # never empty a spectrum
+                mz[drop], intensity[drop] = 0.0, 0.0
+                real &= ~drop
+            if self.aug_intensity_noise > 0:
+                max_before = intensity.amax(1, keepdim=True)
+                intensity = intensity * torch.exp(torch.randn_like(intensity) * self.aug_intensity_noise)
+                intensity = intensity * max_before / intensity.amax(1, keepdim=True).clamp_min(1e-12)
+            if self.aug_mz_noise > 0:
+                mz = torch.where(real, mz + torch.randn_like(mz) * self.aug_mz_noise, mz)
+            batch[f"mz_{side}"], batch[f"intensity_{side}"] = mz, intensity
+        return batch
 
     def step(self, batch, batch_idx, threshold=0.5, weight_loss2=None):
         if self.use_contrastive_loss:
@@ -301,6 +361,8 @@ class EmbedderMultitask(Embedder):
                 diff_penalty = torch.sum((gumbel_probs_1[:, 2:] - gumbel_probs_1[:, 1:-1]) ** 2) / batch_size
                 reg_weight = self.gumbel_reg_weight
                 loss1 = loss1 + reg_weight * diff_penalty
+            elif self.use_ed_ordinal_loss:
+                loss1 = self.ordinal_ed_loss(logits1, target1)
             else:
                 loss1 = self.customised_ce(logits1, target1)
 
@@ -328,6 +390,14 @@ class EmbedderMultitask(Embedder):
             )
             weight_mask = torch.tensor(weight_mask).to(self.device)
             loss2 = (squared_diff.view(-1, 1) * weight_mask.view(-1, 1).float()).mean()
+        elif self.mces_bin_balance_power > 0:
+            # weight each pair by (pairs in its 2-bond bin of the true distance)^-power,
+            # normalized to mean 1; power 1 = every bin present in the batch counts equally
+            squared_diff = (logits2.view(-1).float() - target2.view(-1).float()) ** 2
+            bins = torch.floor(torch.round((1 - target2.view(-1).float()) * 40 * 1e4) / 1e4 / 2).long().clamp(0, 20)
+            counts = torch.bincount(bins, minlength=21).float()
+            weight = counts[bins] ** (-self.mces_bin_balance_power)
+            loss2 = (squared_diff * weight / weight.mean()).mean()
         else:
             squared_diff = (logits2.view(-1, 1).float() - target2.view(-1, 1).float()) ** 2
             loss2 = squared_diff.view(-1, 1).mean()
@@ -365,7 +435,7 @@ class EmbedderMultitask(Embedder):
 
         if self.use_contrastive_loss:
             loss_contrastive, n_pairs = self.compute_contrastive_loss(
-                emb0, emb1, batch["mol_idx_0"], batch["mol_idx_1"]
+                emb0, emb1, batch["mol_idx_0"], batch["mol_idx_1"], sim_mces=target2
             )
             loss_parts["contrastive_n_pairs"] = float(n_pairs)
             if loss_contrastive is not None:
@@ -378,6 +448,8 @@ class EmbedderMultitask(Embedder):
         return loss
 
     def training_step(self, batch, batch_idx):
+        if self.aug_peak_dropout > 0 or self.aug_intensity_noise > 0 or self.aug_mz_noise > 0:
+            batch = self.augment(batch)
         loss = self.step(batch, batch_idx)
         self.log("train_loss", loss, on_step=True, on_epoch=True, prog_bar=True)
         self.log_dict({f"train/{k}": v for k, v in self._loss_parts.items()}, on_step=True, on_epoch=False)

@@ -33,6 +33,9 @@ class Parser:
                 or (at == "LOG_DIAGNOSTICS_DURING_TRAINING")
                 or (at == "DIAGNOSTICS_EVERY_N_STEPS")
                 or (at == "USE_EXPLICIT_LOSS_WEIGHTS")
+                or (at == "SAVE_CHECKPOINT_AT_DIAGNOSTICS")
+                or (at == "ANALOG_DISCOVERY_EVERY_N_STEPS")
+                or (at == "USE_ED_ORDINAL_LOSS")
             )
 
             is_string_attribute = at in [
@@ -52,6 +55,12 @@ class Parser:
                 "ADDUCT_INFO_CSV",
                 "TENSORBOARD_LOG_DIR",
                 "ANALOG_DISCOVERY_DATA_DIR",
+                "ANALOG_DISCOVERY_CASMI_PKL",
+                "ANALOG_DISCOVERY_GNPS_MGF",
+                "ANALOG_DISCOVERY_MSNLIB_DATA_DIR",
+                "ANALOG_DISCOVERY_MSNLIB_MGF",
+                "PRECURSOR_MASS_MODE",
+                "PRECURSOR_NOISE_MODE",
             ]
             if is_integer_attribute:
                 self.parser.add_argument(f"--{at}", type=int, help=at, default=None)

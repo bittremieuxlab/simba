@@ -24,6 +24,8 @@ class CustomDatasetMultitasking(Dataset):
         use_extra_metadata=False,
         ionization_mode_precursor=False,
         adduct_mass_precursor=False,
+        precursor_noise_mode="legacy",  # training-time precursor augmentation, see Augmentation.augment
+        precursor_tol_ppm=None,         # per original spectrum: instrument ppm tolerance (for "mist_cf")
     ):
         self.data = your_dict
         self.keys = list(your_dict.keys())
@@ -39,6 +41,8 @@ class CustomDatasetMultitasking(Dataset):
         if self.use_fingerprints:
             self.fingerprint_0 = fingerprint_0
         self.max_num_peaks = max_num_peaks
+        self.precursor_noise_mode = precursor_noise_mode
+        self.precursor_tol_ppm = precursor_tol_ppm
 
         self.use_extra_metadata=use_extra_metadata
         if self.use_extra_metadata:
@@ -253,7 +257,13 @@ class CustomDatasetMultitasking(Dataset):
         if self.training:
             if random.random() < self.prob_aug:
                 # augmentation
-                sample = Augmentation.augment(sample, max_num_peaks=self.max_num_peaks)
+                if self.precursor_noise_mode == "mist_cf":
+                    sample["precursor_tol_ppm_0"] = float(self.precursor_tol_ppm[indexes_original_0])
+                    sample["precursor_tol_ppm_1"] = float(self.precursor_tol_ppm[indexes_original_1])
+                sample = Augmentation.augment(sample, max_num_peaks=self.max_num_peaks,
+                                              precursor_noise_mode=self.precursor_noise_mode)
+                sample.pop("precursor_tol_ppm_0", None)
+                sample.pop("precursor_tol_ppm_1", None)
 
         # normalize
         sample = Augmentation.normalize_intensities(sample)

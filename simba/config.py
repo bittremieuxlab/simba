@@ -117,6 +117,26 @@ class Config:
         self.CONTRASTIVE_LOSS_WEIGHT = 0.1
         self.CONTRASTIVE_LOSS_TEMPERATURE = 0.1
         self.USE_CONTRASTIVE_PROJECTION_HEAD = False
+        # >0: pairs of different molecules within this many MCES bonds are extra
+        # InfoNCE positives, their rows weighted by CONTRASTIVE_ANALOG_WEIGHT
+        self.CONTRASTIVE_ANALOG_MAX_MCES = 0.0
+        self.CONTRASTIVE_ANALOG_WEIGHT = 0.5
+
+        ## ROUND-3 LOSS / AUGMENTATION OPTIONS (off by default)
+        # >0: MCES MSE weighted by (pairs in the 2-bond bin of the true distance)^-power
+        self.MCES_BIN_BALANCE_POWER = 0.0
+        # 1: cumulative (ordinal) loss on the edit-distance logits instead of the custom CE
+        self.USE_ED_ORDINAL_LOSS = 0
+        # training-time spectrum augmentation: peak dropout probability,
+        # log-normal intensity noise sigma, Gaussian m/z noise sigma (Da)
+        self.AUG_PEAK_DROPOUT = 0.0
+        self.AUG_INTENSITY_NOISE = 0.0
+        self.AUG_MZ_NOISE = 0.0
+        # precursor m/z as in simba-triplet: "measured" (stored value) or "theoretical"
+        # (from SMILES + adduct; train, val and the val/test diagnostics), and the
+        # training-time precursor noise: "legacy" (+/- up to 1%), "mist_cf" (instrument ppm / 5) or "none"
+        self.PRECURSOR_MASS_MODE = "measured"
+        self.PRECURSOR_NOISE_MODE = "legacy"
 
         ## EXPLICIT TASK LOSS WEIGHTS (off by default).
         self.USE_EXPLICIT_LOSS_WEIGHTS = 0
@@ -129,16 +149,25 @@ class Config:
 
         ## PERIODIC DIAGNOSTIC LOGGING DURING TRAINING (off by default): the
         ## Supplementary-Figure-1-style MCES hexbin + edit-distance confusion
-        ## matrix, plus the SIMBA-only analog-discovery panels (reusing the
-        ## exact-MCES ground truth already built in simba-paper), logged at
-        ## every validation epoch end.
+        ## matrix, plus the analog-discovery benchmark of
+        ## tools/analog_discovery_benchmark scored with the current model.
         self.LOG_DIAGNOSTICS_DURING_TRAINING = False
-        self.ANALOG_DISCOVERY_K_VALUES = [1, 5, 10, 20, 40, 80, 100]
         self.ANALOG_DISCOVERY_SEARCHES = ["A", "B"]
-        self.ANALOG_DISCOVERY_DATA_DIR = "/mnt/data2/nkubrakov/analog_discovery"
+        # benchmark work dir: gt_inputs/, gt_results/, baseline_scores/<name>/
+        self.ANALOG_DISCOVERY_DATA_DIR = None
+        self.ANALOG_DISCOVERY_CASMI_PKL = "data/casmi/casmi2022_spec_df.pkl"  # relative to the repo
+        self.ANALOG_DISCOVERY_GNPS_MGF = "data/gnps/ALL_GNPS_NO_PROPOGATED_sebastian.mgf"
+        self.ANALOG_DISCOVERY_BASELINES = ["spec2vec_ours", "ms2deepscore_ours", "dreams_ours"]
+        # also run the benchmark with the MSnLib queries: work dir of the --queries msnlib benchmark + its MGF
+        self.ANALOG_DISCOVERY_MSNLIB_DATA_DIR = None
+        self.ANALOG_DISCOVERY_MSNLIB_MGF = None
+        # 0 = analog discovery at every diagnostics run; N = at most once per N training steps
+        self.ANALOG_DISCOVERY_EVERY_N_STEPS = 0
         # 0 = diagnostics at every validation (as before); N = at most once
         # per N training steps, so VAL_CHECK_INTERVAL can be smaller.
         self.DIAGNOSTICS_EVERY_N_STEPS = 0
+        # 1 = save diag_step_<step>.ckpt in CHECKPOINT_DIR/diag_checkpoints at every diagnostics run
+        self.SAVE_CHECKPOINT_AT_DIAGNOSTICS = 0
 
     def derived_variables(self):
         self.MODEL_CODE = f"{self.D_MODEL}_units_{self.N_LAYERS}_layers_{self.epochs}_epochs_{self.LR}_lr_{self.BATCH_SIZE}_bs{self.extra_info}"

@@ -31,8 +31,15 @@ import matplotlib.pyplot as plt  # noqa: E402
 import numpy as np  # noqa: E402
 from scipy.stats import spearmanr  # noqa: E402
 
-FILE_NAMES = {"A": "mces_similarity_casmi_NEURIPS_results_analog_discovery_unknown_compounds.pkl",
-              "B": "mces_similarity_casmi_NEURIPS_gnps_results_analog_discovery_unknown_compounds.pkl"}
+from benchmark_metrics import GroundTruth  # noqa: E402
+
+def file_names(query_set="casmi"):
+    """His notebook naming: mces_similarity_<query set>_NEURIPS[_gnps]_results_..._unknown_compounds.pkl"""
+    return {"A": f"mces_similarity_{query_set}_NEURIPS_results_analog_discovery_unknown_compounds.pkl",
+            "B": f"mces_similarity_{query_set}_NEURIPS_gnps_results_analog_discovery_unknown_compounds.pkl"}
+
+
+FILE_NAMES = file_names()
 SEARCH_LABELS = {"A": "Search A (NIST20 + MassSpecGym)", "B": "Search B (GNPS)"}
 
 
@@ -59,7 +66,9 @@ def main():
     ap.add_argument("--sets_dir", required=True)
     ap.add_argument("--out_dir", required=True)
     ap.add_argument("--compare_dir", default=None)
+    ap.add_argument("--query_set", default="casmi", help="name used in the file names (casmi, msnlib)")
     args = ap.parse_args()
+    names = file_names(args.query_set)
     out = Path(args.out_dir)
     out.mkdir(parents=True, exist_ok=True)
     comparison = {}
@@ -67,20 +76,20 @@ def main():
 
     for col, search in enumerate(("A", "B")):
         sets = Path(args.sets_dir) / f"search_{search}"
-        gt = np.load(Path(args.gt_dir) / f"search_{search}" / "gt_sim.npy")
-        mol_idx = np.load(sets / "spectrum_mol_idx.npy")
-        new = gt[:, mol_idx].astype(np.float64)
+        ground_truth = GroundTruth(args.gt_dir, args.sets_dir, search)  # rows of the evaluated queries
+        mol_idx = ground_truth.mol_idx
+        new = ground_truth.gt[:, mol_idx].astype(np.float64)
         computed = ~np.isnan(new)
         result = {"similarities": np.where(computed, new, 0.0), "computed": computed,
                   "smiles_janssen": sets.joinpath("queries.txt").read_text().split(),
                   "smiles_reference": sets.joinpath("reference_spectra_smiles.txt").read_text().split()}
-        with open(out / FILE_NAMES[search], "wb") as fh:
+        with open(out / names[search], "wb") as fh:
             pickle.dump(result, fh, protocol=4)
-        print(f"Search {search}: wrote {out / FILE_NAMES[search]} {new.shape}, computed {computed.mean():.4f}")
+        print(f"Search {search}: wrote {out / names[search]} {new.shape}, computed {computed.mean():.4f}")
 
         if not args.compare_dir:
             continue
-        old = load_old(Path(args.compare_dir) / FILE_NAMES[search])
+        old = load_old(Path(args.compare_dir) / names[search])
         if old.shape != new.shape:
             raise SystemExit(f"Search {search}: old {old.shape} vs new {new.shape}")
         both = computed & (old > 0)

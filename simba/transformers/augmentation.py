@@ -2,11 +2,13 @@ import random
 import copy
 import numpy as np
 
+from simba.precursor_mass import INSTRUMENT_PPM_TOLERANCE, resample_precursor_mz
+
 
 class Augmentation:
 
     @staticmethod
-    def augment(data_sample, training=False, max_num_peaks=None):
+    def augment(data_sample, training=False, max_num_peaks=None, precursor_noise_mode="legacy"):
         new_sample = copy.deepcopy(data_sample)
         # new_sample = Augmentation.inversion(new_sample)
         # new_sample = Augmentation.add_noise_to_precursor_mass(new_sample)
@@ -18,9 +20,15 @@ class Augmentation:
             new_sample, max_peaks=max_num_peaks
         )
 
-        # precursor mass
+        # precursor mass: "legacy" = both sides set to spectrum 0's mass +/- up to 1%;
+        # "mist_cf" = Gaussian noise of instrument ppm tolerance / 5 (as in simba-triplet); "none" = untouched
         # new_sample = Augmentation.add_false_precursor_masses_negatives(new_sample)
-        new_sample = Augmentation.add_false_precursor_masses_positives(new_sample)
+        if precursor_noise_mode == "legacy":
+            new_sample = Augmentation.add_false_precursor_masses_positives(new_sample)
+        elif precursor_noise_mode == "mist_cf":
+            new_sample = Augmentation.resample_precursor_masses_mist_cf(new_sample)
+        elif precursor_noise_mode != "none":
+            raise ValueError(f"Unknown precursor_noise_mode: {precursor_noise_mode!r}")
 
         new_sample = Augmentation.random_peak_dropout(new_sample)
         # normalize
@@ -162,6 +170,17 @@ class Augmentation:
             return sample
         else:
             return sample
+
+    @staticmethod
+    def resample_precursor_masses_mist_cf(sample, p_augmentation=0.2):
+        """MIST-CF/BUDDY-style precursor m/z resampling of both spectra of the pair:
+        Gaussian noise with std = instrument ppm tolerance / 5 (sample's
+        precursor_tol_ppm_<side>, "unknown" tier 15 ppm when absent)."""
+        if random.random() < p_augmentation:
+            for suffix in ("_0", "_1"):
+                tol = sample.get("precursor_tol_ppm" + suffix, INSTRUMENT_PPM_TOLERANCE["unknown"])
+                sample["precursor_mass" + suffix] = resample_precursor_mz(sample["precursor_mass" + suffix], tol)
+        return sample
 
     @staticmethod
     def add_false_precursor_masses_negatives(

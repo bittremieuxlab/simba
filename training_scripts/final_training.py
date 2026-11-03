@@ -271,10 +271,12 @@ plt.yscale("log")
 
 dataset_train = LoadDataMultitasking.from_molecule_pairs_to_dataset(
     molecule_pairs_train, max_num_peaks=int(config.TRANSFORMER_CONTEXT), training=True, use_extra_metadata=config.USE_EXTRA_METADATA_MODEL,
+    precursor_mass_mode=config.PRECURSOR_MASS_MODE, precursor_noise_mode=config.PRECURSOR_NOISE_MODE,
 )
 # dataset_test = LoadData.from_molecule_pairs_to_dataset(m_test)
 dataset_val = LoadDataMultitasking.from_molecule_pairs_to_dataset(
     molecule_pairs_val, max_num_peaks=int(config.TRANSFORMER_CONTEXT), use_extra_metadata=config.USE_EXTRA_METADATA_MODEL,
+    precursor_mass_mode=config.PRECURSOR_MASS_MODE,
 )
 
 
@@ -452,15 +454,25 @@ losscallback = LossCallback(file_path=config.CHECKPOINT_DIR + f"loss.png", tb_lo
 
 extra_callbacks = []
 if config.LOG_DIAGNOSTICS_DURING_TRAINING:
+    if not config.ANALOG_DISCOVERY_DATA_DIR:
+        raise SystemExit("--LOG_DIAGNOSTICS_DURING_TRAINING needs --ANALOG_DISCOVERY_DATA_DIR (benchmark work dir)")
+    repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     diagnostics_callback = TrainingDiagnosticsCallback(
         preprocessing_dir_train=config.PREPROCESSING_DIR_TRAIN,
         dataset_path=dataset_path,
+        benchmark_dir=config.ANALOG_DISCOVERY_DATA_DIR,
+        casmi_pkl=os.path.join(repo_root, config.ANALOG_DISCOVERY_CASMI_PKL),
+        gnps_mgf=os.path.join(repo_root, config.ANALOG_DISCOVERY_GNPS_MGF),
         mces20_max_value=config.MCES20_MAX_VALUE,
         n_regression_classes=config.EDIT_DISTANCE_N_CLASSES,
-        analog_discovery_data_dir=config.ANALOG_DISCOVERY_DATA_DIR,
-        analog_discovery_searches=config.ANALOG_DISCOVERY_SEARCHES,
-        analog_discovery_k_values=config.ANALOG_DISCOVERY_K_VALUES,
+        searches=config.ANALOG_DISCOVERY_SEARCHES,
+        baselines=config.ANALOG_DISCOVERY_BASELINES,
         every_n_steps=config.DIAGNOSTICS_EVERY_N_STEPS,
+        checkpoint_dir=os.path.join(config.CHECKPOINT_DIR, "diag_checkpoints") if config.SAVE_CHECKPOINT_AT_DIAGNOSTICS else None,
+        msnlib_benchmark_dir=config.ANALOG_DISCOVERY_MSNLIB_DATA_DIR,
+        msnlib_mgf=config.ANALOG_DISCOVERY_MSNLIB_MGF,
+        analog_every_n_steps=config.ANALOG_DISCOVERY_EVERY_N_STEPS,
+        precursor_mass_mode=config.PRECURSOR_MASS_MODE,
     )
     extra_callbacks.append(diagnostics_callback)
 
@@ -477,6 +489,15 @@ else:
 
 explicit_loss_weights = (
     (config.LOSS_WEIGHT_ED, config.LOSS_WEIGHT_MCES) if config.USE_EXPLICIT_LOSS_WEIGHTS else None
+)
+round3_options = dict(
+    contrastive_analog_max_mces=config.CONTRASTIVE_ANALOG_MAX_MCES,
+    contrastive_analog_weight=config.CONTRASTIVE_ANALOG_WEIGHT,
+    mces_bin_balance_power=config.MCES_BIN_BALANCE_POWER,
+    use_ed_ordinal_loss=bool(config.USE_ED_ORDINAL_LOSS),
+    aug_peak_dropout=config.AUG_PEAK_DROPOUT,
+    aug_intensity_noise=config.AUG_INTENSITY_NOISE,
+    aug_mz_noise=config.AUG_MZ_NOISE,
 )
 
 model = EmbedderMultitask(
@@ -501,6 +522,7 @@ model = EmbedderMultitask(
     contrastive_temperature=config.CONTRASTIVE_LOSS_TEMPERATURE,
     use_contrastive_projection_head=config.USE_CONTRASTIVE_PROJECTION_HEAD,
     explicit_loss_weights=explicit_loss_weights,
+    **round3_options,
 )
 
 # Create a model:
@@ -531,6 +553,7 @@ if config.load_pretrained:
             contrastive_temperature=config.CONTRASTIVE_LOSS_TEMPERATURE,
             use_contrastive_projection_head=config.USE_CONTRASTIVE_PROJECTION_HEAD,
             explicit_loss_weights=explicit_loss_weights,
+            **round3_options,
         )
         print("loaded full model!!")
     except:

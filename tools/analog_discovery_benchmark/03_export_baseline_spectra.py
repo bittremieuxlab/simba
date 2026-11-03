@@ -16,7 +16,7 @@ import numpy as np
 import pandas as pd
 from rdkit import Chem
 
-from casmi_sets import SEARCHES, SetLoader, check_order
+from benchmark_sets import QUERY_SETS, SEARCHES, SetLoader, check_order
 
 
 def scaled_intensity(spectrum):
@@ -44,9 +44,11 @@ def main():
     ap.add_argument("--casmi_pkl", required=True)
     ap.add_argument("--gnps_mgf", required=True)
     ap.add_argument("--sets_dir", required=True, help="output of 01_build_sets.py")
+    ap.add_argument("--queries", default="casmi", choices=QUERY_SETS, help="query set (default casmi)")
+    ap.add_argument("--msnlib_mgf", default=None, help="MSnLib ENAMDISC MGF, for --queries msnlib")
     ap.add_argument("--out_dir", required=True)
     args = ap.parse_args()
-    loader = SetLoader(args.dataset_pkl, args.casmi_pkl, args.gnps_mgf)
+    loader = SetLoader(args.dataset_pkl, args.casmi_pkl, args.gnps_mgf, args.queries, args.msnlib_mgf)
     out = Path(args.out_dir)
     out.mkdir(parents=True, exist_ok=True)
 

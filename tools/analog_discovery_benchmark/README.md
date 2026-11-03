@@ -182,7 +182,8 @@ $VENVS/dreams/bin/python $TOOLS/DreaMS/experiments/simba_finetune/05_score_analo
     --checkpoint /sofia/projects/2026_053/best_model_paper_SIMBA.ckpt --out_dir $WORK/simba_scores/paper_checkpoint
 ```
 
-This is his notebook code: SIMBA preprocessing plus L2-normalised intensities.
+This is his notebook code: SIMBA preprocessing, then square-root and L2-normalised
+intensities per spectrum. That is the same input transformation as in training.
 His ranking first orders by the predicted **raw** MCES distance in whole bonds,
 `round(40·s) = 40 − MCES`, where `s` is SIMBA's predicted MCES similarity. Ties
 are broken by the predicted edit-distance class, then by `s` itself. The output

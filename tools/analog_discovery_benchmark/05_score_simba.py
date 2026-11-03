@@ -24,7 +24,8 @@ import numpy as np
 import torch
 from torch.utils.data import DataLoader
 
-from casmi_sets import SEARCHES, SetLoader, canonical, check_order
+from benchmark_metrics import simba_ranking
+from benchmark_sets import QUERY_SETS, SEARCHES, SetLoader, canonical, check_order
 from simba.analog_discovery.fc_layers_analog_discovery import FcLayerAnalogDiscovery
 from simba.ordinal_classification.embedder_multitask import EmbedderMultitask
 from simba.transformers.encoder import Encoder
@@ -55,18 +56,6 @@ def compute_all_combinations(checkpoint, emb0, emb1, config):
     return similarities_ed, similarities_mces
 
 
-def compute_ranking(similarities1, similarities1_integer, similarities2_integer):
-    """His compute_ranking: lexsort by (integer MCES, edit-distance class, MCES), descending."""
-    ranking_total = np.zeros(similarities1.shape, dtype=float)
-    for row_index, (row_sim, row_int, row_int2) in enumerate(zip(similarities1, similarities1_integer, similarities2_integer)):
-        sorted_indices = np.lexsort((-row_sim, -row_int2, -row_int))
-        ranking = np.empty_like(sorted_indices, dtype=float)
-        ranking[sorted_indices] = np.arange(len(row_sim), 0, -1)
-        ranking /= len(row_sim)
-        ranking_total[row_index] = ranking
-    return ranking_total
-
-
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--checkpoint", required=True, help="SIMBA multitask checkpoint (.ckpt)")
@@ -74,11 +63,13 @@ def main():
     ap.add_argument("--casmi_pkl", required=True)
     ap.add_argument("--gnps_mgf", required=True)
     ap.add_argument("--sets_dir", required=True, help="output of 01_build_sets.py")
+    ap.add_argument("--queries", default="casmi", choices=QUERY_SETS, help="query set (default casmi)")
+    ap.add_argument("--msnlib_mgf", default=None, help="MSnLib ENAMDISC MGF, for --queries msnlib")
     ap.add_argument("--out_dir", required=True)
     ap.add_argument("--searches", nargs="+", default=list(SEARCHES), choices=SEARCHES)
     args = ap.parse_args()
 
-    loader = SetLoader(args.dataset_pkl, args.casmi_pkl, args.gnps_mgf)
+    loader = SetLoader(args.dataset_pkl, args.casmi_pkl, args.gnps_mgf, args.queries, args.msnlib_mgf)
     config = loader.config  # his notebook settings
     config.D_MODEL, config.N_LAYERS, config.TRANSFORMER_CONTEXT, config.USE_FINGERPRINT = 256, 5, 100, 0
     config.use_cosine_distance = True
@@ -97,7 +88,7 @@ def main():
         similarities2, similarities1 = compute_all_combinations(args.checkpoint, emb_q, emb_lib, config)
         ed_class = np.argmax(similarities2, axis=2)
         del similarities2
-        ranking = compute_ranking(similarities1, np.round(similarities1 * 40), ed_class)
+        ranking = simba_ranking(similarities1, ed_class)
 
         out = Path(args.out_dir) / f"search_{search}"
         out.mkdir(parents=True, exist_ok=True)
