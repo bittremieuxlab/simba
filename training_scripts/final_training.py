@@ -450,6 +450,10 @@ if config.USE_LOSS_WEIGHTS_SECOND_SIMILARITY:
 else:
     weights_sim2 = None
 
+explicit_loss_weights = (
+    (config.LOSS_WEIGHT_ED, config.LOSS_WEIGHT_MCES) if config.USE_EXPLICIT_LOSS_WEIGHTS else None
+)
+
 model = EmbedderMultitask(
     d_model=int(config.D_MODEL),
     n_layers=int(config.N_LAYERS),
@@ -467,6 +471,11 @@ model = EmbedderMultitask(
     use_extra_metadata=config.USE_EXTRA_METADATA_MODEL,
     use_categorical_adducts=config.USE_CATEGORICAL_ADDUCTS,
     adduct_info_csv= config.ADDUCT_INFO_CSV,
+    use_contrastive_loss=config.USE_CONTRASTIVE_LOSS,
+    contrastive_loss_weight=config.CONTRASTIVE_LOSS_WEIGHT,
+    contrastive_temperature=config.CONTRASTIVE_LOSS_TEMPERATURE,
+    use_contrastive_projection_head=config.USE_CONTRASTIVE_PROJECTION_HEAD,
+    explicit_loss_weights=explicit_loss_weights,
 )
 
 # Create a model:
@@ -492,6 +501,11 @@ if config.load_pretrained:
             use_extra_metadata=config.USE_EXTRA_METADATA_MODEL,
             use_categorical_adducts=config.USE_CATEGORICAL_ADDUCTS,
             adduct_info_csv= config.ADDUCT_INFO_CSV,
+            use_contrastive_loss=config.USE_CONTRASTIVE_LOSS,
+            contrastive_loss_weight=config.CONTRASTIVE_LOSS_WEIGHT,
+            contrastive_temperature=config.CONTRASTIVE_LOSS_TEMPERATURE,
+            use_contrastive_projection_head=config.USE_CONTRASTIVE_PROJECTION_HEAD,
+            explicit_loss_weights=explicit_loss_weights,
         )
         print("loaded full model!!")
     except:
@@ -524,6 +538,7 @@ trainer = pl.Trainer(
     callbacks=[checkpoint_callback, checkpoint_n_steps_callback, losscallback],
     enable_progress_bar=enable_progress_bar,
     accelerator=config.ACCELERATOR,
+    gradient_clip_val=config.GRADIENT_CLIP_VAL or None,
     # val_check_interval= config.validate_after_ratio,
 )
 # trainer = pl.Trainer(max_steps=100,  callbacks=[checkpoint_callback, losscallback], enable_progress_bar=enable_progress_bar)

@@ -27,6 +27,9 @@ class Parser:
                 or (at == "PREPROCESSING_NUM_WORKERS")
                 or (at == "TRAINING_NUM_WORKERS")
                 or (at == "VAL_CHECK_INTERVAL")
+                or (at == "USE_CONTRASTIVE_LOSS")
+                or (at == "USE_CONTRASTIVE_PROJECTION_HEAD")
+                or (at == "USE_EXPLICIT_LOSS_WEIGHTS")
             )
 
             is_string_attribute = at in [

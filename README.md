@@ -145,6 +145,38 @@ python training_scripts/final_training.py  \
 
 The code uses the mapping file produced in the last step and the preprocessing dir folder `PREPROCESSING_DIR_TRAIN` must be the same where the preprocessing files are generated. The best-performing model (lowest validation loss) is saved in `CHECKPOINT_DIR`. 
 
+### Reproducing the paper model
+
+The model reported in the paper was trained on the preprocessed NIST20 + MassSpecGym data with the edit-distance, MCES and in-batch contrastive losses weighted equally:
+
+```bash
+python training_scripts/final_training.py  \
+  --CHECKPOINT_DIR=/path/to/checkpoints/ \
+  --PREPROCESSING_PICKLE_FILE=edit_distance_neurips_nist_exhaustive.pkl \
+  --PREPROCESSING_DIR_TRAIN=/path/to/preprocessing_ed_mces_20250123/ \
+  --TRAINING_NUM_WORKERS=24 \
+  --ACCELERATOR=gpu \
+  --epochs=1000 \
+  --VAL_CHECK_INTERVAL=2000 \
+  --BATCH_SIZE=2048 \
+  --LR=4e-4 \
+  --GRADIENT_CLIP_VAL=1.0 \
+  --USE_LEARNABLE_MULTITASK=0 \
+  --USE_EXTRA_METADATA_MODEL=0 \
+  --USE_EXPLICIT_LOSS_WEIGHTS=1 \
+  --LOSS_WEIGHT_ED=1 \
+  --LOSS_WEIGHT_MCES=1 \
+  --USE_CONTRASTIVE_LOSS=1 \
+  --USE_CONTRASTIVE_PROJECTION_HEAD=1 \
+  --CONTRASTIVE_LOSS_TEMPERATURE=0.07 \
+  --CONTRASTIVE_LOSS_WEIGHT=1
+```
+* BATCH_SIZE, LR, GRADIENT_CLIP_VAL: Adam with a constant learning rate, gradient norm clipped to 1.0.
+* USE_LEARNABLE_MULTITASK=0 and USE_EXPLICIT_LOSS_WEIGHTS=1: fixed task weights (LOSS_WEIGHT_ED, LOSS_WEIGHT_MCES) instead of the learned uncertainty weighting.
+* USE_CONTRASTIVE_LOSS: InfoNCE loss on pairs of different spectra of the same molecule within the batch, through a projection head (USE_CONTRASTIVE_PROJECTION_HEAD), with temperature CONTRASTIVE_LOSS_TEMPERATURE and weight CONTRASTIVE_LOSS_WEIGHT. The projection head is only used in training.
+
+Training used a single NVIDIA H200 GPU (batch size 2048 needs a large-memory GPU). The paper checkpoint was chosen among the saved checkpoints by the mean rank of validation Spearman correlation and validation balanced MAE of the predicted MCES distance.
+
 ---
 
 ### Step 3: Testing

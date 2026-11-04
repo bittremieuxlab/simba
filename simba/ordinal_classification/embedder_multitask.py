@@ -80,6 +80,11 @@ class EmbedderMultitask(Embedder):
         use_extra_metadata=False,
         use_categorical_adducts=False,
         adduct_info_csv= "",
+        use_contrastive_loss=False,
+        contrastive_loss_weight=0.0,
+        contrastive_temperature=0.1,
+        use_contrastive_projection_head=False,
+        explicit_loss_weights=None,  # (w_ed, w_mces): loss = w_ed*CE + w_mces*MSE
     ):
         """Initialize the CCSPredictor"""
         super().__init__(
@@ -147,6 +152,18 @@ class EmbedderMultitask(Embedder):
             self.log_sigma1 = torch.tensor(float(initial_log_sigma1), dtype=torch.float32)
             self.log_sigma2 = torch.tensor(float(initial_log_sigma2), dtype=torch.float32)
         self.use_extra_metadata= use_extra_metadata
+        self.explicit_loss_weights = explicit_loss_weights
+
+        # In-batch InfoNCE contrastive ("retrieval") loss: off by default,
+        # zero effect on training/inference when use_contrastive_loss=False.
+        self.use_contrastive_loss = use_contrastive_loss
+        self.contrastive_loss_weight = contrastive_loss_weight
+        self.contrastive_temperature = contrastive_temperature
+        self.use_contrastive_projection_head = use_contrastive_projection_head
+        if self.use_contrastive_loss and self.use_contrastive_projection_head:
+            self.contrastive_projection = nn.Sequential(
+                nn.Linear(d_model, d_model), nn.ReLU(), nn.Linear(d_model, d_model)
+            )
 
     def forward(self, batch, return_spectrum_output=False):
         # … compute raw emb0, emb1, apply relu, fingerprints, etc. …
@@ -229,10 +246,35 @@ class EmbedderMultitask(Embedder):
             target_matrix[i, : target_class + 1] = 1.0
         loss = F.binary_cross_entropy(prob, target_matrix, reduction="mean")
         return loss
-    
-    
+
+    def compute_contrastive_loss(self, emb0, emb1, mol_idx_0, mol_idx_1):
+        """In-batch InfoNCE over the batch's self-pairs (same molecule, two
+        different spectra): symmetric cross-entropy over the N x N
+        cosine-similarity matrix of their embeddings, true match on the
+        diagonal. Returns None when fewer than 2 self-pairs landed in this
+        batch (can't form negatives)."""
+        is_self = mol_idx_0.view(-1) == mol_idx_1.view(-1)
+        n_pairs = int(is_self.sum().item())
+        if n_pairs < 2:
+            return None
+
+        emb0_self = emb0[is_self]
+        emb1_self = emb1[is_self]
+        if self.use_contrastive_projection_head:
+            emb0_self = self.contrastive_projection(emb0_self)
+            emb1_self = self.contrastive_projection(emb1_self)
+        anchor = F.normalize(emb0_self, p=2, dim=-1)
+        positive = F.normalize(emb1_self, p=2, dim=-1)
+        logits = (anchor @ positive.T) / self.contrastive_temperature
+        labels = torch.arange(n_pairs, device=logits.device)
+        return 0.5 * (F.cross_entropy(logits, labels) + F.cross_entropy(logits.T, labels))
+
     def step(self, batch, batch_idx, threshold=0.5, weight_loss2=None):
-        logits_list = self(batch)
+        if self.use_contrastive_loss:
+            logits_list = self(batch, return_spectrum_output=True)
+            emb0, emb1 = logits_list[2], logits_list[3]
+        else:
+            logits_list = self(batch)
         logits1 = logits_list[0]
         logits2 = logits_list[1]
         target1 = torch.tensor(batch["similarity"], dtype=torch.long).to(self.device)
@@ -293,7 +335,10 @@ class EmbedderMultitask(Embedder):
         #sigma2 = torch.nn.functional.softplus(self.sigma2_param)
 
         # Combine the losses using learned weights:
-        if self.USE_LEARNABLE_MULTITASK:
+        if self.explicit_loss_weights is not None:
+            weight_ed, weight_mces = self.explicit_loss_weights
+            loss = weight_ed * loss1 + weight_mces * loss2
+        elif self.USE_LEARNABLE_MULTITASK:
             loss = (torch.exp(-self.log_sigma1) * loss1 + self.log_sigma1 +
                     torch.exp(-self.log_sigma2) * loss2 + self.log_sigma2)
             
@@ -303,6 +348,13 @@ class EmbedderMultitask(Embedder):
             #    torch.log(sigma2))
         else:
             loss = loss1 + (weight_loss2 * loss2)
+
+        if self.use_contrastive_loss:
+            loss_contrastive = self.compute_contrastive_loss(
+                emb0, emb1, batch["mol_idx_0"], batch["mol_idx_1"]
+            )
+            if loss_contrastive is not None:
+                loss = loss + (self.contrastive_loss_weight * loss_contrastive)
         return loss
     
     def step_mse(self, batch, batch_idx, threshold=0.5):
