@@ -50,8 +50,14 @@ except Exception:
     Chem = None
     Draw = None
 
+from simba.core.chemistry.edit_distance.edit_distance import simba_get_edit_distance
 
 
+# %% Cell 111
+os.chdir('/home/spiedrahita/simba/')
+import sys
+sys.path.insert(0, "/home/spiedrahita/simba")
+from legacy.old_scripts.simba.analog_discovery.mces import MCES
 
 
 try:
@@ -67,6 +73,35 @@ except ImportError:
 FILTER_BY_TANIMOTO=True
 
 ###
+
+def safe_mces_sim(smiles1, smiles2, default=np.nan):
+    if smiles1 is None or smiles2 is None:
+        return default
+
+    mol1 = Chem.MolFromSmiles(str(smiles1))
+    mol2 = Chem.MolFromSmiles(str(smiles2))
+
+    if mol1 is None or mol2 is None:
+        print("Invalid SMILES:", smiles1, smiles2)
+        return default
+
+    try:
+        return MCES.calculate_mces_sim(smiles1, smiles2)
+    except Exception as e:
+        print("MCES failed:", smiles1, smiles2, e)
+        return default
+
+def simba_solve_pair_edit_distance(s0, s1, tanimoto):
+
+    mol0 = Chem.MolFromSmiles(s0)
+    mol1 = Chem.MolFromSmiles(s1)
+
+    n_atoms_0 = mol0.GetNumAtoms()
+    n_atoms_1 = mol1.GetNumAtoms()
+
+    distance = simba_get_edit_distance(mol0, mol1, return_nans=False)
+
+    return distance
 
 def _get_first_existing(obj, names, default=None):
     for name in names:
@@ -413,6 +448,8 @@ def build_html(
     modified_cosine_tolerance: float = 0.1,
     compute_ground_truth: bool = False,
 ) -> None:
+    
+    norm_mces_distances = combined['norm_mces_distances_by_method'][method]
     method_result = get_method_result(combined, method)
 
     top_spectra = method_result["spectrums_k_retrieved"]
@@ -421,8 +458,6 @@ def build_html(
     sim_mces = method_result.get("sim_mces")
     sim_ed = method_result.get("sim_ed")
     top10_smiles_matches = method_result.get("top10_smiles_matches")
-    norm_mces_distances = method_result.get("norm_mces_distances")
-
     n_queries = len(top_spectra)
     if max_queries is not None:
         n_queries = min(n_queries, max_queries)
@@ -430,8 +465,8 @@ def build_html(
     query_available = query_spectra is not None and len(query_spectra) >= n_queries
 
     query_blocks = []
-    #for qi in tqdm(range(100), desc="Building HTML", unit="query"):
-    for qi in tqdm(range(n_queries), desc="Building HTML", unit="query"):
+    for qi in tqdm(range(10), desc="Building HTML", unit="query"):
+    #for qi in tqdm(range(n_queries), desc="Building HTML", unit="query"):
         query_spec = query_spectra[qi] if query_available else None
 
         if query_spec is not None:
@@ -542,30 +577,32 @@ def build_html(
                     ground_truth_ed_values = []
                     ground_truth_mces_values = []
                     
-                    #print('Computing ed')
-                    #ged=[]
-                    #for s in all_spectrums_1:
-                    #    print(f'Computing ed for smiles: {s.params["smiles"]}')
-                    #    try:
-                    #        ged_sub = MolecularSimilarityMetrics.compute_edit_distance(
-                    #                                            all_spectrums_0, [s]
+                    print('Computing ed')
+                    #ged = MolecularSimilarityMetrics.compute_edit_distance(
+                    #                                            all_spectrums_0, all_spectrums_1
                     #                                        )
-                    #        print('Finished ed')
-                    #    except:
-                    #        ged_sub = None
-                    #        print('Error computing ed')
-                    #    ged.append(ged_sub)
-                        
+                    ged=[]
+                    for s, tanimoto in zip(all_spectrums_1, tanimotos):
+                        print(f'ED for {s.params["smiles"]}')
+                        ged_sub = simba_solve_pair_edit_distance(query_spec.params['smiles'], s.params['smiles'], tanimoto)
+                        ged.append(ged_sub)
+
+
                     print('Computing mces')
                     gmces = MolecularSimilarityMetrics.compute_mces(
-                                                        all_spectrums_0, all_spectrums_1, threshold=40,
+                                                        all_spectrums_0, all_spectrums_1, 
                                                     )
                     
-                    ground_truth_ed_values.append(None)
+                    ground_truth_ed_values.append(ged)
                     ground_truth_mces_values.append(gmces)
                             
                 ground_truth_ed_values = np.asarray(ground_truth_ed_values).reshape(-1)
                 ground_truth_mces_values = np.asarray(ground_truth_mces_values).reshape(-1)
+                norm_mces_distances = [ (1- safe_mces_sim(query_spec.params['smiles'],s.params['smiles'])) for s in all_spectrums_1]
+                norm_mces_distances = np.array(norm_mces_distances).reshape(-1)
+
+                print(f'ED calculated: {ground_truth_ed_values}')
+                print(f'MCES calculated: {ground_truth_mces_values}')
             except Exception as exc:
                 print(f"Warning: ground-truth metrics failed for query {qi}: {exc}")
                 ground_truth_ed_values = None
@@ -580,8 +617,8 @@ def build_html(
 
             pred_mces = safe_score(sim_mces, qi, rank0, ref_index=ref_index)
             pred_ed = safe_score(sim_ed, qi, rank0, ref_index=ref_index)
-            norm_mces = get_norm_mces_for_rank(rank0, ref_index=ref_index)
-
+            norm_mces = norm_mces_distances[rank0]
+            
             ground_truth_mces = None
             ground_truth_ed = None
             
@@ -617,29 +654,37 @@ def build_html(
             score_rows = []
             if ref_index is not None:
                 score_rows.append(("Reference index", ref_index))
-            if norm_mces is not None and np.isfinite(norm_mces):
-                score_rows.append(("Normalized MCES distance", f"{norm_mces:.6g}"))
-            if modified_cosine is not None and np.isfinite(modified_cosine):
-                score_rows.append(("Modified cosine", f"{modified_cosine:.6f}"))
-            elif query_spec is not None:
-                score_rows.append(("Modified cosine", "N/A"))
-            if pred_mces is not None and np.isfinite(pred_mces):
-                score_rows.append(("Predicted MCES", f"{pred_mces:.6g}"))
+            score_rows.append(("SMILES", match_smiles))
+
+            
+            if tanimoto is not None:
+                score_rows.append(("Ground truth Tanimoto", f"{tanimoto:.6g}"))
+            else:
+                score_rows.append(("Ground truth Tanimoto", "N/A"))
+            if norm_mces is not None:
+                score_rows.append(("Ground truth Normalized MCES distance", f"{norm_mces:.6g}"))
+
+
             if ground_truth_mces is not None and np.isfinite(ground_truth_mces):
                 score_rows.append(("Ground-truth MCES", f"{ground_truth_mces:.6g}"))
             elif query_spec is not None:
                 score_rows.append(("Ground-truth MCES", "N/A"))
-            if tanimoto is not None:
-                score_rows.append(("Tanimoto", f"{tanimoto:.6g}"))
+
+            if ground_truth_ed is not None:
+                score_rows.append(("Ground-truth edit distance", f"{ground_truth_ed:.6g}"))
             else:
-                score_rows.append(("Tanimoto", "N/A"))
-            #if pred_ed is not None and np.isfinite(pred_ed):
-            #    score_rows.append(("Predicted edit distance", f"{pred_ed:.6g}"))
-            #if ground_truth_ed is not None and np.isfinite(ground_truth_ed):
-            #    score_rows.append(("Ground-truth edit distance", f"{ground_truth_ed:.6g}"))
-            #elif query_spec is not None:
-            #    score_rows.append(("Ground-truth edit distance", "N/A"))
-            score_rows.append(("SMILES", match_smiles))
+                score_rows.append(("Ground-truth edit distance", "N/A"))
+
+            if pred_mces is not None and np.isfinite(pred_mces):
+                score_rows.append(("Predicted MCES", f"{pred_mces:.6g}"))
+            if pred_ed is not None and np.isfinite(pred_ed):
+                score_rows.append(("Predicted edit distance", f"{pred_ed:.6g}"))
+
+            if modified_cosine is not None and np.isfinite(modified_cosine):
+                score_rows.append(("Modified cosine", f"{modified_cosine:.6f}"))
+            elif query_spec is not None:
+                score_rows.append(("Modified cosine", "N/A"))
+           
 
             score_table = "<table class='meta-table'><tbody>" + "".join(
                 f"<tr><th>{html.escape(str(k))}</th><td>{html.escape(str(v))}</td></tr>"
@@ -691,7 +736,7 @@ def build_html(
 
         # Select the retrieved spectrum with the minimum finite normalized MCES distance.
         best_match_html = ""
-        best_rank0= np.argmin(ground_truth_mces_values)
+        best_rank0= np.argmin(norm_mces_distances)
 
         if best_rank0 is not None:
             best_match_html = render_match_card(best_rank0, "Best match", is_best=True)
@@ -715,7 +760,7 @@ def build_html(
             {query_visuals_html}
             {query_meta_html}
             {query_peaks_html}
-            <h3>Best match (lowest MCES distance)</h3>
+            <h3>Best match (lowest Normalized MCES distance)</h3>
             {best_match_html}
             <h3>Top {len(matches_for_query)} matches by {html.escape(method)}</h3>
             {''.join(matches_html)}
@@ -774,11 +819,11 @@ def build_html(
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--input-pickle", default="/data/simba_files_/analog_discovery_simba_modified_cosine_results_tf_unique_compounds.pkl")
+    parser.add_argument("--input-pickle", default="/data/simba_files_/analog_discovery_simba_modified_cosine_results_tf_original_simba.pkl")
     #parser.add_argument("--input-pickle", default="/data/simba_files_/analog_discovery_ground_truth.pkl")
     parser.add_argument("--method", default="simba", help="Example: simba or modified_cosine")
     #parser.add_argument("--method", default="ground_truth_mces", help="Example: simba or modified_cosine")
-    parser.add_argument("--output-html", default="/data/simba_files_/analog_discovery_report_tf_unique_compounds_filter_tanimoto.html")
+    parser.add_argument("--output-html", default="/data/simba_files_/analog_discovery_report_tf_unique_compounds_original_simba.html")
     #parser.add_argument("--output-html", default="/data/simba_files_/analog_discovery_ground_truth.html")
     parser.add_argument("--query-spectra-pickle", default=None, help="Optional pickle with all_spectrums_query/query_spectra/list of query spectra.")
     parser.add_argument("--top-k", type=int, default=10)

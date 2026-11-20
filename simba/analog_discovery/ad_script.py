@@ -67,21 +67,25 @@ OPEN_REFERENCE_SPECTRA = False
 WRITE_REFERENCE_SPECTRA = False
 
 # Run both retrieval backends sequentially.
-SCORING_METHODS = ["simba", "modified_cosine"]
-VALID_SCORING_METHODS = {"simba", "modified_cosine"}
+#SCORING_METHODS = ["simba", "modified_cosine"]
+SCORING_METHODS = ["simba"]
+
+#VALID_SCORING_METHODS = {"simba", "modified_cosine"}
+VALID_SCORING_METHODS = {"simba"}
 invalid_methods = set(SCORING_METHODS) - VALID_SCORING_METHODS
 if invalid_methods:
     raise ValueError(f"Invalid scoring methods: {invalid_methods}. Valid methods: {VALID_SCORING_METHODS}")
 
 # Method used by the downstream visualization/inspection cells after all algorithms finish.
 # The pickle file always contains all methods, regardless of this value.
-PLOT_SCORING_METHOD = "modified_cosine"
+#PLOT_SCORING_METHOD = "modified_cosine"
+PLOT_SCORING_METHOD="simba"
 if PLOT_SCORING_METHOD not in SCORING_METHODS:
     raise ValueError(f"PLOT_SCORING_METHOD must be one of {SCORING_METHODS}, got {PLOT_SCORING_METHOD!r}")
 
 
 ## MAIN PARAMETERS
-SUFIX="unique_compounds_mh"
+SUFIX="simba_new_training"
 REMOVE_REDUNDANT_SPECTRA=False
 GOOD_QUALITY_FILTERING=False
 USE_NEW_RANKING=False
@@ -90,12 +94,11 @@ RETURN_UNIQUE_COMPOUNDS=True
 USE_POSITIVE_DATA=True
 USE_NEGATIVE_DATA=True
 TARGET_ADDUCT=None
-
-# REST OF PARAMETERS
 USE_METADATA = True
 USE_SIMBA_ORIGINAL = False
 PUT_METADATA_TO_ZEROS_REFERENCE = False
 PUT_METADATA_TO_ZEROS_QUERY = False
+
 # Modified cosine parameters.
 FRAGMENT_TOLERANCE = 0.1
 PRECURSOR_TOLERANCE = 1.0  # kept explicit for reproducibility; matchms ModifiedCosine uses fragment tolerance here
@@ -147,7 +150,6 @@ else:
     cfg.model.features.use_adduct=False
     cfg.model.features.use_ion_method=False
     cfg.model.features.use_ion_activation=False
-    cfg.model.features.use_only_protonized_adducts=False
     cfg.model.use_ce=False
     cfg.model.use_adduct=False
     cfg.model.use_ion_method=False
@@ -174,9 +176,13 @@ if USE_SIMBA_ORIGINAL:
     )
 else:
     model_location = (
-        "/data/simba_files_/training_files_new_encoding/ms2_merged_ref_auto_20260629/best_model.ckpt"
+        #"/data/simba_files_/training_files_new_encoding/ms2_merged_ref_auto_20260629/best_model.ckpt"
         #"/data/simba_files_/training_files_new_encoding/msn_reference_fixed_split_20260629/best_model.ckpt"
-    )
+        # "/data/simba_files_/training_files_new_encoding/msn_merged_ref_auto_20260629/best_model.ckpt"
+        #"/data/simba_files_/training_files_new_encoding/ms2_reference_fixed_split_baseline/best_model.ckpt"
+        #"/data/simba_files_/training_files_new_encoding/ms2_merged_ref_auto_baseline/best_model.ckpt"
+    "/data/simba_files_/training_files_new_encoding/ms2_merged_ref_auto/best_model.ckpt"
+        )
    
 
 #reference_file = "/data/tutorial_files/MassSpecGym.mgf"
@@ -334,7 +340,7 @@ if USE_METADATA:
             setattr(all_spectrums_reference[j], 'adduct', '[M+H]+' )
             all_spectrums_reference[j].params['ionmode']='positive'
             setattr(all_spectrums_reference[j], 'ionmode', 'positive' )
-    else:
+    '''else:
 
         #if not(USE_TFS_SPECTRA):
           for j,s in enumerate(all_spectrums_reference):
@@ -371,7 +377,7 @@ if USE_METADATA:
             #print(f'ionmode: {s.params["ionmode"].lower()}')
             all_spectrums_reference[j].params['ionmode']=s.params['ionmode'].lower()
             setattr(all_spectrums_reference[j], 'ionmode', s.params['ionmode'])
-        
+    '''
 else:
     for j,s in enumerate(all_spectrums_reference):
         new_params = {}
@@ -1595,12 +1601,8 @@ plt.ylabel("Normalized MCES distance")
 plt.grid(alpha=0.3)
 
 
-# %% Cell 131
-all_spectrums_query[0].params
 
 
-# %% Cell 132
-all_spectrums_reference[0].params['ce']
 
 
 # %% Cell 133

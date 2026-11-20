@@ -374,15 +374,16 @@ class CustomizedCrossEntropyLoss(nn.Module):
             # if its an unrelated or identical pair, do not give weight for doing a mistake
             #penalty_matrix[0,1:]=0
             #penalty_matrix[5,0:-1]=0
-            #penalty_matrix[0:-1,5]=0
             #penalty_matrix[1:,0]=0
+            #penalty_matrix[0:-1,5]=0
+            
 
             # new penalty matrix v2
             # if its an unrelated or identical pair, do not give weight for doing a mistake
-            penalty_matrix[0,2:]=0
-            penalty_matrix[5,0:-1]=0
+            # in this version we penalize more smooth the unrealted molecules and try to get a more strict identity 
+            penalty_matrix[5,0:-2]=0
             penalty_matrix[0:-1,5]=0
-            penalty_matrix[1:-1,0]=0
+            
 
             '''
             penalty_matrix[0,0]=1

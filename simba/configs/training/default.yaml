@@ -32,6 +32,7 @@ sampling:
   use_uniform_data_inference: true
   bins_uniformise_training: 10
   bins_uniformise_inference: 10
+  percentage_data_to_use: 1
 
   # Add high similarity pairs
   add_high_similarity_pairs: false

@@ -217,7 +217,10 @@ def prepare_data(
     indexes_tani_multitasking_train = _remove_duplicates_array(
         indexes_tani_multitasking_train
     )
-
+    if cfg.sampling.percentage_data_to_use<1:
+        indexes_tani_multitasking_train = _reduce_percentage_data_to_use(
+        indexes_tani_multitasking_train, cfg.sampling.percentage_data_to_use
+    )
     # Load MCES indexes for validation
     indexes_tani_multitasking_val = LoadMCES.merge_numpy_arrays(
         cfg.paths.preprocessing_dir_train,  # Note: uses TRAIN dir (same as original)
@@ -489,3 +492,16 @@ def train(
 def _remove_duplicates_array(arr: np.ndarray) -> np.ndarray:
     """Remove duplicate rows from numpy array."""
     return np.unique(arr, axis=0)
+def _reduce_percentage_data_to_use(arr, percentage, seed=None):
+    if not 0 <= percentage <= 1:
+        raise ValueError("percentage must be between 0 and 1")
+
+    n = int(len(arr) * percentage)
+
+    if percentage == 1.0:
+        return arr
+
+    rng = np.random.default_rng(seed)
+    indices = rng.choice(len(arr), size=n, replace=False)
+
+    return arr[indices]
