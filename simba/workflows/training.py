@@ -223,7 +223,7 @@ def prepare_data(
         use_edit_distance=cfg.model.tasks.edit_distance.enabled,
         use_multitask=cfg.model.multitasking.enabled,
         add_high_similarity_pairs=cfg.sampling.add_high_similarity_pairs,
-        remove_percentage=0.0,
+        remove_percentage=0.90,
     )
     indexes_tani_multitasking_train = _remove_duplicates_array(
         indexes_tani_multitasking_train
