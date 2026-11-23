@@ -49,7 +49,7 @@ def metadata_analysis(overrides: tuple[str, ...]) -> None:
     from simba.utils.logger_setup import logger
 
     from simba.workflows.inference_metadata_analysis import (
-        run_metadata_sensitivity_analysis as run_inference,
+        run_inference as run_inference,
     )
 
     # Enable MPS fallback on macOS for unsupported ops

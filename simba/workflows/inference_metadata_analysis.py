@@ -10,8 +10,6 @@ and is explicitly labeled as such, NOT as training-data abundance.
 import os
 import sys
 from pathlib import Path
-import re
-import warnings
 
 
 import hydra
@@ -31,7 +29,7 @@ from simba.core.data.datasets.multitask_dataset_builder import MultitaskDataBuil
 from simba.core.training.train_utils import TrainUtils
 from simba.workflows.inference import (
    _get_ground_truth, _which_index, load_inference_data,
-   load_model_for_inference, run_inference,
+   load_model_for_inference, run_inference as core_run_inference,
 )
 
 
@@ -199,78 +197,305 @@ def add_abundance(meta, y, pred, task, counts, min_pairs):
 
 
 
-def plot_tables(df, output):
-   for field, part in df.groupby('field', sort=False):
-       for metric, title in [('mae', 'Mean absolute error'), ('spearman', 'Spearman correlation'),
-                             ('accuracy', 'Edit-distance accuracy')]:
-           subset = part if metric != 'accuracy' else part[part.task == 'ed']
-           subset = subset[np.isfinite(subset[metric])]
-           if subset.empty:
-               continue
-           fig, ax = plt.subplots(figsize=(max(7, len(subset.regime.unique()) * 1.0), 4.8))
-           pivot = subset.pivot_table(index='regime', columns='task', values=metric, aggfunc='first')
-           pivot = pivot.reindex(columns=[x for x in ('mces', 'ed') if x in pivot.columns])
-           pivot.plot.bar(ax=ax, width=0.75, rot=35)
-           ax.set_title(f'{field.replace("_", " ").title()} — {title}')
-           ax.set_xlabel('Acquisition category (both spectra)')
-           ax.set_ylabel(title + (' (MCES distance units)' if metric == 'mae' else ''))
-           ax.grid(axis='y', alpha=0.2)
-           ax.set_axisbelow(True)
-           ax.legend(title='Task')
-           fig.tight_layout()
-           name = re.sub(r'[^a-zA-Z0-9_-]', '_', field)
-           fig.savefig(output / f'{name}_{metric}.png', dpi=220, bbox_inches='tight')
-           fig.savefig(output / f'{name}_{metric}.pdf', bbox_inches='tight')
-           plt.close(fig)
+# Five acquisition fields; one row per field in stratified figures.
+DISPLAY_FIELDS = (
+   ('ionmode', 'Ion mode'),
+   ('adduct', 'Adduct'),
+   ('ce_interval', 'Collision energy'),
+   ('ion_activation', 'Activation method'),
+   ('ionization_method', 'Ionization method'),
+)
+FEATURE_FLAGS = (
+   ('use_ion_mode', 'Ion mode'),
+   ('use_adduct', 'Adduct'),
+   ('use_ce', 'Collision energy'),
+   ('use_ion_activation', 'Activation method'),
+   ('use_ion_method', 'Ionization method'),
+)
+PAPER_DIR = Path('/data/paper_graphs')
+METADATA_MODEL_NAME = 'ms2_merged_ref_auto_stratified'
+BASELINE_MODEL_NAME = 'ms2_merged_ref_auto_stratified_baseline'
+COLORS = {'Metadata model': '#3478aa', 'Baseline model': '#e49b47'}
+
+
+
+
+def set_flags(cfg, active):
+   for flag, _ in FEATURE_FLAGS:
+       cfg.model.features[flag] = int(flag in active)
+
+
+
+
+def checkpoint_file(cfg, directory):
+   name = 'last.ckpt' if cfg.inference.use_last_model else cfg.checkpoints.best_model_name
+   path = Path(directory) / name
+   if not path.is_file():
+       raise FileNotFoundError(f'Missing checkpoint: {path}')
+   return path
+
+
+
+
+def infer_variant(cfg, model, pairs_ed, pairs_mces, label):
+   # Reconstruct dataloaders so metadata flags affect dataset encoding.
+   dl_ed, dl_mces, used_ed, used_mces = prepare(cfg, pairs_ed, pairs_mces)
+   ed_batches, mc_batches = core_run_inference(cfg, model, dl_ed, dl_mces)
+   ed_pred, mc_pred = flatten_predictions(ed_batches, mc_batches)
+   ed_true, _ = _get_ground_truth(dl_ed)
+   _, mc_true = _get_ground_truth(dl_mces)
+   ed_true = np.asarray(ed_true, dtype=float).reshape(-1)
+   mc_true = np.asarray(mc_true, dtype=float).reshape(-1)
+   if len(ed_true) != len(ed_pred) or len(mc_true) != len(mc_pred):
+       raise ValueError(f'Prediction/ground truth mismatch for {label}')
+   if not cfg.data.use_tanimoto:
+       scale = float(cfg.data.mces20_max_value)
+       mc_true, mc_pred = scale * (1 - mc_true), scale * (1 - mc_pred)
+   result = {
+       'ed': {'true': ed_true, 'pred': ed_pred,
+              'meta': metadata_for_pairs(used_ed, len(ed_pred))},
+       'mces': {'true': mc_true, 'pred': mc_pred,
+                'meta': metadata_for_pairs(used_mces, len(mc_pred))},
+   }
+   for task in ('ed', 'mces'):
+       result[task]['metrics'] = metrics(result[task]['true'], result[task]['pred'], task)
+   print(f'{label}: MCES MAE={result["mces"]["metrics"]["mae"]:.4f}; '
+         f'ED MAE={result["ed"]["metrics"]["mae"]:.4f}', flush=True)
+   return result
+
+
+
+
+def check_same_test_pairs(metadata_result, baseline_result):
+   for task in ('ed', 'mces'):
+       a, b = metadata_result[task], baseline_result[task]
+       if not np.array_equal(a['true'], b['true'], equal_nan=True):
+           raise ValueError(f'{task}: test ground truth differs between models')
+       if not a['meta'].equals(b['meta']):
+           raise ValueError(f'{task}: test metadata/order differs between models')
+
+
+
+
+def collect_strata(result, model_name, min_pairs):
+   rows = []
+   for task in ('mces', 'ed'):
+       part = result[task]
+       for r in make_rows(part['meta'], part['true'], part['pred'], task, min_pairs):
+           rows.append({'model': model_name, **r})
+   return rows
+
+
+
+
+def paired_bar(ax, categories, mces, ed, title, show_counts=None):
+   """Side-by-side bars with separate y axes for unlike MAE scales."""
+   x = np.arange(len(categories))
+   width = .38
+   right = ax.twinx()
+   b1 = ax.bar(x - width / 2, mces, width, color='#3478aa', label='MCES MAE')
+   b2 = right.bar(x + width / 2, ed, width, color='#e49b47', label='Edit-distance MAE')
+   ax.set_xticks(x, categories, rotation=25, ha='right')
+   ax.set_ylabel('MCES MAE (distance units)', color='#3478aa')
+   right.set_ylabel('Edit-distance MAE', color='#b4772d')
+   ax.tick_params(axis='y', labelcolor='#3478aa')
+   right.tick_params(axis='y', labelcolor='#b4772d')
+   ax.set_ylim(0, max([v for v in mces if np.isfinite(v)] + [1]) * 1.22)
+   right.set_ylim(0, max([v for v in ed if np.isfinite(v)] + [0.2]) * 1.22)
+   ax.set_title(title)
+   ax.grid(axis='y', alpha=.17)
+   ax.set_axisbelow(True)
+   ax.legend([b1, b2], ['MCES MAE', 'Edit-distance MAE'], loc='upper right', fontsize=8)
+   if show_counts:
+       for i, value in enumerate(show_counts):
+           ax.text(x[i], -.22, value, transform=ax.get_xaxis_transform(),
+                   ha='center', va='top', fontsize=7)
+   return ax, right
+
+
+
+
+def plot_acquisition_mae(df, output):
+   fig, axes = plt.subplots(len(DISPLAY_FIELDS), 1, figsize=(13, 21))
+   for ax, (field, title) in zip(axes, DISPLAY_FIELDS):
+       sub = df[df.field == field]
+       if sub.empty:
+           ax.text(.5, .5, 'No eligible pairs', ha='center', transform=ax.transAxes)
+           continue
+       pivot = sub.pivot(index='regime', columns='task', values='mae')
+       pivot = pivot.sort_index()
+       paired_bar(ax, pivot.index.astype(str).tolist(),
+                  pivot.get('mces', pd.Series(np.nan, index=pivot.index)).to_numpy(),
+                  pivot.get('ed', pd.Series(np.nan, index=pivot.index)).to_numpy(), title)
+   fig.suptitle('Acquisition-regime performance — metadata model\n'
+                'Both spectra share the plotted acquisition category', fontsize=15)
+   fig.tight_layout(rect=[0, 0, 1, .96], h_pad=3)
+   fig.savefig(output / 'acquisition_regime_mae.svg', bbox_inches='tight')
+   plt.close(fig)
+
+
+
+
+def plot_sensitivity_mae(rows, output):
+   df = pd.DataFrame(rows)
+   fig, ax = plt.subplots(figsize=(12, 5.8))
+   paired_bar(ax, df['variant'].tolist(), df['mces_mae'].to_numpy(),
+              df['ed_mae'].to_numpy(), 'Metadata sensitivity: no metadata vs one field enabled')
+   fig.tight_layout()
+   fig.savefig(output / 'metadata_flag_sensitivity_mae.svg', bbox_inches='tight')
+   plt.close(fig)
+
+
+
+
+def plot_overall_comparison(overall, output):
+   fig, ax = plt.subplots(figsize=(8, 5.2))
+   paired_bar(ax, overall['model'].tolist(), overall['mces_mae'].to_numpy(),
+              overall['ed_mae'].to_numpy(), 'Overall MAE: metadata vs spectrum-only baseline')
+   fig.tight_layout()
+   fig.savefig(output / 'overall_model_comparison_mae.svg', bbox_inches='tight')
+   plt.close(fig)
+
+
+
+
+def plot_stratified_comparison(df, task, output):
+   """Five stacked panels, one y-axis per panel, grouped by model."""
+   fig, axes = plt.subplots(len(DISPLAY_FIELDS), 1, figsize=(13, 21))
+   for ax, (field, title) in zip(axes, DISPLAY_FIELDS):
+       sub = df[(df.field == field) & (df.task == task)]
+       if sub.empty:
+           ax.text(.5, .5, 'No eligible pairs', ha='center', transform=ax.transAxes)
+           continue
+       pivot = sub.pivot(index='regime', columns='model', values='mae').sort_index()
+       x = np.arange(len(pivot))
+       width = .38
+       for shift, name in [(-.5, 'Metadata model'), (.5, 'Baseline model')]:
+           vals = pivot[name].to_numpy() if name in pivot else np.full(len(pivot), np.nan)
+           ax.bar(x + shift * width, vals, width, label=name, color=COLORS[name])
+       ax.set_xticks(x, pivot.index.astype(str), rotation=25, ha='right')
+       ax.set_ylabel('MCES MAE (distance units)' if task == 'mces' else 'Edit-distance MAE')
+       ax.set_title(title)
+       ax.grid(axis='y', alpha=.18)
+       ax.set_axisbelow(True)
+       ax.legend(loc='upper right', fontsize=8)
+       vals = pivot.to_numpy(dtype=float)
+       if np.isfinite(vals).any():
+           ax.set_ylim(0, np.nanmax(vals) * 1.2)
+   fig.suptitle(('MCES' if task == 'mces' else 'Edit-distance') +
+                ' MAE by acquisition regime — both models', fontsize=15)
+   fig.tight_layout(rect=[0, 0, 1, .97], h_pad=3)
+   fig.savefig(output / f'{task}_stratified_model_comparison_mae.svg', bbox_inches='tight')
+   plt.close(fig)
 
 
 
 
 def run_stratified_inference(cfg: DictConfig):
-   ckpt = os.path.join(cfg.paths.checkpoint_dir,
-       'last.ckpt' if cfg.inference.use_last_model else cfg.checkpoints.best_model_name)
-   base = cfg.paths.get('output_dir') or cfg.paths.checkpoint_dir
-   out = Path(base) / 'acquisition_stratified'
-   out.mkdir(parents=True, exist_ok=True)
-   pairs_ed, pairs_mces, _ = load_inference_data(cfg)
-   dl_ed, dl_mces, pairs_ed, pairs_mces = prepare(cfg, pairs_ed, pairs_mces)
-   model = load_model_for_inference(cfg, ckpt)
-   pred_ed_batches, pred_mc_batches = run_inference(cfg, model, dl_ed, dl_mces)
-   ed_pred, mc_pred = flatten_predictions(pred_ed_batches, pred_mc_batches)
-   ed_true, _ = _get_ground_truth(dl_ed)
-   _, mc_true = _get_ground_truth(dl_mces)
-   ed_true, mc_true = np.asarray(ed_true, dtype=float).reshape(-1), np.asarray(mc_true, dtype=float).reshape(-1)
-   if not (len(ed_true) == len(ed_pred) and len(mc_true) == len(mc_pred)):
-       raise ValueError('Ground truth and predictions are not aligned')
-   # The supplied workflow uses normalized MCES similarity, converting to distance here.
-   if not cfg.data.use_tanimoto:
-       scale = float(cfg.data.mces20_max_value)
-       mc_true, mc_pred = scale * (1-mc_true), scale * (1-mc_pred)
-   ed_meta = metadata_for_pairs(pairs_ed, len(ed_pred))
-   mc_meta = metadata_for_pairs(pairs_mces, len(mc_pred))
+   PAPER_DIR.mkdir(parents=True, exist_ok=True)
    min_pairs = int(OmegaConf.select(cfg, 'analysis.min_pairs', default=MIN_PAIRS))
-   counts_path = OmegaConf.select(cfg, 'analysis.training_abundance_csv', default=None)
-   counts = pd.read_csv(counts_path) if counts_path else None
-   if counts is not None and not {'field','value','n_train_spectra'}.issubset(counts.columns):
-       raise ValueError('Training abundance CSV must contain field,value,n_train_spectra')
-   if counts is None:
-       warnings.warn('Training abundance counts unavailable: abundance plots use TEST PAIR FREQUENCY proxy, not training abundance.')
-   rows = []
-   for task, meta, y, p in [('ed', ed_meta, ed_true, ed_pred),
-                            ('mces', mc_meta, mc_true, mc_pred)]:
-       rows.extend(make_rows(meta, y, p, task, min_pairs))
-       rows.extend(add_abundance(meta, y, p, task, counts, min_pairs))
-       overall = metrics(y, p, task)
-       print(f'{task.upper()} overall: {overall}')
-   df = pd.DataFrame(rows)
-   if df.empty:
-       raise ValueError('No regimes met minimum pair count. Reduce analysis.min_pairs.')
-   df.to_csv(out / 'stratified_metrics.csv', index=False)
-   ed_meta.to_csv(out / 'ed_pair_metadata.csv', index=False)
-   mc_meta.to_csv(out / 'mces_pair_metadata.csv', index=False)
-   plot_tables(df, out)
-   print(f'Saved metrics and graphs to: {out}')
-   return df
+   metadata_dir = Path(cfg.paths.checkpoint_dir)
+   # By default baseline is a sibling of the supplied metadata checkpoint.
+   baseline_dir = Path(OmegaConf.select(cfg, 'analysis.baseline_checkpoint_dir', default=None)
+                       or metadata_dir.parent / BASELINE_MODEL_NAME)
+   metadata_ckpt = checkpoint_file(cfg, metadata_dir)
+   baseline_ckpt = checkpoint_file(cfg, baseline_dir)
+   pairs_ed, pairs_mces, _ = load_inference_data(cfg)
+   original_flags = {name: cfg.model.features[name] for name, _ in FEATURE_FLAGS}
+   try:
+       # Load each checkpoint with the feature configuration it was trained with.
+       set_flags(cfg, {name for name, _ in FEATURE_FLAGS})
+       metadata_model = load_model_for_inference(cfg, str(metadata_ckpt))
+       set_flags(cfg, set())
+       baseline_model = load_model_for_inference(cfg, str(baseline_ckpt))
+
+
+       # Spectrum-only checkpoint: metadata fields must all be zero.
+       set_flags(cfg, set())
+       baseline_result = infer_variant(cfg, baseline_model, pairs_ed, pairs_mces, 'Baseline model')
+
+
+       # Full-metadata checkpoint: used for both overall and stratified comparisons.
+       set_flags(cfg, {name for name, _ in FEATURE_FLAGS})
+       full_result = infer_variant(cfg, metadata_model, pairs_ed, pairs_mces, 'Metadata model')
+       check_same_test_pairs(full_result, baseline_result)
+
+
+       # Sensitivity of the metadata checkpoint only: no fields vs each single field.
+       variants = [('No metadata', set())] + [
+           (f'{label} only', {flag}) for flag, label in FEATURE_FLAGS
+       ]
+       sensitivity = []
+       for label, active in variants:
+           set_flags(cfg, active)
+           result = infer_variant(cfg, metadata_model, pairs_ed, pairs_mces, label)
+           check_same_test_pairs(full_result, result)
+           sensitivity.append({'variant': label,
+                               'mces_mae': result['mces']['metrics']['mae'],
+                               'ed_mae': result['ed']['metrics']['mae'],
+                               'mces_n_pairs': result['mces']['metrics']['n_pairs'],
+                               'ed_n_pairs': result['ed']['metrics']['n_pairs']})
+   finally:
+       for name, value in original_flags.items():
+           cfg.model.features[name] = value
+
+
+   metadata_rows = collect_strata(full_result, 'Metadata model', min_pairs)
+   baseline_rows = collect_strata(baseline_result, 'Baseline model', min_pairs)
+   # Only show categories meeting the minimum sample count for BOTH models.
+   comparison = pd.DataFrame(metadata_rows + baseline_rows)
+   if comparison.empty:
+       raise ValueError('No eligible acquisition regimes; lower analysis.min_pairs')
+   counts = comparison.groupby(['task', 'field', 'regime'])['model'].nunique()
+   eligible = counts[counts == 2].index
+   comparison = comparison.set_index(['task', 'field', 'regime']).loc[eligible].reset_index()
+   if comparison.empty:
+       raise ValueError('No categories shared by both model results')
+   metadata_df = comparison[comparison.model == 'Metadata model'].copy()
+
+
+   overall = pd.DataFrame([
+       {'model': name,
+        'mces_mae': res['mces']['metrics']['mae'],
+        'ed_mae': res['ed']['metrics']['mae'],
+        'mces_n_pairs': res['mces']['metrics']['n_pairs'],
+        'ed_n_pairs': res['ed']['metrics']['n_pairs']}
+       for name, res in [('Metadata model', full_result), ('Baseline model', baseline_result)]
+   ])
+   pd.DataFrame(sensitivity).to_csv(PAPER_DIR / 'metadata_flag_sensitivity_mae.csv', index=False)
+   metadata_df.to_csv(PAPER_DIR / 'acquisition_regime_mae.csv', index=False)
+   overall.to_csv(PAPER_DIR / 'overall_model_comparison_mae.csv', index=False)
+   comparison.to_csv(PAPER_DIR / 'stratified_model_comparison_mae.csv', index=False)
+
+
+   plot_acquisition_mae(metadata_df, PAPER_DIR)
+   plot_sensitivity_mae(sensitivity, PAPER_DIR)
+   plot_overall_comparison(overall, PAPER_DIR)
+   plot_stratified_comparison(comparison, 'mces', PAPER_DIR)
+   plot_stratified_comparison(comparison, 'ed', PAPER_DIR)
+   print(f'Saved 5 SVG figures and 4 CSV tables to {PAPER_DIR}', flush=True)
+   return {
+       'ed_correlation': full_result['ed']['metrics']['spearman'],
+       'mces_correlation': full_result['mces']['metrics']['spearman'],
+       'ed_mae': full_result['ed']['metrics']['mae'],
+       'ed_accuracy': full_result['ed']['metrics']['accuracy'],
+       'mces_mae': full_result['mces']['metrics']['mae'],
+       'output_dir': str(PAPER_DIR),
+   }
+
+
+
+
+def run_metadata_sensitivity_analysis(cfg: DictConfig):
+   """Existing simba metadata_analysis CLI entry point."""
+   return run_stratified_inference(cfg)
+
+
+
+
+def run_inference(cfg: DictConfig):
+   """One-argument workflow wrapper (not the underlying inference function)."""
+   return run_stratified_inference(cfg)
 
 
 
@@ -284,7 +509,6 @@ def main(cfg: DictConfig):
 
 if __name__ == '__main__':
    main()
-
 
 
 

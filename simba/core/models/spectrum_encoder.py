@@ -50,6 +50,7 @@ class SpectrumTransformerEncoderCustom(SpectrumTransformerEncoder):
         if self.use_encoders:
             metadata_hidden_dim = 32
             adduct_num_embeddings = len(ADDUCT_TO_MASS)
+            #adduct_num_embeddings = 32
             adduct_embedding_dim = 8
             self.adduct_embedding = nn.Embedding(
                 num_embeddings=adduct_num_embeddings,
