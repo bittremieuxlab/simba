@@ -499,7 +499,7 @@ def _plot_cm(
 ) -> None:
     """Plot confusion matrix."""
     import matplotlib.pyplot as plt
-    from sklearn.metrics import balanced_accuracy_score, confusion_matrix
+    from sklearn.metrics import balanced_accuracy_score, confusion_matrix, accuracy_score
 
     cm = confusion_matrix(true, preds)
     accuracy = accuracy_score(true, preds)
