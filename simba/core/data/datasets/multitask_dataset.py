@@ -275,6 +275,11 @@ class CustomDatasetMultitasking(Dataset):
         spectrum_sample["ed"] = sample["ed"].astype(np.float32)
         spectrum_sample["mces"] = sample["mces"].astype(np.float32)
 
+        # Molecule identity, for the optional in-batch contrastive loss: a row whose
+        # mol_idx_0 and mol_idx_1 match pairs two spectra of the same molecule (a self-pair)
+        spectrum_sample["mol_idx_0"] = int(idx_0[0])
+        spectrum_sample["mol_idx_1"] = int(idx_1[0])
+
         if self.use_fingerprints:
             ind = int(idx_0[0])
             if self.training:

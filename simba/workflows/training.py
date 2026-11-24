@@ -464,6 +464,18 @@ def setup_model(cfg: DictConfig, weights_mces: np.ndarray) -> SimilarityModelMul
         "use_ion_activation": cfg.model.features.use_ion_activation,
         "use_ion_method": cfg.model.features.use_ion_method,
         "use_ion_mode": cfg.model.features.use_ion_mode,
+        "use_contrastive_loss": cfg.model.tasks.contrastive.enabled,
+        "contrastive_loss_weight": cfg.model.tasks.contrastive.weight,
+        "contrastive_temperature": cfg.model.tasks.contrastive.temperature,
+        "use_contrastive_projection_head": cfg.model.tasks.contrastive.use_projection_head,
+        "explicit_loss_weights": (
+            (
+                cfg.model.multitasking.explicit_weights.ed,
+                cfg.model.multitasking.explicit_weights.mces,
+            )
+            if cfg.model.multitasking.explicit_weights.enabled
+            else None
+        ),
     }
 
     # Load pretrained weights if specified

@@ -472,6 +472,28 @@ simba train \
   hardware.accelerator=gpu
 ```
 
+**Contrastive Loss (optional, off by default):**
+
+An in-batch InfoNCE loss on the self-pairs of each batch (two spectra of the same molecule) can be added to the edit-distance and MCES losses. Task weights can also be fixed instead of learned:
+
+```bash
+simba train \
+  paths.preprocessing_dir_train=./preprocessed_data \
+  paths.checkpoint_dir=./checkpoints \
+  model.tasks.contrastive.enabled=true \
+  model.multitasking.explicit_weights.enabled=true
+```
+
+This trains with edit-distance, MCES and contrastive losses weighted 1:1:1.
+
+* `model.tasks.contrastive.enabled`: add the contrastive loss, as `weight` * InfoNCE (default: false)
+* `model.tasks.contrastive.weight`: weight of the contrastive loss (default: 1.0)
+* `model.tasks.contrastive.temperature`: InfoNCE temperature (default: 0.07)
+* `model.tasks.contrastive.use_projection_head`: compute the loss on an MLP projection of the embeddings; the projection is used in training only (default: true)
+* `model.multitasking.explicit_weights.enabled`: loss = `ed` * edit-distance loss + `mces` * MCES loss, replacing the learnable weights (default: false; `ed` and `mces` default to 1.0)
+
+The contrastive loss is logged as `train_contrastive_loss` / `validation_contrastive_loss`. Batches with fewer than two self-pairs skip it.
+
 ---
 
 **Note:** The best-performing model (lowest validation loss) is automatically saved as `best_model.ckpt` in your checkpoint directory.

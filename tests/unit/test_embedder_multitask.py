@@ -356,3 +356,77 @@ class TestEmbedderMultitask:
             assert isinstance(result, torch.Tensor)
             # Note: loss can be negative when USE_LEARNABLE_MULTITASK=True due to learnable weights
             assert not torch.isnan(result)
+
+    def test_contrastive_off_by_default(self, embedder):
+        assert embedder.use_contrastive_loss is False
+        assert embedder.explicit_loss_weights is None
+        assert not any(k.startswith("contrastive_projection") for k in embedder.state_dict())
+
+    def test_init_with_contrastive_projection_head(self, embedder_config):
+        # projection head on by default once the contrastive loss is enabled
+        embedder_config["use_contrastive_loss"] = True
+        embedder = SimilarityModelMultitask(**embedder_config)
+        assert any(k.startswith("contrastive_projection") for k in embedder.state_dict())
+
+        embedder_config["use_contrastive_projection_head"] = False
+        embedder = SimilarityModelMultitask(**embedder_config)
+        assert not any(k.startswith("contrastive_projection") for k in embedder.state_dict())
+
+    def test_compute_contrastive_loss(self, embedder_config):
+        torch.manual_seed(0)
+        embedder_config["use_contrastive_loss"] = True
+        embedder = SimilarityModelMultitask(**embedder_config)
+        emb0 = torch.randn(4, 128)
+        emb1 = torch.randn(4, 128)
+
+        # rows 0, 1 and 3 are self-pairs (same molecule on both sides)
+        loss = embedder.compute_contrastive_loss(
+            emb0, emb1, torch.tensor([5, 6, 7, 8]), torch.tensor([5, 6, 9, 8])
+        )
+        assert loss.item() > 0.0
+        # identical embeddings for the self-pairs give a lower loss than random ones
+        loss_matched = embedder.compute_contrastive_loss(
+            emb0, emb0, torch.tensor([5, 6, 7, 8]), torch.tensor([5, 6, 9, 8])
+        )
+        assert loss_matched.item() < loss.item()
+        # fewer than two self-pairs: no negatives, no loss
+        assert (
+            embedder.compute_contrastive_loss(
+                emb0, emb1, torch.tensor([1, 2, 3, 4]), torch.tensor([1, 0, 0, 0])
+            )
+            is None
+        )
+
+    def test_step_with_contrastive(self, embedder_config, sample_batch):
+        embedder_config["use_contrastive_loss"] = True
+        embedder_config["use_contrastive_projection_head"] = True
+        embedder_config["contrastive_loss_weight"] = 0.5
+        embedder = SimilarityModelMultitask(**embedder_config)
+        sample_batch["ed"] = torch.tensor([2, 3])
+        sample_batch["mces"] = torch.tensor([0.7, 0.5])
+        sample_batch["mol_idx_0"] = torch.tensor([3, 4])
+        sample_batch["mol_idx_1"] = torch.tensor([3, 4])
+
+        embedder.eval()
+        with torch.no_grad():
+            loss = embedder.step(sample_batch, batch_idx=0)
+            _, _, emb0, emb1 = embedder(sample_batch, return_spectrum_output=True)
+            loss_contrastive = embedder.compute_contrastive_loss(
+                emb0, emb1, sample_batch["mol_idx_0"], sample_batch["mol_idx_1"]
+            )
+            embedder.use_contrastive_loss = False
+            loss_without = embedder.step(sample_batch, batch_idx=0)
+
+        assert torch.allclose(loss, loss_without + 0.5 * loss_contrastive)
+
+    def test_explicit_loss_weights(self, embedder_config, sample_batch):
+        embedder_config["explicit_loss_weights"] = (1.0, 1.0)
+        embedder = SimilarityModelMultitask(**embedder_config)
+        sample_batch["ed"] = torch.tensor([2, 3])
+        sample_batch["mces"] = torch.tensor([0.7, 0.5])
+
+        # explicit weights replace the learnable ones
+        assert embedder.USE_LEARNABLE_MULTITASK is False
+        assert not hasattr(embedder, "log_sigma1")
+        loss = embedder.training_step(sample_batch, batch_idx=0)
+        assert not torch.isnan(loss)

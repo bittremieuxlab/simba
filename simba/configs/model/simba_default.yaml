@@ -74,11 +74,24 @@ tasks:
   fingerprints:
     enabled: false
 
+  # In-batch InfoNCE contrastive loss over the self-pairs of each batch (two spectra of the
+  # same molecule).
+  contrastive:
+    enabled: false
+    weight: 1.0
+    temperature: 0.07
+    use_projection_head: true  # MLP on the embeddings for this loss only (not used at inference)
+
 # Multitasking
 multitasking:
   enabled: true
   learnable: true
   use_loss_weights_second_similarity: false
+  # Fixed task weights: loss = ed * edit-distance loss + mces * MCES loss.
+  explicit_weights:
+    enabled: false
+    ed: 1.0
+    mces: 1.0
 
 # Data columns (for multitasking)
 data_columns:
