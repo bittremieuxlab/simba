@@ -85,6 +85,7 @@ class EmbedderMultitask(Embedder):
         contrastive_temperature=0.1,
         use_contrastive_projection_head=False,
         explicit_loss_weights=None,  # (w_ed, w_mces): loss = w_ed*CE + w_mces*MSE
+        skip_nonfinite_steps=True,  # skip the optimizer step when a gradient is NaN/inf
     ):
         """Initialize the CCSPredictor"""
         super().__init__(
@@ -153,6 +154,8 @@ class EmbedderMultitask(Embedder):
             self.log_sigma2 = torch.tensor(float(initial_log_sigma2), dtype=torch.float32)
         self.use_extra_metadata= use_extra_metadata
         self.explicit_loss_weights = explicit_loss_weights
+        self.skip_nonfinite_steps = skip_nonfinite_steps
+        self.n_skipped_steps = 0
 
         # In-batch InfoNCE contrastive ("retrieval") loss: off by default,
         # zero effect on training/inference when use_contrastive_loss=False.
@@ -247,6 +250,20 @@ class EmbedderMultitask(Embedder):
         loss = F.binary_cross_entropy(prob, target_matrix, reduction="mean")
         return loss
 
+    def on_before_optimizer_step(self, optimizer):
+        """With skip_nonfinite_steps: if any gradient is NaN/inf, drop all gradients,
+        so that the optimizer leaves the weights and its state untouched for this step
+        (runs before gradient clipping, which would spread the NaN to every gradient)."""
+        if not self.skip_nonfinite_steps:
+            return
+        grads = [p.grad for p in self.parameters() if p.grad is not None]
+        if grads and not torch.stack([g.isfinite().all() for g in grads]).all():
+            for p in self.parameters():
+                p.grad = None
+            self.n_skipped_steps += 1
+            print(f"Non-finite gradient at step {self.global_step}: optimizer step skipped "
+                  f"({self.n_skipped_steps} so far)")
+
     def compute_contrastive_loss(self, emb0, emb1, mol_idx_0, mol_idx_1):
         """In-batch InfoNCE over the batch's self-pairs (same molecule, two
         different spectra): symmetric cross-entropy over the N x N
@@ -324,7 +341,7 @@ class EmbedderMultitask(Embedder):
             weight_mask = torch.tensor(weight_mask).to(self.device)
             loss2 = (squared_diff.view(-1, 1) * weight_mask.view(-1, 1).float()).mean()
         else:
-            squared_diff = (logits2.view(-1, 1).float() - target2.view(-1, 1).float()) ** 2
+            squared_diff = (logits2_for_loss.view(-1, 1).float() - target2_for_loss.view(-1, 1).float()) ** 2
             loss2 = squared_diff.view(-1, 1).mean()
 
         weight_loss2 = self.calculate_weight_loss2()

@@ -169,13 +169,23 @@ python training_scripts/final_training.py  \
   --USE_CONTRASTIVE_LOSS=1 \
   --USE_CONTRASTIVE_PROJECTION_HEAD=1 \
   --CONTRASTIVE_LOSS_TEMPERATURE=0.07 \
-  --CONTRASTIVE_LOSS_WEIGHT=1
+  --CONTRASTIVE_LOSS_WEIGHT=1 \
+  --VAL_METRICS_EVERY_N_STEPS=2000
 ```
 * BATCH_SIZE, LR, GRADIENT_CLIP_VAL: Adam with a constant learning rate, gradient norm clipped to 1.0.
 * USE_LEARNABLE_MULTITASK=0 and USE_EXPLICIT_LOSS_WEIGHTS=1: fixed task weights (LOSS_WEIGHT_ED, LOSS_WEIGHT_MCES) instead of the learned uncertainty weighting.
 * USE_CONTRASTIVE_LOSS: InfoNCE loss on pairs of different spectra of the same molecule within the batch, through a projection head (USE_CONTRASTIVE_PROJECTION_HEAD), with temperature CONTRASTIVE_LOSS_TEMPERATURE and weight CONTRASTIVE_LOSS_WEIGHT. The projection head is only used in training.
+* VAL_METRICS_EVERY_N_STEPS: every 2,000 steps, scores the model on fixed class-balanced validation and test pairs (Spearman correlation, MAE and balanced MAE of the MCES distance, edit-distance accuracy), appends them to `CHECKPOINT_DIR/val_metrics/val_metrics.tsv` and saves a checkpoint there.
+* SKIP_NONFINITE_STEPS (default 1; 0 = off): skips the optimizer step when a gradient is NaN or infinite, instead of letting it corrupt the weights.
+* TRAIN_PAIR_FRACTION (optional, default 1.0): trains on a random fraction of the training pairs (seed TRAIN_PAIR_SEED); smaller fractions are subsets of larger ones. Used for the training-set size ablation.
 
 Training used a single NVIDIA H200 GPU (batch size 2048 needs a large-memory GPU). The paper checkpoint was chosen among the saved checkpoints by the mean rank of validation Spearman correlation and validation balanced MAE of the predicted MCES distance.
+
+To select the checkpoint:
+
+```bash
+python tools/select_checkpoint.py /path/to/checkpoints/val_metrics/val_metrics.tsv
+```
 
 ---
 

@@ -30,6 +30,9 @@ class Parser:
                 or (at == "USE_CONTRASTIVE_LOSS")
                 or (at == "USE_CONTRASTIVE_PROJECTION_HEAD")
                 or (at == "USE_EXPLICIT_LOSS_WEIGHTS")
+                or (at == "SKIP_NONFINITE_STEPS")
+                or (at == "VAL_METRICS_EVERY_N_STEPS")
+                or (at == "TRAIN_PAIR_SEED")
             )
 
             is_string_attribute = at in [

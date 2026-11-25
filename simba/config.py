@@ -119,6 +119,18 @@ class Config:
 
         ## GRADIENT CLIPPING (0.0 = no clipping, as before)
         self.GRADIENT_CLIP_VAL = 0.0
+        # skip the optimizer step when a gradient is NaN/inf (0 = off)
+        self.SKIP_NONFINITE_STEPS = 1
+
+        ## CHECKPOINT-SELECTION METRICS (0 = off): at most once per N training steps (at a
+        ## validation run), val/test metrics appended to CHECKPOINT_DIR/val_metrics/val_metrics.tsv
+        ## and a checkpoint saved next to it; see tools/select_checkpoint.py
+        self.VAL_METRICS_EVERY_N_STEPS = 0
+
+        ## TRAINING-SET SIZE (1.0 = all pairs): random fraction of the training pairs, taken as
+        ## the first part of one seeded permutation, so smaller fractions are subsets of larger ones
+        self.TRAIN_PAIR_FRACTION = 1.0
+        self.TRAIN_PAIR_SEED = 42
         
     def derived_variables(self):
         self.MODEL_CODE = f"{self.D_MODEL}_units_{self.N_LAYERS}_layers_{self.epochs}_epochs_{self.LR}_lr_{self.BATCH_SIZE}_bs{self.extra_info}"

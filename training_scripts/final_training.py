@@ -33,6 +33,7 @@ from simba.weight_sampling_tools.custom_weighted_random_sampler import (
     CustomWeightedRandomSampler,
 )
 from simba.plotting import Plotting
+from simba.validation_metrics_callback import ValidationMetricsCallback
 import sys
 import simba
 
@@ -103,6 +104,13 @@ indexes_tani_multitasking_train = LoadMCES.merge_numpy_arrays(
 indexes_tani_multitasking_train = remove_duplicates_array(
     indexes_tani_multitasking_train
 )
+
+if config.TRAIN_PAIR_FRACTION < 1.0:
+    n_pairs = len(indexes_tani_multitasking_train)
+    n_keep = int(round(config.TRAIN_PAIR_FRACTION * n_pairs))
+    keep = np.random.default_rng(config.TRAIN_PAIR_SEED).permutation(n_pairs)[:n_keep]
+    indexes_tani_multitasking_train = indexes_tani_multitasking_train[np.sort(keep)]
+    print(f"Training on {n_keep} of {n_pairs} pairs (TRAIN_PAIR_FRACTION={config.TRAIN_PAIR_FRACTION})")
 
 indexes_tani_multitasking_val = LoadMCES.merge_numpy_arrays(
     config.PREPROCESSING_DIR_TRAIN,
@@ -439,6 +447,19 @@ progress_bar_callback = ProgressBar()
 
 # loss callback
 losscallback = LossCallback(file_path=config.CHECKPOINT_DIR + f"loss.png")
+
+extra_callbacks = []
+if config.VAL_METRICS_EVERY_N_STEPS:
+    extra_callbacks.append(
+        ValidationMetricsCallback(
+            preprocessing_dir=config.PREPROCESSING_DIR_TRAIN,
+            dataset_path=dataset_path,
+            out_dir=os.path.join(config.CHECKPOINT_DIR, "val_metrics"),
+            every_n_steps=config.VAL_METRICS_EVERY_N_STEPS,
+            mces20_max_value=config.MCES20_MAX_VALUE,
+            n_classes=config.EDIT_DISTANCE_N_CLASSES,
+        )
+    )
 print("define model")
 
 
@@ -476,6 +497,7 @@ model = EmbedderMultitask(
     contrastive_temperature=config.CONTRASTIVE_LOSS_TEMPERATURE,
     use_contrastive_projection_head=config.USE_CONTRASTIVE_PROJECTION_HEAD,
     explicit_loss_weights=explicit_loss_weights,
+    skip_nonfinite_steps=bool(config.SKIP_NONFINITE_STEPS),
 )
 
 # Create a model:
@@ -506,6 +528,7 @@ if config.load_pretrained:
             contrastive_temperature=config.CONTRASTIVE_LOSS_TEMPERATURE,
             use_contrastive_projection_head=config.USE_CONTRASTIVE_PROJECTION_HEAD,
             explicit_loss_weights=explicit_loss_weights,
+            skip_nonfinite_steps=bool(config.SKIP_NONFINITE_STEPS),
         )
         print("loaded full model!!")
     except:
@@ -535,7 +558,7 @@ trainer = pl.Trainer(
     # max_steps=100000,
     val_check_interval=config.VAL_CHECK_INTERVAL,
     max_epochs=config.epochs,
-    callbacks=[checkpoint_callback, checkpoint_n_steps_callback, losscallback],
+    callbacks=[checkpoint_callback, checkpoint_n_steps_callback, losscallback] + extra_callbacks,
     enable_progress_bar=enable_progress_bar,
     accelerator=config.ACCELERATOR,
     gradient_clip_val=config.GRADIENT_CLIP_VAL or None,
