@@ -145,6 +145,48 @@ python training_scripts/final_training.py  \
 
 The code uses the mapping file produced in the last step and the preprocessing dir folder `PREPROCESSING_DIR_TRAIN` must be the same where the preprocessing files are generated. The best-performing model (lowest validation loss) is saved in `CHECKPOINT_DIR`. 
 
+### Reproducing the paper model
+
+The model reported in the paper was trained on the preprocessed NIST20 + MassSpecGym data with the edit-distance, MCES and in-batch contrastive losses weighted equally:
+
+```bash
+python training_scripts/final_training.py  \
+  --CHECKPOINT_DIR=/path/to/checkpoints/ \
+  --PREPROCESSING_PICKLE_FILE=edit_distance_neurips_nist_exhaustive.pkl \
+  --PREPROCESSING_DIR_TRAIN=/path/to/preprocessing_ed_mces_20250123/ \
+  --TRAINING_NUM_WORKERS=24 \
+  --ACCELERATOR=gpu \
+  --epochs=1000 \
+  --VAL_CHECK_INTERVAL=2000 \
+  --BATCH_SIZE=2048 \
+  --LR=4e-4 \
+  --GRADIENT_CLIP_VAL=1.0 \
+  --USE_LEARNABLE_MULTITASK=0 \
+  --USE_EXTRA_METADATA_MODEL=0 \
+  --USE_EXPLICIT_LOSS_WEIGHTS=1 \
+  --LOSS_WEIGHT_ED=1 \
+  --LOSS_WEIGHT_MCES=1 \
+  --USE_CONTRASTIVE_LOSS=1 \
+  --USE_CONTRASTIVE_PROJECTION_HEAD=1 \
+  --CONTRASTIVE_LOSS_TEMPERATURE=0.07 \
+  --CONTRASTIVE_LOSS_WEIGHT=1 \
+  --VAL_METRICS_EVERY_N_STEPS=2000
+```
+* BATCH_SIZE, LR, GRADIENT_CLIP_VAL: Adam with a constant learning rate, gradient norm clipped to 1.0.
+* USE_LEARNABLE_MULTITASK=0 and USE_EXPLICIT_LOSS_WEIGHTS=1: fixed task weights (LOSS_WEIGHT_ED, LOSS_WEIGHT_MCES) instead of the learned uncertainty weighting.
+* USE_CONTRASTIVE_LOSS: InfoNCE loss on pairs of different spectra of the same molecule within the batch, through a projection head (USE_CONTRASTIVE_PROJECTION_HEAD), with temperature CONTRASTIVE_LOSS_TEMPERATURE and weight CONTRASTIVE_LOSS_WEIGHT. The projection head is only used in training.
+* VAL_METRICS_EVERY_N_STEPS: every 2,000 steps, scores the model on fixed class-balanced validation and test pairs (Spearman correlation, MAE and balanced MAE of the MCES distance, edit-distance accuracy), appends them to `CHECKPOINT_DIR/val_metrics/val_metrics.tsv` and saves a checkpoint there.
+* SKIP_NONFINITE_STEPS (default 1; 0 = off): skips the optimizer step when a gradient is NaN or infinite, instead of letting it corrupt the weights.
+* TRAIN_PAIR_FRACTION (optional, default 1.0): trains on a random fraction of the training pairs (seed TRAIN_PAIR_SEED); smaller fractions are subsets of larger ones. Used for the training-set size ablation.
+
+Training used a single NVIDIA H200 GPU (batch size 2048 needs a large-memory GPU). The paper checkpoint was chosen among the saved checkpoints by the mean rank of validation Spearman correlation and validation balanced MAE of the predicted MCES distance.
+
+To select the checkpoint:
+
+```bash
+python tools/select_checkpoint.py /path/to/checkpoints/val_metrics/val_metrics.tsv
+```
+
 ---
 
 ### Step 3: Testing
